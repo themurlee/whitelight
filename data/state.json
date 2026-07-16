@@ -1,0 +1,10 @@
+{
+  "lockdown_active": false,
+  "drawdown_locked_at": null,
+  "equity_history": [
+    {
+      "timestamp": "2026-07-16T01:30:35.962749Z",
+      "equity": 10000.0
+    }
+  ]
+}

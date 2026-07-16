@@ -1,0 +1,507 @@
+[
+  {
+    "timestamp": "2026-07-07T09:24:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 1,
+    "price": 3.1,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T09:42:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 1,
+    "price": 3.0,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T10:31:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 1,
+    "price": 3.05,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T10:49:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 2,
+    "price": 2.96,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T11:38:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 1,
+    "price": 2.79,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T11:56:00Z",
+    "action": "SELL",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 3,
+    "price": 3.4,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 127.99999999999989,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T12:03:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 1,
+    "price": 3.1,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T12:21:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 1,
+    "price": 3.8,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T12:45:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 1,
+    "price": 2.75,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T13:10:00Z",
+    "action": "SELL",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 1,
+    "price": 3.35,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 25.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T13:28:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 1,
+    "price": 3.3,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T13:52:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 2,
+    "price": 1.87,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T14:17:00Z",
+    "action": "BUY",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 1,
+    "price": 3.1,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-07T14:35:00Z",
+    "action": "SELL",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 2,
+    "price": 3.7,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 30.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-08T09:06:00Z",
+    "action": "BUY",
+    "symbol": "AVGO260710C00400000",
+    "quantity": 1,
+    "price": 2.45,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-08T10:13:00Z",
+    "action": "BUY",
+    "symbol": "AVGO260710C00400000",
+    "quantity": 1,
+    "price": 2.45,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-08T11:20:00Z",
+    "action": "SELL",
+    "symbol": "AVGO260710C00400000",
+    "quantity": 4,
+    "price": 3.05,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 158.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-08T14:10:00Z",
+    "action": "BUY",
+    "symbol": "AVGO260710C00400000",
+    "quantity": 1,
+    "price": 2.45,
+    "details": {
+      "strategy": "Manual",
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/20260715210257_671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-08T14:15:00Z",
+    "action": "BUY",
+    "symbol": "AVGO260710C00400000",
+    "quantity": 1,
+    "price": 2.45,
+    "details": {
+      "strategy": "Manual",
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/20260715210257_671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-08T14:20:00Z",
+    "action": "BUY",
+    "symbol": "AVGO260710C00400000",
+    "quantity": 2,
+    "price": 2.86,
+    "details": {
+      "strategy": "Manual",
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/20260715210257_671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-08T14:59:00Z",
+    "action": "BUY",
+    "symbol": "AVGO260710C00400000",
+    "quantity": 2,
+    "price": 2.86,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-08T15:30:00Z",
+    "action": "SELL",
+    "symbol": "AVGO260710C00400000",
+    "quantity": 4,
+    "price": 3.05,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 158.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/20260715210257_671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-09T12:27:00Z",
+    "action": "SELL",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 7,
+    "price": 0.08,
+    "details": {
+      "strategy": "Manual",
+      "pnl": -1797.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-09T15:00:00Z",
+    "action": "SELL",
+    "symbol": "MSFT260710C00400000",
+    "quantity": 7,
+    "price": 0.08,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 56.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/20260715210257_671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-13T09:48:00Z",
+    "action": "SELL",
+    "symbol": "META260713C00690000",
+    "quantity": 3,
+    "price": 0.9,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 71.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-13T13:34:00Z",
+    "action": "BUY",
+    "symbol": "META260713C00690000",
+    "quantity": 2,
+    "price": 0.81,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-13T14:05:00Z",
+    "action": "BUY",
+    "symbol": "META260713C00690000",
+    "quantity": 1,
+    "price": 0.37,
+    "details": {
+      "strategy": "Manual",
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/20260715210257_671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-13T14:10:00Z",
+    "action": "BUY",
+    "symbol": "META260713C00690000",
+    "quantity": 2,
+    "price": 0.81,
+    "details": {
+      "strategy": "Manual",
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/20260715210257_671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-13T14:41:00Z",
+    "action": "BUY",
+    "symbol": "META260713C00690000",
+    "quantity": 1,
+    "price": 0.37,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 0.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2026-07-13T15:45:00Z",
+    "action": "SELL",
+    "symbol": "META260713C00690000",
+    "quantity": 3,
+    "price": 0.9,
+    "details": {
+      "strategy": "Manual",
+      "pnl": 71.0,
+      "attachments": [
+        {
+          "name": "671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv",
+          "url": "/api/uploads/20260715210257_671b413e-0141-5edf-b64f-1c9ae4b2db2c.csv"
+        }
+      ]
+    }
+  }
+]
