@@ -78,8 +78,8 @@ def fetch_and_save_ohlcv(ticker: str, days_to_fetch: int = 100):
                 return False
 
     if not bars or bars.df.empty:
-        log_to_journal(f"No bars returned for {ticker}.", "WARNING")
-        return False
+        log_to_journal(f"No new bars returned for {ticker} (data may be current).", "INFO")
+        return True
 
     # Save bars
     saved_count = 0
