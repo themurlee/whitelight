@@ -35,6 +35,15 @@ function App() {
   const [signalsMatrix, setSignalsMatrix] = useState([]);
   const [loadingSignals, setLoadingSignals] = useState(false);
 
+  const [systematicStatus, setSystematicStatus] = useState({ tickers: {}, account: { configured: false }, logs: "", signal: null });
+  const [loadingSystematic, setLoadingSystematic] = useState(false);
+  const [ingestTicker, setIngestTicker] = useState("");
+  const [ingestLoading, setIngestLoading] = useState(false);
+
+  const [signalTicker, setSignalTicker] = useState("");
+  const [signalLoading, setSignalLoading] = useState(false);
+  const [executingLoading, setExecutingLoading] = useState(false);
+
   // Form states
   const [preMood, setPreMood] = useState('Calm');
   const [preSleep, setPreSleep] = useState(8);
@@ -213,10 +222,99 @@ function App() {
     }
   };
 
+  const fetchSystematicStatus = async () => {
+    setLoadingSystematic(true);
+    try {
+      const res = await fetch(`${API_BASE}/systematic/status`);
+      const data = await res.json();
+      setSystematicStatus(data);
+    } catch (err) {
+      console.error("Error fetching systematic status:", err);
+    } finally {
+      setLoadingSystematic(false);
+    }
+  };
+
+  const handleIngestSubmit = async (e) => {
+    e.preventDefault();
+    if (!ingestTicker.trim()) return;
+    setIngestLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/systematic/ingest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker: ingestTicker.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIngestTicker("");
+        await fetchSystematicStatus();
+      } else {
+        alert("Ingestion failed: check console/logs.");
+      }
+    } catch (err) {
+      console.error("Error running ingestion:", err);
+      alert("Error running Ingestion: " + err.message);
+    } finally {
+      setIngestLoading(false);
+    }
+  };
+
+  const handleGenerateSignal = async (e) => {
+    e.preventDefault();
+    if (!signalTicker.trim()) return;
+    setSignalLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/systematic/signal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker: signalTicker.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSignalTicker("");
+        await fetchSystematicStatus();
+      } else {
+        alert("Signal generation failed: " + (data.data?.error || "unknown error"));
+      }
+    } catch (err) {
+      console.error("Error generating signal:", err);
+      alert("Error generating signal: " + err.message);
+    } finally {
+      setSignalLoading(false);
+    }
+  };
+
+  const handleExecuteSignal = async () => {
+    setExecutingLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/systematic/execute`, {
+        method: "POST"
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchSystematicStatus();
+      } else {
+        alert("Order execution failed: " + (data.error || "unknown error"));
+      }
+    } catch (err) {
+      console.error("Error executing order:", err);
+      alert("Error executing order: " + err.message);
+    } finally {
+      setExecutingLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
     fetchSignals();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'systematic') {
+      fetchSystematicStatus();
+    }
+  }, [activeTab]);
 
   const handleResetLockdown = async () => {
     try {
@@ -1093,6 +1191,12 @@ function App() {
             onClick={() => setActiveTab('weekly')}
           >
             <span className="nav-icon">🗓️</span> Weekly Reviews
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'systematic' ? 'active' : ''}`}
+            onClick={() => setActiveTab('systematic')}
+          >
+            <span className="nav-icon">🤖</span> Systematic Pipeline
           </button>
         </nav>
 
@@ -2440,6 +2544,226 @@ function App() {
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 6: Systematic Trading Pipeline */}
+          {activeTab === 'systematic' && (
+            <div className="panel-grid">
+              <div className="grid-col-2">
+                {/* Block 1: Ingestion Manager */}
+                <div className="dashboard-block">
+                  <h2>🤖 Data Ingestion Engine</h2>
+                  <p className="block-desc">Fetch and backfill daily OHLCV bars using Alpaca-py IEX feed</p>
+                  
+                  <form onSubmit={handleIngestSubmit} className="weekly-review-form" style={{ marginBottom: '24px' }}>
+                    <div className="form-row" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+                      <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                        <label>Symbol / Ticker</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. SPY, AAPL, MSFT"
+                          value={ingestTicker}
+                          onChange={(e) => setIngestTicker(e.target.value.toUpperCase())}
+                          required
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <button 
+                        type="submit" 
+                        className="form-submit-btn" 
+                        disabled={ingestLoading}
+                        style={{ margin: 0, padding: '12px 24px', whiteSpace: 'nowrap' }}
+                      >
+                        {ingestLoading ? "Ingesting..." : "Ingest OHLCV Data"}
+                      </button>
+                    </div>
+                  </form>
+
+                  <h3>Ingested Datasets</h3>
+                  {Object.keys(systematicStatus.tickers).length === 0 ? (
+                    <p className="text-muted">No local data found. Ingest a ticker above.</p>
+                  ) : (
+                    <div className="table-responsive" style={{ marginTop: '12px' }}>
+                      <table className="kinfo-table">
+                        <thead>
+                          <tr>
+                            <th>Ticker</th>
+                            <th>Daily Bars Count</th>
+                            <th>History Range</th>
+                            <th>Source</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(systematicStatus.tickers).map(([ticker, info]) => (
+                            <tr key={ticker}>
+                              <td style={{ fontWeight: 'bold', color: '#00F2FE' }}>{ticker}</td>
+                              <td>{info.count}</td>
+                              <td>{info.first_date && info.last_date ? `${info.first_date} to ${info.last_date}` : 'N/A'}</td>
+                              <td>Alpaca IEX</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Block 2: Signal Generation Engine */}
+                <div className="dashboard-block" style={{ marginTop: '20px' }}>
+                  <h2>📊 Signal Generation & Calculations</h2>
+                  <p className="block-desc">Systematic calculations for RSI (14) & MACD (12, 26, 9)</p>
+                  
+                  <form onSubmit={handleGenerateSignal} className="weekly-review-form" style={{ marginBottom: '24px' }}>
+                    <div className="form-row" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+                      <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                        <label>Calculate Signal for Ticker</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. SPY"
+                          value={signalTicker}
+                          onChange={(e) => setSignalTicker(e.target.value.toUpperCase())}
+                          required
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <button 
+                        type="submit" 
+                        className="form-submit-btn" 
+                        disabled={signalLoading}
+                        style={{ margin: 0, padding: '12px 24px', whiteSpace: 'nowrap' }}
+                      >
+                        {signalLoading ? "Calculating..." : "Run Indicator Calc"}
+                      </button>
+                    </div>
+                  </form>
+
+                  {systematicStatus.signal ? (
+                    <div className="metric-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#00F2FE' }}>{systematicStatus.signal.ticker} Signal</span>
+                        <span className="footer-ver" style={{ fontSize: '0.75rem' }}>{systematicStatus.signal.timestamp}</span>
+                      </div>
+                      
+                      <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                        <div style={{ padding: '8px', background: 'rgba(30, 41, 59, 0.3)', borderRadius: '6px' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>CLOSE</div>
+                          <div style={{ fontSize: '1rem', fontWeight: 'bold' }}>${systematicStatus.signal.close}</div>
+                        </div>
+                        <div style={{ padding: '8px', background: 'rgba(30, 41, 59, 0.3)', borderRadius: '6px' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>RSI (14)</div>
+                          <div style={{ fontSize: '1rem', fontWeight: 'bold', color: systematicStatus.signal.rsi > 70 ? '#EF4444' : '#10B981' }}>{systematicStatus.signal.rsi}</div>
+                        </div>
+                        <div style={{ padding: '8px', background: 'rgba(30, 41, 59, 0.3)', borderRadius: '6px' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>MACD HIST</div>
+                          <div style={{ fontSize: '1rem', fontWeight: 'bold', color: systematicStatus.signal.macd_histogram > 0 ? '#10B981' : '#EF4444' }}>{systematicStatus.signal.macd_histogram}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div>
+                          <div style={{ fontSize: '0.7rem', color: '#94A3B8', textTransform: 'uppercase' }}>Current Recommendation</div>
+                          <div style={{ 
+                            fontSize: '1.4rem', 
+                            fontWeight: 800, 
+                            color: systematicStatus.signal.action === 'BUY' ? '#10B981' : systematicStatus.signal.action === 'SELL' ? '#EF4444' : '#94A3B8' 
+                          }}>
+                            {systematicStatus.signal.action}
+                          </div>
+                        </div>
+                        
+                        <button 
+                          onClick={handleExecuteSignal}
+                          className="form-submit-btn" 
+                          disabled={executingLoading || systematicStatus.signal.action === 'HOLD'}
+                          style={{ margin: 0, padding: '8px 16px', background: systematicStatus.signal.action === 'BUY' ? '#10B981' : systematicStatus.signal.action === 'SELL' ? '#EF4444' : 'rgba(255,255,255,0.1)', cursor: systematicStatus.signal.action === 'HOLD' ? 'not-allowed' : 'pointer' }}
+                        >
+                          {executingLoading ? "Executing..." : `Execute ${systematicStatus.signal.action} Order`}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="metric-card">
+                      <p className="text-muted">No active signal loaded. Calculate a signal above.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid-sidebar">
+                {/* Block 3: Alpaca Credentials & Paper Trading Account */}
+                <div className="dashboard-block" style={{ marginBottom: '20px' }}>
+                  <h2>💳 Alpaca Connection Status</h2>
+                  <p className="block-desc">Real-time status of Alpaca paper trading client</p>
+                  
+                  {!systematicStatus.account.configured ? (
+                    <div className="status-banner banner-error" style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#FCA5A5' }}>
+                      <strong>Not Configured</strong>
+                      <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem' }}>Create a .env file with your API keys in the workspace root.</p>
+                    </div>
+                  ) : systematicStatus.account.error ? (
+                    <div className="status-banner banner-error" style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#FCA5A5' }}>
+                      <strong>Connection Error</strong>
+                      <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem' }}>{systematicStatus.account.error}</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div className="status-banner banner-success" style={{ padding: '12px', background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.2)', borderRadius: '8px', color: '#86EFAC', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="status-dot dot-active"></span>
+                        <span>Connected (Paper Account: {systematicStatus.account.account_number})</span>
+                      </div>
+                      
+                      <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ padding: '12px', background: 'rgba(30, 41, 59, 0.3)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px' }}>
+                          <div style={{ fontSize: '0.7rem', color: '#94A3B8', textTransform: 'uppercase' }}>Portfolio Equity</div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#38BDF8', marginTop: '4px' }}>
+                            ${systematicStatus.account.equity ? systematicStatus.account.equity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                          </div>
+                        </div>
+                        <div style={{ padding: '12px', background: 'rgba(30, 41, 59, 0.3)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px' }}>
+                          <div style={{ fontSize: '0.7rem', color: '#94A3B8', textTransform: 'uppercase' }}>Buying Power</div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#38BDF8', marginTop: '4px' }}>
+                            ${systematicStatus.account.buying_power ? systematicStatus.account.buying_power.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>
+                        Cash Balance: <strong>${systematicStatus.account.cash ? systematicStatus.account.cash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Block 4: Logging Console */}
+                <div className="dashboard-block">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h2>📜 Trade Log Console</h2>
+                    <button 
+                      onClick={fetchSystematicStatus} 
+                      className="nav-item" 
+                      style={{ fontSize: '0.8rem', padding: '4px 8px', margin: 0, height: 'auto', background: 'rgba(255,255,255,0.05)' }}
+                    >
+                      🔄 Refresh Logs
+                    </button>
+                  </div>
+                  <p className="block-desc">Outputs from data/journal/trade_log.md</p>
+                  
+                  <div style={{
+                    background: '#020617', 
+                    border: '1px solid rgba(255,255,255,0.08)', 
+                    borderRadius: '8px', 
+                    padding: '12px', 
+                    fontFamily: 'JetBrains Mono, monospace', 
+                    fontSize: '0.75rem', 
+                    color: '#10B981', 
+                    height: '250px', 
+                    overflowY: 'auto', 
+                    whiteSpace: 'pre-wrap'
+                  }}>
+                    {systematicStatus.logs || "No logs available."}
+                  </div>
                 </div>
               </div>
             </div>

@@ -30,3 +30,14 @@ frontend/dist/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Raw data files (machine-generated, large)
+data/*/
+data/signal_log.json

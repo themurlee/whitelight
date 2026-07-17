@@ -183,3 +183,53 @@ def calculate_vwap(bars: List[Dict]) -> List[Optional[float]]:
             vwap_values.append(typical_price)
 
     return vwap_values
+
+
+def calculate_rsi(prices: List[float], period: int = 14) -> List[Optional[float]]:
+    """
+    Calculate the Relative Strength Index (RSI).
+    Wilder's smoothing method.
+    Returns a list of the same length as prices, with None for indices < period.
+    """
+    if not prices or period <= 0 or len(prices) <= period:
+        return [None] * len(prices)
+
+    rsi_values: List[Optional[float]] = [None] * len(prices)
+
+    gains = []
+    losses = []
+    for i in range(1, len(prices)):
+        change = prices[i] - prices[i - 1]
+        if change > 0:
+            gains.append(change)
+            losses.append(0.0)
+        else:
+            gains.append(0.0)
+            losses.append(abs(change))
+
+    # Initial average gain/loss (simple average over first 'period' changes)
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+
+    if avg_loss == 0:
+        rsi_values[period] = 100.0
+    else:
+        rs = avg_gain / avg_loss
+        rsi_values[period] = 100.0 - (100.0 / (1.0 + rs))
+
+    # Wilder's smoothing for subsequent values
+    for i in range(period + 1, len(prices)):
+        gain = gains[i - 1]
+        loss = losses[i - 1]
+        
+        avg_gain = (avg_gain * (period - 1) + gain) / period
+        avg_loss = (avg_loss * (period - 1) + loss) / period
+
+        if avg_loss == 0:
+            rsi_values[i] = 100.0
+        else:
+            rs = avg_gain / avg_loss
+            rsi_values[i] = 100.0 - (100.0 / (1.0 + rs))
+
+    return rsi_values
+

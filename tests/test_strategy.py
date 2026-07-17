@@ -8,7 +8,8 @@ from src.strategy import (
     calculate_sma,
     calculate_ema,
     calculate_macd,
-    calculate_vwap
+    calculate_vwap,
+    calculate_rsi
 )
 
 
@@ -134,6 +135,19 @@ class TestStrategyIndicators(unittest.TestCase):
         # Cumulative Vol reset to 150
         # Expected VWAP = 1650 / 150 = 11.0
         self.assertAlmostEqual(vwap[2], 11.0)
+
+    def test_calculate_rsi(self):
+        prices = [100.0] * 20
+        rsi = calculate_rsi(prices, period=14)
+        self.assertEqual(len(rsi), 20)
+        for i in range(14):
+            self.assertIsNone(rsi[i])
+        self.assertEqual(rsi[14], 100.0)
+
+        rising_prices = [float(x) for x in range(100, 120)]
+        rsi_rising = calculate_rsi(rising_prices, period=14)
+        self.assertEqual(rsi_rising[14], 100.0)
+        self.assertEqual(rsi_rising[19], 100.0)
 
 
 if __name__ == "__main__":

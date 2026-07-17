@@ -21,6 +21,80 @@ TRADE_LOG_FILE = os.path.join(DATA_DIR, "trade_history.json")
 PSYCHOLOGY_FILE = os.path.join(DATA_DIR, "psychology_log.json")
 JOURNAL_DIR = os.path.join(DATA_DIR, "journal")
 UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
+import sys
+# Configure path imports
+sys.path.append(BASE_DIR)
+
+def _get_alpaca_account_info():
+    import src.config as config
+    if not config.API_KEY or not config.SECRET_KEY or "YOUR_ALPACA" in config.API_KEY:
+        return {"configured": False, "error": "Credentials missing or default"}
+    try:
+        from alpaca.trading.client import TradingClient
+        client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
+        acc = client.get_account()
+        return {
+            "configured": True,
+            "account_number": acc.account_number,
+            "cash": float(acc.cash),
+            "equity": float(acc.equity),
+            "buying_power": float(acc.buying_power),
+            "portfolio_value": float(acc.portfolio_value),
+            "status": acc.status
+        }
+    except Exception as e:
+        return {"configured": True, "error": str(e)}
+
+def _get_systematic_status():
+    import src.config as config
+    import glob
+    
+    # Ingest status
+    data_dir = config.DATA_DIR
+    tickers_status = {}
+    for ticker_folder in glob.glob(os.path.join(data_dir, "*")):
+        if os.path.isdir(ticker_folder) and os.path.basename(ticker_folder) not in ["journal", "uploads"]:
+            ticker = os.path.basename(ticker_folder)
+            files = glob.glob(os.path.join(ticker_folder, "*.jsonl"))
+            files.sort()
+            tickers_status[ticker] = {
+                "count": len(files),
+                "first_date": os.path.basename(files[0]).replace(".jsonl", "") if files else None,
+                "last_date": os.path.basename(files[-1]).replace(".jsonl", "") if files else None,
+            }
+
+    # Trade logs
+    log_path = config.TRADE_LOG_PATH
+    log_content = ""
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, "r") as f:
+                lines = f.readlines()
+                log_content = "".join(lines[-100:]) # Last 100 lines
+        except Exception as e:
+            log_content = f"Error reading logs: {e}"
+    else:
+        log_content = "No log file found."
+
+    # Signal Log status
+    signal_log_path = os.path.join(config.DATA_DIR, "signal_log.json")
+    signal_data = None
+    if os.path.exists(signal_log_path):
+        try:
+            with open(signal_log_path, "r") as f:
+                signal_data = json.load(f)
+        except Exception:
+            pass
+
+    # Account info
+    acc_info = _get_alpaca_account_info()
+
+    return {
+        "tickers": tickers_status,
+        "account": acc_info,
+        "logs": log_content,
+        "signal": signal_data
+    }
 
 
 def _read_json_file(filepath: str, default_val: any) -> any:
@@ -147,6 +221,10 @@ class APIServerHandler(BaseHTTPRequestHandler):
             expiration = params.get("expiration", [""])[0]
             contracts = _get_contracts(ticker, expiration)
             self._send_json(contracts)
+            
+        elif path == "/api/systematic/status":
+            status_data = _get_systematic_status()
+            self._send_json(status_data)
             
         else:
             self.send_error(404, "API endpoint not found")
@@ -679,6 +757,26 @@ class APIServerHandler(BaseHTTPRequestHandler):
                 f.write(review_md)
                 
             self._send_json({"success": True, "filename": os.path.basename(filepath)})
+            
+        elif path == "/api/systematic/ingest":
+            ticker = post_data.get("ticker", "SPY").upper()
+            from src.ingest import fetch_and_save_ohlcv
+            success = fetch_and_save_ohlcv(ticker)
+            self._send_json({"success": success, "ticker": ticker})
+            
+        elif path == "/api/systematic/signal":
+            ticker = post_data.get("ticker", "SPY").upper()
+            from src.signal_generator import run_signal_generation
+            res = run_signal_generation(ticker)
+            self._send_json({"success": "error" not in res, "data": res})
+            
+        elif path == "/api/systematic/execute":
+            from src.executor import execute_signal
+            try:
+                execute_signal()
+                self._send_json({"success": True})
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
             
         else:
             self.send_error(404, "API endpoint not found")

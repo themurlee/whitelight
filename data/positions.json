@@ -1,3 +1,12 @@
 {
-  "active_positions": []
+  "active_positions": [
+    {
+      "symbol": "AAPL260814C00185000",
+      "quantity": 1,
+      "option_type": "call",
+      "strike_price": 185.0,
+      "expiration_date": "2026-08-14",
+      "acquired_at": "2026-07-17T20:04:30.655191Z"
+    }
+  ]
 }
