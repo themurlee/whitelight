@@ -1,16 +1,17 @@
 /* WhiteLight Performance Portal CSS */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --bg-primary: #020617;
-  --bg-secondary: #0b0f19;
-  --bg-glass: rgba(30, 41, 59, 0.4);
+  --bg-primary: #030712;
+  --bg-secondary: rgba(17, 24, 39, 0.6);
+  --bg-glass: rgba(17, 24, 39, 0.45);
   --border-glass: rgba(255, 255, 255, 0.06);
-  --color-accent-pink: #ff007f;
-  --color-accent-purple: #7f00ff;
+  --color-accent-pink: #f43f5e;
+  --color-accent-purple: #6366f1;
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --color-profit: #10b981;
-  --color-loss: #ef4444;
+  --color-loss: #f43f5e;
 }
 
 body {
@@ -18,7 +19,7 @@ body {
   padding: 0;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  font-family: 'Outfit', -apple-system, sans-serif;
   overflow-x: hidden;
 }
 

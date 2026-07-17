@@ -4,7 +4,7 @@ import './App.css';
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('control');
+  const [activeTab, setActiveTab] = useState('options');
   const [optionsSubTab, setOptionsSubTab] = useState('overview');
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -1157,16 +1157,10 @@ function App() {
 
         <nav className="sidebar-nav">
           <button 
-            className={`nav-item ${activeTab === 'control' ? 'active' : ''}`}
-            onClick={() => setActiveTab('control')}
-          >
-            <span className="nav-icon">🏠</span> Control Center
-          </button>
-          <button 
             className={`nav-item ${activeTab === 'options' ? 'active' : ''}`}
             onClick={() => { setActiveTab('options'); setOptionsSubTab('overview'); }}
           >
-            <span className="nav-icon">📊</span> Options Performance
+            <span className="nav-icon">📊</span> Options
           </button>
           <button 
             className={`nav-item ${activeTab === 'systematic' ? 'active' : ''}`}
@@ -1288,197 +1282,10 @@ function App() {
           </section>
         )}
 
-        {/* Old KPI Cards Ribbon for Control Center */}
-        {activeTab === 'control' && (
-          <section className="metrics-ribbon">
-            <div className="metric-glass-card">
-              <span className="card-label">Cumulative P&L</span>
-              <span className={`card-value ${totalPnl >= 0 ? 'txt-profit' : 'txt-loss'}`}>
-                ${totalPnl >= 0 ? '+' : ''}{totalPnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span className="card-sub">Closed transactions</span>
-            </div>
-            <div className="metric-glass-card">
-              <span className="card-label">Systematic Win Rate</span>
-              <span className="card-value">{winRate.toFixed(1)}%</span>
-              <span className="card-sub">{closedTrades.length} trades closed</span>
-            </div>
-            <div className="metric-glass-card">
-              <span className="card-label">Discipline Index</span>
-              <span className={`card-value ${disciplineScore === 100 ? 'txt-profit' : (disciplineScore >= 66 ? 'txt-warn' : 'txt-loss')}`}>
-                {disciplineScore.toFixed(0)}%
-              </span>
-              <span className="card-sub">Followed entry rules</span>
-            </div>
-            <div className="metric-glass-card">
-              <span className="card-label">10K Target Progress</span>
-              <span className="card-value">{((currentEquity / 10000) * 100).toFixed(1)}%</span>
-              <span className="card-sub">Valuation: ${currentEquity.toLocaleString()}</span>
-            </div>
-          </section>
-        )}
+
 
         {/* Tab-driven Content Panels */}
         <div className="content-panel">
-          {/* Tab 1: Control Center */}
-          {activeTab === 'control' && (
-            <div className="panel-grid">
-              <div className="grid-col-2">
-                <div className="dashboard-block">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                    <div>
-                      <h2>⚡ Systematic Signal Matrix</h2>
-                      <p className="block-desc" style={{ margin: 0 }}>Live calculation of EMA crossovers & session VWAP</p>
-                    </div>
-                    <button
-                      onClick={fetchSignals}
-                      disabled={loadingSignals}
-                      style={{
-                        background: 'rgba(59, 130, 246, 0.1)',
-                        color: '#3b82f6',
-                        border: '1px solid rgba(59, 130, 246, 0.2)',
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        transition: 'all 0.2s ease',
-                        outline: 'none'
-                      }}
-                    >
-                      {loadingSignals ? '🔄 Querying...' : '🔄 Refresh Feeds'}
-                    </button>
-                  </div>
-                  
-                  <div className="matrix-rows">
-                    {(signalsMatrix.length > 0 ? signalsMatrix : [
-                      { ticker: 'AAPL', basePrice: 196.15, ema50: 194.82, ema250: 189.42, vwap: 194.07, sig: '🐂 BULLISH BUY', connected: false },
-                      { ticker: 'MSFT', basePrice: 420.30, ema50: 418.50, ema250: 419.10, vwap: 420.80, sig: '⚪ NEUTRAL', connected: false },
-                      { ticker: 'TSLA', basePrice: 220.50, ema50: 222.10, ema250: 228.40, vwap: 221.10, sig: '🐻 BEARISH PUT', connected: false },
-                      { ticker: 'NVDA', basePrice: 125.80, ema50: 124.20, ema250: 121.50, vwap: 123.80, sig: '🐂 BULLISH BUY', connected: false }
-                    ]).map((row, idx) => (
-                      <div key={idx} className="matrix-row-item">
-                        <div className="ticker-badge">
-                          <strong>{row.ticker}</strong>
-                          <span style={{ color: row.connected !== false ? '#10b981' : '#94a3b8' }}>
-                            {row.connected !== false ? '● Live Yahoo' : 'Offline Cache'}
-                          </span>
-                        </div>
-                        <div className="data-col">
-                          <span className="data-lbl">Last Price</span>
-                          <span className="data-val">${row.basePrice.toFixed(2)}</span>
-                        </div>
-                        <div className="data-col">
-                          <span className="data-lbl">EMA 50 / 250</span>
-                          <span className="data-val">${row.ema50.toFixed(2)} / ${row.ema250.toFixed(2)}</span>
-                        </div>
-                        <div className="data-col">
-                          <span className="data-lbl">Session VWAP</span>
-                          <span className="data-val">${row.vwap.toFixed(2)}</span>
-                        </div>
-                        <div className="signal-badge-col">
-                          <span className={`sig-badge ${row.sig.includes('BULLISH') ? 'sig-bull' : (row.sig.includes('BEARISH') ? 'sig-bear' : 'sig-neutral')}`}>
-                            {row.sig}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="dashboard-block">
-                  <h2>💼 Active Option Legs</h2>
-                  <p className="block-desc">Option contracts currently held in flat-file positions database</p>
-                  
-                  {positions.active_positions.length === 0 ? (
-                    <div className="empty-state">
-                      <p>No active stock or option positions recorded.</p>
-                    </div>
-                  ) : (
-                    <div className="positions-list">
-                      {positions.active_positions.map((pos, idx) => (
-                        <div key={idx} className="position-row-item">
-                          <div>
-                            <div className="pos-symbol">{pos.symbol}</div>
-                            <div className="pos-acquired">Acquired: {new Date(pos.acquired_at).toLocaleDateString()}</div>
-                          </div>
-                          <div className="data-col">
-                            <span className="data-lbl">Type</span>
-                            <span className={`pos-type ${pos.option_type === 'call' ? 'txt-profit' : 'txt-loss'}`}>
-                              {pos.option_type.toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="data-col">
-                            <span className="data-lbl">Strike</span>
-                            <span className="data-val">${pos.strike_price.toFixed(2)}</span>
-                          </div>
-                          <div className="data-col">
-                            <span className="data-lbl">Size</span>
-                            <span className="data-val">{pos.quantity}</span>
-                          </div>
-                          <div className="data-col">
-                            <span className="data-lbl">Expiry</span>
-                            <span className="data-val">{pos.expiration_date}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Sidebar controls */}
-              <div className="grid-sidebar">
-                <div className="dashboard-block">
-                  <h2>🚨 Execution Risk Panel</h2>
-                  <p className="block-desc">Breaker safety status & manual lockdowns</p>
-                  
-                  {isLocked ? (
-                    <div className="lockdown-alert">
-                      <p className="lock-title">⚠️ SYSTEM LOCKED</p>
-                      <p>System flattened all option contracts to cash due to exceeding 15% drawdown threshold.</p>
-                      <button className="lockdown-btn unlock-btn" onClick={handleResetLockdown}>
-                        🟢 Manual Reset / Restate Normal
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="lockdown-safe">
-                      <p className="safe-title">🟢 OPERATIONAL</p>
-                      <p>Risk engine is active, auditing equity valuation drawdown targets every 15 minutes.</p>
-                      <button className="lockdown-btn lock-trigger-btn" onClick={handleTriggerLockdown}>
-                        🔴 Emergency Manual Lockdown
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="dashboard-block">
-                  <h2>⚙️ Client Pipeline Status</h2>
-                  <div className="status-attributes">
-                    <div className="attr-row">
-                      <span>Robinhood Integration</span>
-                      <strong className="txt-profit">Connected (robin_stocks)</strong>
-                    </div>
-                    <div className="attr-row">
-                      <span>DTE Selection Target</span>
-                      <strong>30 Days (Nearest)</strong>
-                    </div>
-                    <div className="attr-row">
-                      <span>Delta Filter Target</span>
-                      <strong>0.40 Delta</strong>
-                    </div>
-                    <div className="attr-row">
-                      <span>Drawdown Circuit Margin</span>
-                      <strong>15.00% Limit</strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Tab: Options Performance Dashboard */}
           {activeTab === 'options' && optionsSubTab === 'overview' && (
