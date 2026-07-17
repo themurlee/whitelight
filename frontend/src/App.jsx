@@ -5,6 +5,7 @@ const API_BASE = 'http://127.0.0.1:8000/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('control');
+  const [optionsSubTab, setOptionsSubTab] = useState('overview');
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [filterType, setFilterType] = useState('month');
@@ -1163,34 +1164,9 @@ function App() {
           </button>
           <button 
             className={`nav-item ${activeTab === 'options' ? 'active' : ''}`}
-            onClick={() => setActiveTab('options')}
+            onClick={() => { setActiveTab('options'); setOptionsSubTab('overview'); }}
           >
             <span className="nav-icon">📊</span> Options Performance
-          </button>
-
-          <button 
-            className={`nav-item ${activeTab === 'trades' ? 'active' : ''}`}
-            onClick={() => setActiveTab('trades')}
-          >
-            <span className="nav-icon">📝</span> Monthly Trade Log
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'calendar' ? 'active' : ''}`}
-            onClick={() => setActiveTab('calendar')}
-          >
-            <span className="nav-icon">📅</span> Trade Calendar
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'monthly_summary' ? 'active' : ''}`}
-            onClick={() => setActiveTab('monthly_summary')}
-          >
-            <span className="nav-icon">🗂️</span> Monthly Summary
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'weekly' ? 'active' : ''}`}
-            onClick={() => setActiveTab('weekly')}
-          >
-            <span className="nav-icon">🗓️</span> Weekly Reviews
           </button>
           <button 
             className={`nav-item ${activeTab === 'systematic' ? 'active' : ''}`}
@@ -1218,6 +1194,37 @@ function App() {
 
         {/* Global Kinfo-style KPI Rings for Options Tab */}
         {activeTab === 'options' && (
+          <div style={{ display: 'flex', gap: '8px', padding: '0 24px 0', marginBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+            {[
+              { key: 'overview',        label: '📊 Overview' },
+              { key: 'trades',          label: '📝 Monthly Trade Log' },
+              { key: 'calendar',        label: '📅 Trade Calendar' },
+              { key: 'monthly_summary', label: '🗂️ Monthly Summary' },
+              { key: 'weekly',          label: '🗓️ Weekly Reviews' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setOptionsSubTab(key)}
+                style={{
+                  padding: '8px 16px',
+                  background: optionsSubTab === key ? 'rgba(0, 242, 254, 0.15)' : 'transparent',
+                  border: 'none',
+                  borderBottom: optionsSubTab === key ? '2px solid #00F2FE' : '2px solid transparent',
+                  color: optionsSubTab === key ? '#00F2FE' : '#94A3B8',
+                  fontSize: '0.82rem',
+                  fontWeight: optionsSubTab === key ? 700 : 400,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'options' && optionsSubTab === 'overview' && (
           <section className="kinfo-kpi-rings-row">
             {/* Ring 1: Profit */}
             <div className="kpi-ring-card">
@@ -1474,7 +1481,7 @@ function App() {
           )}
 
           {/* Tab: Options Performance Dashboard */}
-          {activeTab === 'options' && (
+          {activeTab === 'options' && optionsSubTab === 'overview' && (
             <div className="performance-tab-content">
               {/* 1. KPI Row */}
               <div className="perf-kpi-row">
@@ -1676,7 +1683,7 @@ function App() {
 
 
           {/* Tab 4: Monthly Trade Log */}
-          {activeTab === 'trades' && (
+          {activeTab === 'options' && optionsSubTab === 'trades' && (
             <div className="panel-vertical">
               <div className="dashboard-block">
                 <h2>➕ Log Manual Closed Option / Stock Trade</h2>
@@ -1983,7 +1990,7 @@ function App() {
           )}
 
           {/* Tab: Trade Calendar */}
-          {activeTab === 'calendar' && (() => {
+          {activeTab === 'options' && optionsSubTab === 'calendar' && (() => {
             const activeDatesInCal = Array.from(new Set(optionsTrades.filter(t => {
               const d = new Date(t.timestamp);
               return d.getFullYear() === calYear && d.getMonth() === calMonth;
@@ -2361,7 +2368,7 @@ function App() {
           })()}
 
           {/* Tab: Monthly Summary */}
-          {activeTab === 'monthly_summary' && (
+          {activeTab === 'options' && optionsSubTab === 'monthly_summary' && (
             <div className="panel-vertical">
               <div className="monthly-stacked-container">
                 <h2>🗂️ Stacked Monthly Performance Journals</h2>
@@ -2466,7 +2473,7 @@ function App() {
           )}
 
           {/* Tab 5: Weekly Review */}
-          {activeTab === 'weekly' && (
+          {activeTab === 'options' && optionsSubTab === 'weekly' && (
             <div className="panel-grid">
               <div className="grid-col-2">
                 <div className="dashboard-block">
