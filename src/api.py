@@ -834,7 +834,7 @@ def _get_expirations(ticker: str) -> list:
         if os.path.exists(env_path):
             with open(env_path, "r") as f:
                 content = f.read()
-                if "ROBINHOOD_USERNAME" in content and "ROBINHOOD_PASSWORD" in content:
+                if "ALPACA_API_KEY" in content and "ALPACA_SECRET_KEY" in content:
                     has_creds = True
         
         client = RobinhoodMCPClient(dry_run=not has_creds)
@@ -873,7 +873,7 @@ def _get_contracts(ticker: str, expiration: str) -> list:
         if os.path.exists(env_path):
             with open(env_path, "r") as f:
                 content = f.read()
-                if "ROBINHOOD_USERNAME" in content and "ROBINHOOD_PASSWORD" in content:
+                if "ALPACA_API_KEY" in content and "ALPACA_SECRET_KEY" in content:
                     has_creds = True
         
         client = RobinhoodMCPClient(dry_run=not has_creds)

@@ -280,7 +280,7 @@ if not history or history[-1]["equity"] != simulated_equity:
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ⚙️ Pipeline Settings")
-st.sidebar.info("• Core DTE Target: **30 Days**\n• Core Delta Target: **0.40**\n• Breaker Margin: **15.00%**\n• Platform: **Robinhood MCP**")
+st.sidebar.info("• Core DTE Target: **30 Days**\n• Core Delta Target: **0.40**\n• Breaker Margin: **15.00%**\n• Platform: **Alpaca Trading**")
 
 
 
@@ -327,7 +327,7 @@ with col1:
     <div class="metric-card">
         <div class="metric-title">Portfolio Equity</div>
         <div class="metric-value">${current_equity:,.2f}</div>
-        <div class="metric-sub">Live Robinhood Balance</div>
+        <div class="metric-sub">Live Alpaca Balance</div>
     </div>
     """, unsafe_allow_html=True)
 
