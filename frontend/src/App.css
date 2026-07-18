@@ -2,16 +2,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --bg-primary: #0B0D0F;
-  --bg-secondary: #14171A;
-  --bg-glass: #101317;
-  --border-glass: #24282D;
-  --color-accent-pink: #FFB000;
-  --color-accent-purple: #FFB000;
-  --text-primary: #E8E6E1;
-  --text-secondary: #7D848D;
-  --color-profit: #3FB27F;
-  --color-loss: #E5484D;
+  --bg-primary: #030712;
+  --bg-secondary: rgba(17, 24, 39, 0.6);
+  --bg-glass: rgba(17, 24, 39, 0.45);
+  --border-glass: rgba(255, 255, 255, 0.06);
+  --color-accent-pink: #f43f5e;
+  --color-accent-purple: #6366f1;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --color-profit: #10b981;
+  --color-loss: #f43f5e;
 }
 
 body {
@@ -129,9 +129,9 @@ body {
 }
 
 .nav-item.active {
-  background: rgba(255, 176, 0, 0.12);
-  color: #FFB000;
-  border: 1px solid rgba(255, 176, 0, 0.25);
+  background: linear-gradient(135deg, rgba(255, 0, 127, 0.15), rgba(127, 0, 127, 0.15));
+  color: #ff3399;
+  border: 1px solid rgba(255, 0, 127, 0.2);
 }
 
 .sidebar-footer {
