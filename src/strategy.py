@@ -6,6 +6,8 @@ to eliminate external dependency overhead and ensure deterministic execution.
 
 from typing import List, Dict, Tuple, Optional
 from datetime import datetime
+import pandas as pd
+
 
 
 def calculate_sma(prices: List[float], period: int) -> List[Optional[float]]:
@@ -232,4 +234,47 @@ def calculate_rsi(prices: List[float], period: int = 14) -> List[Optional[float]
             rsi_values[i] = 100.0 - (100.0 / (1.0 + rs))
 
     return rsi_values
+
+
+def systematic_strategy(history: pd.DataFrame) -> float:
+    """
+    WhiteLight systematic strategy.
+    Takes history (pd.DataFrame with datetime index and ohlcv columns).
+    Returns 1.0 (bullish), -1.0 (bearish), or 0.0 (neutral).
+    """
+    if len(history) < 250:
+        return 0.0
+        
+    prices = history["close"].tolist()
+    
+    # Calculate indicators
+    ema_50 = calculate_ema(prices, 50)[-1]
+    ema_250 = calculate_ema(prices, 250)[-1]
+    
+    # Session bars for VWAP (last 78 bars representing one trading day of 5-min bars)
+    session_df = history.tail(78)
+    bars_list = []
+    for idx, row in session_df.iterrows():
+        bars_list.append({
+            "timestamp": str(idx),
+            "high": float(row["high"]),
+            "low": float(row["low"]),
+            "close": float(row["close"]),
+            "volume": float(row["volume"])
+        })
+    
+    vwaps = calculate_vwap(bars_list)
+    vwap = vwaps[-1] if vwaps else None
+    current_price = prices[-1]
+    
+    if ema_50 is None or ema_250 is None or vwap is None:
+        return 0.0
+        
+    if ema_50 > ema_250 and current_price > vwap:
+        return 1.0
+    elif ema_50 < ema_250 and current_price < vwap:
+        return -1.0
+    else:
+        return 0.0
+
 
