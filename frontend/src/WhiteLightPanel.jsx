@@ -374,8 +374,8 @@ export default function WhiteLightPanel({
   };
 
   return (
-    <div className="w-full" style={{ background: "#0B0D0F", color: "#E8E6E1" }}>
-      <div className="max-w-6xl mx-auto p-4 md:p-6 font-sans">
+    <div className="w-full font-sans text-[#E8E6E1]" style={{ padding: "0 24px 24px" }}>
+
 
         {/* status bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4 mb-4"
@@ -532,7 +532,6 @@ export default function WhiteLightPanel({
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }
