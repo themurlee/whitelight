@@ -4,7 +4,10 @@ Tests options chain filtering logic using mock datasets.
 """
 
 import unittest
-from src.selector import calculate_dte, filter_options_chain
+from src.selector import (
+    calculate_dte, filter_options_chain,
+    vertical_credit_spread, iron_condor, _check_liquidity,
+)
 
 
 class TestOptionsSelector(unittest.TestCase):
@@ -177,6 +180,202 @@ class TestOptionsSelector(unittest.TestCase):
 
     def test_empty_or_no_matching_chain(self):
         self.assertIsNone(filter_options_chain([], "call", "2026-07-15"))
+
+
+def _mock_chain(current_date: str = "2026-07-15") -> list:
+    """Shared mock chain for spread/condor tests. 30-DTE expiry 2026-08-14."""
+    return [
+        # Puts
+        {"symbol": "AAPL260814P00155000", "expiration_date": "2026-08-14",
+         "option_type": "put", "delta": -0.10, "strike_price": 155.0,
+         "bid": 0.40, "ask": 0.50, "volume": 300},
+        {"symbol": "AAPL260814P00160000", "expiration_date": "2026-08-14",
+         "option_type": "put", "delta": -0.20, "strike_price": 160.0,
+         "bid": 0.90, "ask": 1.00, "volume": 400},
+        {"symbol": "AAPL260814P00165000", "expiration_date": "2026-08-14",
+         "option_type": "put", "delta": -0.30, "strike_price": 165.0,
+         "bid": 1.60, "ask": 1.70, "volume": 500},
+        # Calls
+        {"symbol": "AAPL260814C00195000", "expiration_date": "2026-08-14",
+         "option_type": "call", "delta": 0.10, "strike_price": 195.0,
+         "bid": 0.35, "ask": 0.45, "volume": 250},
+        {"symbol": "AAPL260814C00200000", "expiration_date": "2026-08-14",
+         "option_type": "call", "delta": 0.20, "strike_price": 200.0,
+         "bid": 0.85, "ask": 0.95, "volume": 350},
+        {"symbol": "AAPL260814C00205000", "expiration_date": "2026-08-14",
+         "option_type": "call", "delta": 0.30, "strike_price": 205.0,
+         "bid": 1.55, "ask": 1.65, "volume": 450},
+    ]
+
+
+class TestLiquidityFilter(unittest.TestCase):
+
+    def test_illiquid_contract_rejected(self):
+        contracts = [
+            {"bid": 1.00, "ask": 2.00},  # 67% spread — illiquid
+            {"bid": 1.00, "ask": 1.05},  # ~5% spread — liquid
+        ]
+        result = _check_liquidity(contracts, max_spread_pct=0.10)
+        self.assertEqual(len(result), 1)
+        self.assertAlmostEqual(result[0]["ask"], 1.05)
+
+    def test_no_bid_ask_passes_through(self):
+        contracts = [{"strike_price": 100.0}]
+        result = _check_liquidity(contracts, max_spread_pct=0.10)
+        self.assertEqual(len(result), 1)
+
+
+class TestVerticalCreditSpread(unittest.TestCase):
+
+    def setUp(self):
+        self.chain = _mock_chain()
+        self.date = "2026-07-15"
+
+    def test_bull_put_spread_returns_valid_structure(self):
+        result = vertical_credit_spread(
+            underlying="AAPL",
+            contracts=self.chain,
+            direction="bull_put",
+            current_date_str=self.date,
+            target_delta=0.20,
+            width=5.0,
+        )
+        self.assertIsNotNone(result)
+        self.assertEqual(result["direction"], "bull_put")
+        self.assertIn("short_leg", result)
+        self.assertIn("long_leg", result)
+        # max_loss + net_credit should equal width
+        self.assertAlmostEqual(
+            result["max_loss"] + result["net_credit"],
+            result["width"], places=4
+        )
+
+    def test_bear_call_spread_returns_valid_structure(self):
+        result = vertical_credit_spread(
+            underlying="AAPL",
+            contracts=self.chain,
+            direction="bear_call",
+            current_date_str=self.date,
+            target_delta=0.20,
+            width=5.0,
+        )
+        self.assertIsNotNone(result)
+        self.assertEqual(result["direction"], "bear_call")
+        self.assertAlmostEqual(
+            result["max_loss"] + result["net_credit"],
+            result["width"], places=4
+        )
+
+    def test_invalid_direction_raises(self):
+        with self.assertRaises(ValueError):
+            vertical_credit_spread("AAPL", self.chain, "long_call", self.date)
+
+    def test_returns_none_on_empty_chain(self):
+        result = vertical_credit_spread("AAPL", [], "bull_put", self.date)
+        self.assertIsNone(result)
+
+    def test_illiquid_chain_rejected(self):
+        # All contracts with >10% bid/ask spread
+        wide_chain = [
+            {"symbol": "X", "expiration_date": "2026-08-14",
+             "option_type": "put", "delta": -0.20, "strike_price": 160.0,
+             "bid": 1.00, "ask": 5.00, "volume": 0},
+            {"symbol": "Y", "expiration_date": "2026-08-14",
+             "option_type": "put", "delta": -0.10, "strike_price": 155.0,
+             "bid": 0.50, "ask": 3.00, "volume": 0},
+        ]
+        result = vertical_credit_spread("AAPL", wide_chain, "bull_put", self.date)
+        self.assertIsNone(result)
+
+    def test_breakeven_direction_bull_put(self):
+        result = vertical_credit_spread(
+            underlying="AAPL",
+            contracts=self.chain,
+            direction="bull_put",
+            current_date_str=self.date,
+            target_delta=0.20,
+            width=5.0,
+        )
+        # Bull put breakeven = short_strike - net_credit
+        expected_be = float(result["short_leg"]["strike_price"]) - result["net_credit"]
+        self.assertAlmostEqual(result["breakeven"], expected_be, places=4)
+
+    def test_risk_metrics_keys_present(self):
+        result = vertical_credit_spread(
+            underlying="AAPL",
+            contracts=self.chain,
+            direction="bull_put",
+            current_date_str=self.date,
+        )
+        for key in ["net_credit", "max_loss", "max_profit", "breakeven", "net_delta"]:
+            self.assertIn(key, result)
+
+
+class TestIronCondor(unittest.TestCase):
+
+    def setUp(self):
+        self.chain = _mock_chain()
+        self.date = "2026-07-15"
+
+    def test_iron_condor_returns_valid_structure(self):
+        result = iron_condor(
+            underlying="AAPL",
+            contracts=self.chain,
+            current_date_str=self.date,
+            target_delta=0.20,
+            width=5.0,
+            iv_rank=None,  # skip IV filter in test
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("bull_put_spread", result)
+        self.assertIn("bear_call_spread", result)
+        self.assertEqual(len(result["breakevens"]), 2)
+        self.assertIn("iv_rank_filter_met", result)
+
+    def test_iron_condor_blocked_by_low_iv_rank(self):
+        result = iron_condor(
+            underlying="AAPL",
+            contracts=self.chain,
+            current_date_str=self.date,
+            iv_rank=30.0,       # below min_iv_rank=45
+            min_iv_rank=45.0,
+        )
+        self.assertIsNone(result)
+
+    def test_iron_condor_passes_with_sufficient_iv_rank(self):
+        result = iron_condor(
+            underlying="AAPL",
+            contracts=self.chain,
+            current_date_str=self.date,
+            iv_rank=55.0,
+            min_iv_rank=45.0,
+            target_delta=0.20,
+            width=5.0,
+        )
+        self.assertIsNotNone(result)
+        self.assertTrue(result["iv_rank_filter_met"])
+
+    def test_net_credit_equals_sum_of_spreads(self):
+        result = iron_condor(
+            underlying="AAPL",
+            contracts=self.chain,
+            current_date_str=self.date,
+            iv_rank=None,
+            target_delta=0.20,
+            width=5.0,
+        )
+        expected_credit = result["bull_put_spread"]["net_credit"] + result["bear_call_spread"]["net_credit"]
+        self.assertAlmostEqual(result["net_credit"], expected_credit, places=4)
+
+    def test_risk_metrics_keys_present(self):
+        result = iron_condor(
+            underlying="AAPL",
+            contracts=self.chain,
+            current_date_str=self.date,
+            iv_rank=None,
+        )
+        for key in ["net_credit", "max_loss", "max_profit", "breakevens", "net_delta"]:
+            self.assertIn(key, result)
 
 
 if __name__ == "__main__":
