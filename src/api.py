@@ -778,8 +778,106 @@ class APIServerHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send_json({"success": False, "error": str(e)})
             
+        elif path == "/api/state/manual_pause":
+            # Toggle or set the manual_pause flag. Body: {"paused": true/false}
+            from src.execution import set_manual_pause
+            paused = bool(post_data.get("paused", True))
+            updated_state = set_manual_pause(paused)
+            self._send_json({"success": True, "manual_pause": updated_state.get("manual_pause", paused)})
+
+        elif path == "/api/systematic/manual_order":
+            # Operator-initiated order via Alpaca. Uses same risk checks.
+            # Body: {symbol, side, qty, order_type (optional), limit_price (optional)}
+            from src.execution import RobinhoodMCPClient, RiskManager, submit_manual_order
+            symbol = post_data.get("symbol", "").upper()
+            side = post_data.get("side", "buy").lower()
+            qty = int(post_data.get("qty", 1))
+            order_type = post_data.get("order_type", "market").lower()
+            limit_price = post_data.get("limit_price", None)
+            if limit_price is not None:
+                limit_price = float(limit_price)
+            if not symbol:
+                self._send_json({"success": False, "error": "symbol required"})
+                return
+            client = RobinhoodMCPClient(dry_run=False)
+            client.start()
+            risk = RiskManager(client)
+            result = submit_manual_order(client, risk, symbol, side, qty, order_type, limit_price)
+            if result is None:
+                state = risk.load_state()
+                reason = "lockdown_active" if state.get("lockdown_active") else "manual_pause"
+                self._send_json({"success": False, "error": f"Order blocked by: {reason}"})
+            else:
+                self._send_json({"success": True, "order": result})
+
+        elif path == "/api/systematic/backtest":
+            # Run backtest with local cached data (no Alpaca call needed).
+            # Body: {ticker, capital (optional, default 100000)}
+            from src.backtest import Backtester, CostModel
+            from src.strategy import systematic_strategy
+            import glob as _glob
+            import pandas as pd
+            import src.config as _cfg
+            ticker = post_data.get("ticker", "SPY").upper()
+            capital = float(post_data.get("capital", 100000.0))
+
+            ticker_dir = os.path.join(_cfg.DATA_DIR, ticker)
+            bar_files = sorted(_glob.glob(os.path.join(ticker_dir, "*.jsonl")))
+            if not bar_files:
+                self._send_json({"success": False, "error": f"No local data for {ticker}. Ingest first."})
+                return
+
+            rows = []
+            for bf in bar_files:
+                try:
+                    with open(bf, "r") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                rows.append(json.loads(line))
+                except Exception:
+                    pass
+
+            if not rows:
+                self._send_json({"success": False, "error": "Empty data files."})
+                return
+
+            try:
+                df = pd.DataFrame(rows)
+                # Normalize columns
+                df.columns = [c.lower() for c in df.columns]
+                if "timestamp" in df.columns:
+                    df["date"] = pd.to_datetime(df["timestamp"])
+                elif "date" in df.columns:
+                    df["date"] = pd.to_datetime(df["date"])
+                df = df.sort_values("date").set_index("date")
+                for col in ["open", "high", "low", "close", "volume"]:
+                    if col not in df.columns:
+                        df[col] = df.get("close", 100.0)
+                df = df[["open", "high", "low", "close", "volume"]].dropna()
+
+                if len(df) < 252:
+                    self._send_json({"success": False, "error": f"Need 252+ bars for EMA250, have {len(df)}."})
+                    return
+
+                cost_model = CostModel(asset_type="equity", slippage_bps=2.0)
+                bt = Backtester(df, cost_model=cost_model, initial_capital=capital)
+                result = bt.run(systematic_strategy, warmup=250)
+                summary = result.summary()
+                self._send_json({"success": True, "ticker": ticker, "summary": summary, "metrics": {
+                    "total_return_pct": round(result.total_return * 100, 2),
+                    "sharpe": round(result.sharpe, 4) if result.sharpe else None,
+                    "max_drawdown_pct": round(result.max_drawdown * 100, 2),
+                    "num_trades": result.num_trades,
+                    "final_equity": round(result.final_equity, 2),
+                    "initial_capital": capital,
+                }})
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+
         else:
             self.send_error(404, "API endpoint not found")
+
 
     def _send_json(self, data: any):
         self.send_response(200)

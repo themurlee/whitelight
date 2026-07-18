@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import WhiteLightPanel from './WhiteLightPanel';
 
 const API_BASE = 'http://127.0.0.1:8000/api';
 
@@ -2365,222 +2366,23 @@ function App() {
 
           {/* Tab 6: Systematic Trading Pipeline */}
           {activeTab === 'systematic' && (
-            <div className="panel-grid">
-              <div className="grid-col-2">
-                {/* Block 1: Ingestion Manager */}
-                <div className="dashboard-block">
-                  <h2>🤖 Data Ingestion Engine</h2>
-                  <p className="block-desc">Fetch and backfill daily OHLCV bars using Alpaca-py IEX feed</p>
-                  
-                  <form onSubmit={handleIngestSubmit} className="weekly-review-form" style={{ marginBottom: '24px' }}>
-                    <div className="form-row" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-                      <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                        <label>Symbol / Ticker</label>
-                        <input 
-                          type="text" 
-                          placeholder="e.g. SPY, AAPL, MSFT"
-                          value={ingestTicker}
-                          onChange={(e) => setIngestTicker(e.target.value.toUpperCase())}
-                          required
-                          style={{ width: '100%' }}
-                        />
-                      </div>
-                      <button 
-                        type="submit" 
-                        className="form-submit-btn" 
-                        disabled={ingestLoading}
-                        style={{ margin: 0, padding: '12px 24px', whiteSpace: 'nowrap' }}
-                      >
-                        {ingestLoading ? "Ingesting..." : "Ingest OHLCV Data"}
-                      </button>
-                    </div>
-                  </form>
-
-                  <h3>Ingested Datasets</h3>
-                  {Object.keys(systematicStatus.tickers).length === 0 ? (
-                    <p className="text-muted">No local data found. Ingest a ticker above.</p>
-                  ) : (
-                    <div className="table-responsive" style={{ marginTop: '12px' }}>
-                      <table className="kinfo-table">
-                        <thead>
-                          <tr>
-                            <th>Ticker</th>
-                            <th>Daily Bars Count</th>
-                            <th>History Range</th>
-                            <th>Source</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Object.entries(systematicStatus.tickers).map(([ticker, info]) => (
-                            <tr key={ticker}>
-                              <td style={{ fontWeight: 'bold', color: '#00F2FE' }}>{ticker}</td>
-                              <td>{info.count}</td>
-                              <td>{info.first_date && info.last_date ? `${info.first_date} to ${info.last_date}` : 'N/A'}</td>
-                              <td>Alpaca IEX</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                {/* Block 2: Signal Generation Engine */}
-                <div className="dashboard-block" style={{ marginTop: '20px' }}>
-                  <h2>📊 Signal Generation & Calculations</h2>
-                  <p className="block-desc">Systematic calculations for RSI (14) & MACD (12, 26, 9)</p>
-                  
-                  <form onSubmit={handleGenerateSignal} className="weekly-review-form" style={{ marginBottom: '24px' }}>
-                    <div className="form-row" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-                      <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                        <label>Calculate Signal for Ticker</label>
-                        <input 
-                          type="text" 
-                          placeholder="e.g. SPY"
-                          value={signalTicker}
-                          onChange={(e) => setSignalTicker(e.target.value.toUpperCase())}
-                          required
-                          style={{ width: '100%' }}
-                        />
-                      </div>
-                      <button 
-                        type="submit" 
-                        className="form-submit-btn" 
-                        disabled={signalLoading}
-                        style={{ margin: 0, padding: '12px 24px', whiteSpace: 'nowrap' }}
-                      >
-                        {signalLoading ? "Calculating..." : "Run Indicator Calc"}
-                      </button>
-                    </div>
-                  </form>
-
-                  {systematicStatus.signal ? (
-                    <div className="metric-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#00F2FE' }}>{systematicStatus.signal.ticker} Signal</span>
-                        <span className="footer-ver" style={{ fontSize: '0.75rem' }}>{systematicStatus.signal.timestamp}</span>
-                      </div>
-                      
-                      <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                        <div style={{ padding: '8px', background: 'rgba(30, 41, 59, 0.3)', borderRadius: '6px' }}>
-                          <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>CLOSE</div>
-                          <div style={{ fontSize: '1rem', fontWeight: 'bold' }}>${systematicStatus.signal.close}</div>
-                        </div>
-                        <div style={{ padding: '8px', background: 'rgba(30, 41, 59, 0.3)', borderRadius: '6px' }}>
-                          <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>RSI (14)</div>
-                          <div style={{ fontSize: '1rem', fontWeight: 'bold', color: systematicStatus.signal.rsi > 70 ? '#EF4444' : '#10B981' }}>{systematicStatus.signal.rsi}</div>
-                        </div>
-                        <div style={{ padding: '8px', background: 'rgba(30, 41, 59, 0.3)', borderRadius: '6px' }}>
-                          <div style={{ fontSize: '0.65rem', color: '#94A3B8' }}>MACD HIST</div>
-                          <div style={{ fontSize: '1rem', fontWeight: 'bold', color: systematicStatus.signal.macd_histogram > 0 ? '#10B981' : '#EF4444' }}>{systematicStatus.signal.macd_histogram}</div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div>
-                          <div style={{ fontSize: '0.7rem', color: '#94A3B8', textTransform: 'uppercase' }}>Current Recommendation</div>
-                          <div style={{ 
-                            fontSize: '1.4rem', 
-                            fontWeight: 800, 
-                            color: systematicStatus.signal.action === 'BUY' ? '#10B981' : systematicStatus.signal.action === 'SELL' ? '#EF4444' : '#94A3B8' 
-                          }}>
-                            {systematicStatus.signal.action}
-                          </div>
-                        </div>
-                        
-                        <button 
-                          onClick={handleExecuteSignal}
-                          className="form-submit-btn" 
-                          disabled={executingLoading || systematicStatus.signal.action === 'HOLD'}
-                          style={{ margin: 0, padding: '8px 16px', background: systematicStatus.signal.action === 'BUY' ? '#10B981' : systematicStatus.signal.action === 'SELL' ? '#EF4444' : 'rgba(255,255,255,0.1)', cursor: systematicStatus.signal.action === 'HOLD' ? 'not-allowed' : 'pointer' }}
-                        >
-                          {executingLoading ? "Executing..." : `Execute ${systematicStatus.signal.action} Order`}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="metric-card">
-                      <p className="text-muted">No active signal loaded. Calculate a signal above.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid-sidebar">
-                {/* Block 3: Alpaca Credentials & Paper Trading Account */}
-                <div className="dashboard-block" style={{ marginBottom: '20px' }}>
-                  <h2>💳 Alpaca Connection Status</h2>
-                  <p className="block-desc">Real-time status of Alpaca paper trading client</p>
-                  
-                  {!systematicStatus.account.configured ? (
-                    <div className="status-banner banner-error" style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#FCA5A5' }}>
-                      <strong>Not Configured</strong>
-                      <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem' }}>Create a .env file with your API keys in the workspace root.</p>
-                    </div>
-                  ) : systematicStatus.account.error ? (
-                    <div className="status-banner banner-error" style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#FCA5A5' }}>
-                      <strong>Connection Error</strong>
-                      <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem' }}>{systematicStatus.account.error}</p>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div className="status-banner banner-success" style={{ padding: '12px', background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.2)', borderRadius: '8px', color: '#86EFAC', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="status-dot dot-active"></span>
-                        <span>Connected (Paper Account: {systematicStatus.account.account_number})</span>
-                      </div>
-                      
-                      <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <div style={{ padding: '12px', background: 'rgba(30, 41, 59, 0.3)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px' }}>
-                          <div style={{ fontSize: '0.7rem', color: '#94A3B8', textTransform: 'uppercase' }}>Portfolio Equity</div>
-                          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#38BDF8', marginTop: '4px' }}>
-                            ${systematicStatus.account.equity ? systematicStatus.account.equity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                          </div>
-                        </div>
-                        <div style={{ padding: '12px', background: 'rgba(30, 41, 59, 0.3)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px' }}>
-                          <div style={{ fontSize: '0.7rem', color: '#94A3B8', textTransform: 'uppercase' }}>Buying Power</div>
-                          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#38BDF8', marginTop: '4px' }}>
-                            ${systematicStatus.account.buying_power ? systematicStatus.account.buying_power.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>
-                        Cash Balance: <strong>${systematicStatus.account.cash ? systematicStatus.account.cash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</strong>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Block 4: Logging Console */}
-                <div className="dashboard-block">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <h2>📜 Trade Log Console</h2>
-                    <button 
-                      onClick={fetchSystematicStatus} 
-                      className="nav-item" 
-                      style={{ fontSize: '0.8rem', padding: '4px 8px', margin: 0, height: 'auto', background: 'rgba(255,255,255,0.05)' }}
-                    >
-                      🔄 Refresh Logs
-                    </button>
-                  </div>
-                  <p className="block-desc">Outputs from data/journal/trade_log.md</p>
-                  
-                  <div style={{
-                    background: '#020617', 
-                    border: '1px solid rgba(255,255,255,0.08)', 
-                    borderRadius: '8px', 
-                    padding: '12px', 
-                    fontFamily: 'JetBrains Mono, monospace', 
-                    fontSize: '0.75rem', 
-                    color: '#10B981', 
-                    height: '250px', 
-                    overflowY: 'auto', 
-                    whiteSpace: 'pre-wrap'
-                  }}>
-                    {systematicStatus.logs || "No logs available."}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <WhiteLightPanel
+              state={state}
+              systematicStatus={systematicStatus}
+              onRefreshState={fetchData}
+              onRefreshStatus={fetchSystematicStatus}
+              ingestTicker={ingestTicker}
+              setIngestTicker={setIngestTicker}
+              ingestLoading={ingestLoading}
+              handleIngestSubmit={handleIngestSubmit}
+              signalTicker={signalTicker}
+              setSignalTicker={setSignalTicker}
+              signalLoading={signalLoading}
+              handleGenerateSignal={handleGenerateSignal}
+              executingLoading={executingLoading}
+              handleExecuteSignal={handleExecuteSignal}
+              fetchSystematicStatus={fetchSystematicStatus}
+            />
           )}
         </div>
       </main>
