@@ -8,14 +8,14 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta
-from src.execution import RobinhoodMCPClient, RiskManager, execute_order_safely, STATE_FILE, POSITIONS_FILE
+from src.execution import ExecutionClient, RiskManager, execute_order_safely, STATE_FILE, POSITIONS_FILE
 
 
 class TestRiskCircuitBreaker(unittest.TestCase):
 
     def setUp(self):
         # Create fresh state files before each test to isolate executions
-        self.client = RobinhoodMCPClient(dry_run=True)
+        self.client = ExecutionClient(dry_run=True)
         self.risk_manager = RiskManager(self.client)
         
         # Reset files to clean default state
