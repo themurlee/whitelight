@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import WhiteLightPanel from './WhiteLightPanel';
+import AlpacaPanel from './AlpacaPanel';
 
 const API_BASE = 'http://127.0.0.1:8000/api';
 
@@ -1168,6 +1169,12 @@ function App() {
             onClick={() => setActiveTab('systematic')}
           >
             <span className="nav-icon">🤖</span> Systematic Pipeline
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'alpaca' ? 'active' : ''}`}
+            onClick={() => setActiveTab('alpaca')}
+          >
+            <span className="nav-icon">🦙</span> Alpaca Migration
           </button>
         </nav>
 
@@ -2367,6 +2374,27 @@ function App() {
           {/* Tab 6: Systematic Trading Pipeline */}
           {activeTab === 'systematic' && (
             <WhiteLightPanel
+              state={state}
+              systematicStatus={systematicStatus}
+              onRefreshState={fetchData}
+              onRefreshStatus={fetchSystematicStatus}
+              ingestTicker={ingestTicker}
+              setIngestTicker={setIngestTicker}
+              ingestLoading={ingestLoading}
+              handleIngestSubmit={handleIngestSubmit}
+              signalTicker={signalTicker}
+              setSignalTicker={setSignalTicker}
+              signalLoading={signalLoading}
+              handleGenerateSignal={handleGenerateSignal}
+              executingLoading={executingLoading}
+              handleExecuteSignal={handleExecuteSignal}
+              fetchSystematicStatus={fetchSystematicStatus}
+            />
+          )}
+
+          {/* Tab 7: Alpaca Migration */}
+          {activeTab === 'alpaca' && (
+            <AlpacaPanel
               state={state}
               systematicStatus={systematicStatus}
               onRefreshState={fetchData}
