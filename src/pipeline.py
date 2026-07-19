@@ -15,7 +15,7 @@ sys.path.append(BASE_DIR)
 
 from src.strategy import calculate_ema, calculate_vwap, calculate_macd
 from src.selector import filter_options_chain
-from src.execution import ExecutionClient, RiskManager, execute_order_safely
+from src.execution import RobinhoodMCPClient, RiskManager, execute_order_safely
 from src.journal import log_trade, log_error, log_state_transition, generate_daily_journal_template
 
 
@@ -26,7 +26,7 @@ def run_pipeline(ticker: str, dry_run: bool):
     print(f"[{datetime.utcnow().isoformat()}] Starting WhiteLight systematic pipeline for {ticker}...")
     
     # 1. Initialize & Start API Client
-    client = ExecutionClient(dry_run=dry_run)
+    client = RobinhoodMCPClient(dry_run=dry_run)
     client.start()
     
     risk_manager = RiskManager(client)

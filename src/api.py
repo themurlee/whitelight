@@ -30,9 +30,8 @@ def _get_alpaca_account_info():
     if not config.API_KEY or not config.SECRET_KEY or "YOUR_ALPACA" in config.API_KEY:
         return {"configured": False, "error": "Credentials missing or default"}
     try:
-        from src.execution import ExecutionClient
-        client = ExecutionClient(dry_run=False)
-        client.start()
+        from alpaca.trading.client import TradingClient
+        client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
         acc = client.get_account()
         return {
             "configured": True,
@@ -175,22 +174,7 @@ class APIServerHandler(BaseHTTPRequestHandler):
             
         elif path == "/api/trades":
             data = _read_json_file(TRADE_LOG_FILE, [])
-            self._send_json({"trades": data})
-            
-        elif path == "/api/ingestion/status":
-            # Simple ingestion status: list ticker folders as sources
-            sources = []
-            for entry in os.listdir(DATA_DIR):
-                full = os.path.join(DATA_DIR, entry)
-                if os.path.isdir(full) and entry not in ["journal", "uploads"]:
-                    sources.append({"name": entry, "status": "unknown"})
-            self._send_json({"sources": sources})
-            
-        elif path == "/api/signals":
-            self._send_json({"signals": []})
-            
-        elif path == "/api/options":
-            self._send_json({"options": []})
+            self._send_json(data)
             
         elif path == "/api/psychology":
             data = _read_json_file(PSYCHOLOGY_FILE, [])
@@ -242,8 +226,6 @@ class APIServerHandler(BaseHTTPRequestHandler):
             status_data = _get_systematic_status()
             self._send_json(status_data)
             
-        elif path == "/api/health":
-            self._send_json({"status": "ok"})
         else:
             self.send_error(404, "API endpoint not found")
 
@@ -806,7 +788,7 @@ class APIServerHandler(BaseHTTPRequestHandler):
         elif path == "/api/systematic/manual_order":
             # Operator-initiated order via Alpaca. Uses same risk checks.
             # Body: {symbol, side, qty, order_type (optional), limit_price (optional)}
-            from src.execution import ExecutionClient, RiskManager, submit_manual_order
+            from src.execution import RobinhoodMCPClient, RiskManager, submit_manual_order
             symbol = post_data.get("symbol", "").upper()
             side = post_data.get("side", "buy").lower()
             qty = int(post_data.get("qty", 1))
@@ -817,7 +799,7 @@ class APIServerHandler(BaseHTTPRequestHandler):
             if not symbol:
                 self._send_json({"success": False, "error": "symbol required"})
                 return
-            client = ExecutionClient(dry_run=False)
+            client = RobinhoodMCPClient(dry_run=False)
             client.start()
             risk = RiskManager(client)
             result = submit_manual_order(client, risk, symbol, side, qty, order_type, limit_price)
@@ -941,9 +923,9 @@ def _fetch_yahoo_tickers(query: str) -> list:
 def _get_expirations(ticker: str) -> list:
     try:
         try:
-            from src.execution import ExecutionClient
+            from execution import RobinhoodMCPClient
         except ImportError:
-            from src.execution import ExecutionClient
+            from src.execution import RobinhoodMCPClient
         
         has_creds = False
         env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
@@ -953,7 +935,7 @@ def _get_expirations(ticker: str) -> list:
                 if "ALPACA_API_KEY" in content and "ALPACA_SECRET_KEY" in content:
                     has_creds = True
         
-        client = ExecutionClient(dry_run=not has_creds)
+        client = RobinhoodMCPClient(dry_run=not has_creds)
         if has_creds:
             client.start()
         dates = client.get_expiration_dates(ticker)
@@ -980,9 +962,9 @@ def _get_expirations(ticker: str) -> list:
 def _get_contracts(ticker: str, expiration: str) -> list:
     try:
         try:
-            from src.execution import ExecutionClient
+            from execution import RobinhoodMCPClient
         except ImportError:
-            from src.execution import ExecutionClient
+            from src.execution import RobinhoodMCPClient
         
         has_creds = False
         env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
@@ -992,7 +974,7 @@ def _get_contracts(ticker: str, expiration: str) -> list:
                 if "ALPACA_API_KEY" in content and "ALPACA_SECRET_KEY" in content:
                     has_creds = True
         
-        client = ExecutionClient(dry_run=not has_creds)
+        client = RobinhoodMCPClient(dry_run=not has_creds)
         if has_creds:
             client.start()
         chain = client.get_options_chain(ticker, expiration)
