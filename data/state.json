@@ -3,16 +3,37 @@
   "drawdown_locked_at": null,
   "equity_history": [
     {
-      "timestamp": "2026-07-17T20:04:30.654424Z",
+      "timestamp": "2026-07-01T09:00:00Z",
       "equity": 10000.0
     },
     {
-      "timestamp": "2026-07-17T20:04:30.654654Z",
-      "equity": 10000.0
+      "timestamp": "2026-07-06T00:00:00Z",
+      "equity": 10127.32
     },
     {
-      "timestamp": "2026-07-17T20:04:30.655088Z",
-      "equity": 10000.0
+      "timestamp": "2026-07-07T00:00:00Z",
+      "equity": 10157.32
+    },
+    {
+      "timestamp": "2026-07-07T00:00:00Z",
+      "equity": 10285.32
+    },
+    {
+      "timestamp": "2026-07-07T00:00:00Z",
+      "equity": 10310.32
+    },
+    {
+      "timestamp": "2026-07-08T00:00:00Z",
+      "equity": 10468.32
+    },
+    {
+      "timestamp": "2026-07-09T00:00:00Z",
+      "equity": 8671.32
+    },
+    {
+      "timestamp": "2026-07-13T00:00:00Z",
+      "equity": 8742.32
     }
-  ]
+  ],
+  "manual_pause": false
 }

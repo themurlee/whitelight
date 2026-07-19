@@ -43,7 +43,7 @@ class TestPipelineEndToEnd(unittest.TestCase):
             if os.path.exists(f):
                 os.remove(f)
 
-    @patch("src.execution.RobinhoodMCPClient.place_option_order")
+    @patch("src.execution.ExecutionClient.place_option_order")
     def test_pipeline_bullish_execution(self, mock_place_order):
         # Setup mock execution responses
         mock_place_order.return_value = {
@@ -77,7 +77,7 @@ class TestPipelineEndToEnd(unittest.TestCase):
         self.assertEqual(trades[0]["action"], "BUY")
         self.assertEqual(trades[0]["symbol"], "AAPL260814C00185000")
 
-    @patch("src.execution.RobinhoodMCPClient.place_option_order")
+    @patch("src.execution.ExecutionClient.place_option_order")
     def test_pipeline_blocked_by_lockdown(self, mock_place_order):
         # Force active lockdown state in state.json
         with open(STATE_FILE, "w") as f:

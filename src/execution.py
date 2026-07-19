@@ -94,7 +94,7 @@ def _load_alpaca_keys() -> Tuple[Optional[str], Optional[str]]:
     return api_key, secret_key
 
 
-class RobinhoodMCPClient:
+class ExecutionClient:
     """
     Alpaca Trading API client.
     Class name kept for backward compatibility with existing tests and imports.
@@ -431,7 +431,7 @@ class RiskManager:
     Both must be False for any order to proceed.
     """
 
-    def __init__(self, client: RobinhoodMCPClient):
+    def __init__(self, client: ExecutionClient):
         self.client = client
         self._ensure_data_files()
 
@@ -615,7 +615,7 @@ def set_manual_pause(paused: bool) -> Dict:
 # --------------------------------------------------------------------------- #
 
 def execute_order_safely(
-    client: RobinhoodMCPClient,
+    client: ExecutionClient,
     risk_manager: RiskManager,
     symbol: str,
     quantity: int,
@@ -664,7 +664,7 @@ def execute_order_safely(
 # --------------------------------------------------------------------------- #
 
 def submit_manual_order(
-    client: RobinhoodMCPClient,
+    client: ExecutionClient,
     risk_manager: RiskManager,
     symbol: str,
     side: str,
