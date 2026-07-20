@@ -160,8 +160,23 @@ export default function WhitelightCortexIntegratedPanel({
   const [accountSummary, setAccountSummary] = useState(null);
   const [localTrades, setLocalTrades] = useState([]);
   
-  // Watchlist states
-  const [watchlist, setWatchlist] = useState(["AAPL", "NVDA", "SPY"]);
+  const [watchlist, setWatchlist] = useState(() => {
+    try {
+      const saved = localStorage.getItem("whitelight_watchlist");
+      return saved ? JSON.parse(saved) : ["AAPL", "NVDA", "SPY"];
+    } catch (e) {
+      return ["AAPL", "NVDA", "SPY"];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("whitelight_watchlist", JSON.stringify(watchlist));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [watchlist]);
+
   const [newTicker, setNewTicker] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [scanResults, setScanResults] = useState({});
@@ -1132,7 +1147,7 @@ export default function WhitelightCortexIntegratedPanel({
               <div className="flex items-center gap-2">
                 <span className="text-amber-400 text-base">👁️</span>
                 <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
-                  Cortex Watchlist Scanner & Decider Desk
+                  Watchlist Scanner & Decider Desk
                 </h3>
               </div>
               <div className="flex items-center gap-3">
