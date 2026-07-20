@@ -6,5 +6,9 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: '/whitelight/',
+  server: {
+    port: 5174,
+    host: true
+  }
 })
 

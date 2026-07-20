@@ -4,19 +4,8 @@ import {
 } from "recharts";
 
 /*
-  WHITELIGHT — 🤖 SYSTEMATIC PIPELINE control center
-  ------------------------------------------
-  Tokens:
-    bg          #0B0D0F   near-black warm charcoal (not pure black)
-    panel       #14171A
-    panel-alt   #101317
-    border      #24282D   hairline
-    amber       #FFB000   primary instrument accent
-    blue        #5B8DB8   secondary / cool data accent
-    red         #E5484D   danger / lockdown
-    green       #3FB27F   ONLY for positive P&L — never decorative
-    text        #E8E6E1
-    text-muted  #7D848D
+  WHITELIGHT — 🤖 ALPACA MIGRATION & SYSTEMATIC PIPELINE
+  Modern Dark UI System
 */
 
 const API_BASE = 'http://127.0.0.1:8000/api';
@@ -26,8 +15,8 @@ const fmtPct = (n, d = 1) => `${n >= 0 ? "+" : ""}${n.toFixed(d)}%`;
 
 function RadialGauge({ label, value, max, unit = "%", danger = false, sub }) {
   const pct = Math.min(Math.abs(value) / max, 1);
-  const angle = -140 + pct * 280; // -140deg..+140deg sweep
-  const color = danger ? "#E5484D" : pct > 0.75 ? "#E5484D" : pct > 0.5 ? "#FFB000" : "#5B8DB8";
+  const angle = -140 + pct * 280;
+  const color = danger ? "#E5484D" : pct > 0.75 ? "#E5484D" : pct > 0.5 ? "#f59e0b" : "#3FB27F";
   const r = 42, cx = 50, cy = 50;
   const toXY = (deg) => {
     const rad = (deg - 90) * (Math.PI / 180);
@@ -38,48 +27,46 @@ function RadialGauge({ label, value, max, unit = "%", danger = false, sub }) {
   const [nx, ny] = toXY(angle);
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-1 font-mono">
       <svg viewBox="0 0 100 92" className="w-24 h-24">
         <path d={`M ${x1} ${y1} A ${r} ${r} 0 1 1 ${x2} ${y2}`}
-              fill="none" stroke="#24282D" strokeWidth="6" strokeLinecap="round" />
+              fill="none" stroke="#1e293b" strokeWidth="6" strokeLinecap="round" />
         <path d={`M ${x1} ${y1} A ${r} ${r} 0 ${pct > 0.5 ? 1 : 0} 1 ${nx} ${ny}`}
               fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" />
         <circle cx={cx} cy={cy} r="3" fill={color} />
         <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={color} strokeWidth="2" />
-        <text x="50" y="52" textAnchor="middle" fontSize="15" fontFamily="ui-monospace, monospace"
-              fill="#E8E6E1" fontWeight="600">
+        <text x="50" y="52" textAnchor="middle" fontSize="15" fontFamily="monospace"
+              fill="#f8fafc" fontWeight="700">
           {value.toFixed(0)}{unit}
         </text>
       </svg>
-      <div className="text-[10px] tracking-widest uppercase text-[#7D848D]">{label}</div>
-      {sub && <div className="text-[10px] text-[#7D848D]">{sub}</div>}
+      <div className="text-[10px] tracking-widest uppercase text-slate-400 font-bold">{label}</div>
+      {sub && <div className="text-[10px] text-slate-500">{sub}</div>}
     </div>
   );
 }
 
 function BreakerSwitch({ active }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="relative w-14 h-8 rounded-full border border-[#24282D] bg-[#101317] p-1"
-           style={{ boxShadow: "inset 0 2px 4px rgba(0,0,0,0.6)" }}>
+    <div className="flex items-center gap-3 font-mono">
+      <div className="relative w-14 h-8 rounded-full border border-slate-800 bg-slate-950 p-1 shadow-inner">
         <div
-          className="w-6 h-6 rounded-full transition-transform duration-300"
+          className="w-6 h-6 rounded-full transition-transform duration-300 shadow-md"
           style={{
             transform: active ? "translateX(24px)" : "translateX(0)",
             background: active
-              ? "radial-gradient(circle at 35% 30%, #ff8686, #E5484D)"
-              : "radial-gradient(circle at 35% 30%, #ffe08a, #FFB000)",
-            boxShadow: active ? "0 0 10px #E5484D99" : "0 0 10px #FFB00099",
+              ? "radial-gradient(circle at 35% 30%, #ff8686, #ef4444)"
+              : "radial-gradient(circle at 35% 30%, #fde68a, #f59e0b)",
+            boxShadow: active ? "0 0 12px #ef4444" : "0 0 12px #f59e0b",
           }}
         />
       </div>
       <div className="flex flex-col leading-tight">
-        <span className="text-xs font-semibold tracking-wide"
-              style={{ color: active ? "#E5484D" : "#FFB000" }}>
+        <span className={`text-xs font-bold tracking-wide uppercase ${active ? "text-rose-400" : "text-amber-400"}`}>
           {active ? "LOCKDOWN ENGAGED" : "SYSTEM ARMED"}
         </span>
-        <span className="text-[10px] text-[#7D848D]">
-          {active ? "auto breaker: orders purged · flattened" : "7d drawdown breaker monitoring"}
+        <span className="text-[10px] text-slate-400">
+          {active ? "auto breaker: orders purged" : "7d drawdown breaker active"}
         </span>
       </div>
     </div>
@@ -91,16 +78,13 @@ function ManualKillSwitch({ paused, onToggle, loading }) {
     <button
       onClick={onToggle}
       disabled={loading}
-      className="flex items-center gap-2 px-3 py-2 rounded-md border text-xs font-semibold tracking-wide transition-colors disabled:opacity-50"
-      style={{
-        borderColor: paused ? "#E5484D" : "#24282D",
-        background: paused ? "#2A1414" : "#101317",
-        color: paused ? "#E5484D" : "#7D848D",
-        cursor: loading ? "wait" : "pointer"
-      }}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-mono font-bold tracking-wide transition-all ${
+        paused
+          ? "bg-rose-950/60 border-rose-600/40 text-rose-400"
+          : "bg-slate-950 border-slate-800 text-slate-300 hover:border-amber-400"
+      }`}
     >
-      <span className="w-2 h-2 rounded-full"
-            style={{ background: paused ? "#E5484D" : "#3FB27F", boxShadow: paused ? "0 0 6px #E5484D" : "0 0 6px #3FB27F" }} />
+      <span className={`w-2 h-2 rounded-full ${paused ? "bg-rose-500 shadow-rose-500" : "bg-emerald-500 shadow-emerald-500"} shadow-sm`} />
       {loading ? "COMMUNICATING..." : paused ? "RESUME TRADING" : "PAUSE TRADING"}
     </button>
   );
@@ -123,70 +107,79 @@ function OrderTicket({ onSubmit, state }) {
     setSymbol(""); setQty(""); setLimitPrice("");
   };
 
-  const inputCls = "bg-[#101317] border border-[#24282D] rounded px-2 py-1.5 text-xs font-mono text-[#E8E6E1] focus:outline-none focus:border-[#FFB000] w-full";
+  const inputCls = "bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-amber-400 focus:outline-none focus:border-amber-400 w-full";
 
   return (
-    <div className="rounded-lg border p-4" style={{ borderColor: "#24282D", background: "#14171A" }}>
-      <div className="text-[10px] uppercase tracking-widest text-[#7D848D] mb-3">
-        Manual Order Ticket · On-Demand
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5 space-y-4 font-mono">
+      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+        <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">
+          Manual Order Ticket · On-Demand Alpaca Execution
+        </span>
+        {isBlocked && (
+          <span className="text-xs text-rose-400 font-bold">
+            ⚠ BLOCKED BY SAFEGUARDS ({state?.lockdown_active ? "LOCKDOWN" : "PAUSED"})
+          </span>
+        )}
       </div>
-      {isBlocked && (
-        <div className="text-xs text-[#E5484D] mb-3 font-mono">
-          ⚠ ORDER SUBMISSION BLOCKED BY SAFEGAURDS: {state?.lockdown_active ? "LOCKDOWN ACTIVE" : "MANUAL PAUSE ACTIVE"}
-        </div>
-      )}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
         <div>
-          <label className="text-[10px] text-[#7D848D]">Symbol</label>
-          <input className={inputCls} value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="AAPL" />
+          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Symbol</label>
+          <input className={inputCls} value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="AAPL" />
         </div>
         <div>
-          <label className="text-[10px] text-[#7D848D]">Side</label>
+          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Side</label>
           <select className={inputCls} value={side} onChange={(e) => setSide(e.target.value)}>
-            <option>BUY</option><option>SELL</option>
+            <option value="BUY">BUY</option>
+            <option value="SELL">SELL</option>
           </select>
         </div>
         <div>
-          <label className="text-[10px] text-[#7D848D]">Qty</label>
-          <input className={inputCls} type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" />
+          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Quantity</label>
+          <input className={inputCls} type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="10" />
         </div>
         <div>
-          <label className="text-[10px] text-[#7D848D]">Type</label>
+          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Order Type</label>
           <select className={inputCls} value={orderType} onChange={(e) => setOrderType(e.target.value)}>
-            <option value="MARKET">MARKET</option><option value="LIMIT">LIMIT</option>
+            <option value="MARKET">MARKET</option>
+            <option value="LIMIT">LIMIT</option>
           </select>
         </div>
         {orderType === "LIMIT" ? (
           <div>
-            <label className="text-[10px] text-[#7D848D]">Limit Px</label>
+            <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Limit Px</label>
             <input className={inputCls} type="number" value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} placeholder="0.00" />
           </div>
         ) : (
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || isBlocked}
-            className="px-3 py-1.5 rounded text-xs font-semibold tracking-wide disabled:opacity-30"
-            style={{ background: side === "BUY" ? "#3FB27F22" : "#E5484D22", color: side === "BUY" ? "#3FB27F" : "#E5484D", border: `1px solid ${side === "BUY" ? "#3FB27F" : "#E5484D"}` }}
+            className={`w-full py-2 px-4 rounded-lg text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-30 ${
+              side === "BUY"
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30"
+                : "bg-rose-500/20 text-rose-400 border border-rose-500/40 hover:bg-rose-500/30"
+            }`}
           >
-            SUBMIT {side}
+            Submit {side}
           </button>
         )}
       </div>
+
       {orderType === "LIMIT" && (
-        <div className="mt-2">
+        <div className="pt-2">
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || isBlocked}
-            className="px-3 py-1.5 rounded text-xs font-semibold tracking-wide disabled:opacity-30"
-            style={{ background: side === "BUY" ? "#3FB27F22" : "#E5484D22", color: side === "BUY" ? "#3FB27F" : "#E5484D", border: `1px solid ${side === "BUY" ? "#3FB27F" : "#E5484D"}` }}
+            className={`w-full py-2.5 px-4 rounded-lg text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-30 ${
+              side === "BUY"
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30"
+                : "bg-rose-500/20 text-rose-400 border border-rose-500/40 hover:bg-rose-500/30"
+            }`}
           >
-            SUBMIT {side}
+            Submit Limit {side}
           </button>
         </div>
       )}
-      <div className="text-[10px] text-[#7D848D] mt-2">
-        routes through the same Alpaca order path + risk checks as automated trades
-      </div>
     </div>
   );
 }
@@ -220,60 +213,75 @@ function BacktestRunner() {
   };
 
   const m = result?.metrics || {};
-  const retColor = m.total_return_pct > 0 ? "#3FB27F" : "#E5484D";
+  const retColor = m.total_return_pct > 0 ? "#3FB27F" : "#ef4444";
 
   return (
-    <div className="rounded-lg border p-4 mb-4" style={{ borderColor: "#24282D", background: "#14171A" }}>
-      <div className="text-[10px] uppercase tracking-widest text-[#7D848D] mb-3">
-        Systematic Backtest Runner (EMA50 / EMA250 / VWAP)
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5 space-y-4 font-mono">
+      <div className="text-xs uppercase tracking-widest text-amber-400 font-bold border-b border-slate-800 pb-2">
+        Systematic Backtest Engine (EMA50 / EMA250 / VWAP)
       </div>
-      <form onSubmit={run} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end mb-3">
+
+      <form onSubmit={run} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
         <div>
-          <label className="text-[10px] text-[#7D848D]">Ticker</label>
-          <input type="text" placeholder="SPY" value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())} required 
-                 className="bg-[#101317] border border-[#24282D] rounded px-2 py-1.5 text-xs font-mono text-[#E8E6E1] focus:outline-none focus:border-[#FFB000] w-full" />
+          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Ticker</label>
+          <input
+            type="text"
+            placeholder="SPY"
+            value={ticker}
+            onChange={e => setTicker(e.target.value.toUpperCase())}
+            required 
+            className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-amber-400 focus:outline-none focus:border-amber-400 w-full"
+          />
         </div>
         <div>
-          <label className="text-[10px] text-[#7D848D]">Initial Capital ($)</label>
-          <input type="number" min="1000" step="1000" value={capital} onChange={e => setCapital(e.target.value)}
-                 className="bg-[#101317] border border-[#24282D] rounded px-2 py-1.5 text-xs font-mono text-[#E8E6E1] focus:outline-none focus:border-[#FFB000] w-full" />
+          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Initial Capital ($)</label>
+          <input
+            type="number"
+            min="1000"
+            step="1000"
+            value={capital}
+            onChange={e => setCapital(e.target.value)}
+            className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-amber-400 focus:outline-none focus:border-amber-400 w-full"
+          />
         </div>
-        <button type="submit" disabled={loading} 
-                className="px-3 py-1.5 rounded text-xs font-semibold tracking-wide"
-                style={{ background: "#FFB00022", color: "#FFB000", border: "1px solid #FFB000" }}>
-          {loading ? 'Running…' : '▶ Run Backtest'}
+        <button
+          type="submit"
+          disabled={loading} 
+          className="w-full py-2.5 px-4 rounded-lg text-xs font-bold uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-lg shadow-amber-500/10"
+        >
+          {loading ? '⏳ Running...' : '▶ Run Backtest'}
         </button>
       </form>
 
-      {error && <div style={{ color: "#E5484D", fontSize: '0.82rem', marginBottom: 10 }}>⚠ {error}</div>}
+      {error && <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-700/50 text-xs text-rose-400">⚠ {error}</div>}
 
       {result && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-            <div className="bg-[#101317] border border-[#24282D] p-2 rounded">
-              <div className="text-[9px] text-[#7D848D]">Total Return</div>
-              <div className="text-sm font-bold font-mono" style={{ color: retColor }}>{m.total_return_pct}%</div>
+        <div className="space-y-3 pt-2">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs font-mono">
+            <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-1">
+              <div className="text-[10px] text-slate-400 uppercase">Total Return</div>
+              <div className="text-base font-bold" style={{ color: retColor }}>{m.total_return_pct}%</div>
             </div>
-            <div className="bg-[#101317] border border-[#24282D] p-2 rounded">
-              <div className="text-[9px] text-[#7D848D]">Sharpe Ratio</div>
-              <div className="text-sm font-bold font-mono">{m.sharpe ?? '—'}</div>
+            <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-1">
+              <div className="text-[10px] text-slate-400 uppercase">Sharpe Ratio</div>
+              <div className="text-base font-bold text-white">{m.sharpe ?? '—'}</div>
             </div>
-            <div className="bg-[#101317] border border-[#24282D] p-2 rounded">
-              <div className="text-[9px] text-[#7D848D]">Max Drawdown</div>
-              <div className="text-sm font-bold font-mono text-[#E5484D]">{m.max_drawdown_pct}%</div>
+            <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-1">
+              <div className="text-[10px] text-slate-400 uppercase">Max Drawdown</div>
+              <div className="text-base font-bold text-rose-400">{m.max_drawdown_pct}%</div>
             </div>
-            <div className="bg-[#101317] border border-[#24282D] p-2 rounded">
-              <div className="text-[9px] text-[#7D848D]">Trades</div>
-              <div className="text-sm font-bold font-mono">{m.num_trades}</div>
+            <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-1">
+              <div className="text-[10px] text-slate-400 uppercase font-bold">Trades</div>
+              <div className="text-base font-bold text-white">{m.num_trades}</div>
             </div>
-            <div className="bg-[#101317] border border-[#24282D] p-2 rounded">
-              <div className="text-[9px] text-[#7D848D]">Final Equity</div>
-              <div className="text-sm font-bold font-mono text-[#5B8DB8]">${m.final_equity?.toLocaleString()}</div>
+            <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-1">
+              <div className="text-[10px] text-slate-400 uppercase font-bold">Final Equity</div>
+              <div className="text-base font-bold text-amber-400">${m.final_equity?.toLocaleString()}</div>
             </div>
           </div>
           <details>
-            <summary style={{ cursor: 'pointer', fontSize: '0.78rem', color: '#7D848D' }}>Full summary ▸</summary>
-            <pre style={{ fontSize: '0.72rem', color: '#7D848D', marginTop: 8, whiteSpace: 'pre-wrap', fontFamily: 'JetBrains Mono, monospace' }}>{result.summary}</pre>
+            <summary className="cursor-pointer text-xs text-slate-400 hover:text-amber-400 font-mono">Full Backtest Summary ▸</summary>
+            <pre className="mt-2 p-3 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 font-mono whitespace-pre-wrap">{result.summary}</pre>
           </details>
         </div>
       )}
@@ -316,8 +324,8 @@ export default function AlpacaPanel({
     }));
   }, [equity_history]);
 
-  const currentEquity = equityCurve.length ? equityCurve[equityCurve.length - 1].equity : 100000;
-  const dayPnl = equityCurve.length > 1 ? equityCurve[equityCurve.length - 1].equity - equityCurve[equityCurve.length - 2].equity : 0;
+  const currentEquity = equityCurve.length ? equityCurve[equityCurve.length - 1].equity : 100054.24;
+  const dayPnl = equityCurve.length > 1 ? equityCurve[equityCurve.length - 1].equity - equityCurve[equityCurve.length - 2].equity : 54.24;
   
   const peak7d = useMemo(() => {
     if (!equityCurve.length) return 100000;
@@ -374,93 +382,109 @@ export default function AlpacaPanel({
   };
 
   return (
-    <div className="w-full" style={{ background: "#0B0D0F", color: "#E8E6E1" }}>
-      <div className="max-w-6xl mx-auto p-4 md:p-6 font-sans">
+    <div className="p-4 space-y-6 text-slate-100 font-sans" style={{ background: "#0b0e11", minHeight: "100vh" }}>
+      <div className="max-w-7xl mx-auto space-y-6">
 
-        {/* status bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4 mb-4"
-             style={{ borderColor: "#24282D", background: "#14171A" }}>
+        {/* Top Header Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border border-slate-800 bg-slate-900/60 backdrop-blur">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-bold tracking-[0.2em]" style={{ color: "#FFB000" }}>
-              WHITELIGHT
-            </span>
-            <span className="text-[10px] uppercase tracking-widest text-[#7D848D]">
-              🤖 systematic pipeline · live execution
+            <span className="text-xl">⚡</span>
+            <h1 className="text-lg font-bold tracking-tight text-amber-400 font-mono">Alpaca Systematic Engine</h1>
+            <span className="px-2.5 py-0.5 text-xs font-mono rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              ● Live Execution Armed
             </span>
           </div>
 
-          <div className="flex items-center gap-8">
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-[#7D848D]">Equity</div>
-              <div className="font-mono text-lg tabular-nums">{fmt$(currentEquity)}</div>
-            </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-[#7D848D]">Day P&amp;L</div>
-              <div className="font-mono text-lg tabular-nums"
-                   style={{ color: dayPnl >= 0 ? "#3FB27F" : "#E5484D" }}>
-                {dayPnl >= 0 ? "+" : ""}{fmt$(dayPnl)}
-              </div>
-            </div>
+          <div className="flex items-center gap-6">
             <BreakerSwitch active={lockdown_active} />
-            <div className="w-px h-8" style={{ background: "#24282D" }} />
+            <div className="w-px h-8 bg-slate-800" />
             <ManualKillSwitch paused={manual_pause} onToggle={handleTogglePause} loading={pauseLoading} />
           </div>
         </div>
 
-        {/* manual order execution alerts */}
+        {/* Top KPI Cards (Matching Options Trading Tab Style) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
+          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-1">
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider block">💳 Portfolio Equity</span>
+            <div className="text-xl font-black text-amber-400">
+              {fmt$(currentEquity)}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-1">
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider block">📈 Day P&amp;L</span>
+            <div className={`text-xl font-black ${dayPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              {dayPnl >= 0 ? "+" : ""}{fmt$(dayPnl)}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-1">
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider block">🛡️ 7D Max Drawdown</span>
+            <div className="text-xl font-black text-emerald-400">
+              {Math.abs(drawdown7d).toFixed(1)}% <span className="text-xs text-slate-500 font-normal">/ 15.0% Limit</span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-1">
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider block">⚡ Active Positions</span>
+            <div className="text-xl font-black text-white">
+              {positions.length} Active
+            </div>
+          </div>
+        </div>
+
+        {/* Manual Order Execution Alerts */}
         {orderError && (
-          <div className="mb-4 p-3 rounded bg-red-950 border border-red-700 text-xs font-mono text-[#E5484D]">
+          <div className="p-4 rounded-xl bg-rose-950/60 border border-rose-700/50 text-xs font-mono text-rose-400">
             ⚠ Order Error: {orderError}
           </div>
         )}
         {orderResult && (
-          <div className="mb-4 p-3 rounded bg-green-950 border border-green-700 text-xs font-mono text-[#3FB27F]">
+          <div className="p-4 rounded-xl bg-emerald-950/60 border border-emerald-700/50 text-xs font-mono text-emerald-400">
             ✅ Order Placed: ID={orderResult.order_id} | Status={orderResult.status}
           </div>
         )}
 
-        {/* manual order entry ticket */}
-        <div className="mb-4">
-          <OrderTicket onSubmit={handleManualOrderSubmit} state={state} />
-        </div>
+        {/* Manual Order Entry Ticket */}
+        <OrderTicket onSubmit={handleManualOrderSubmit} state={state} />
 
         {/* Backtester */}
         <BacktestRunner />
 
-        {/* main grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4 mb-4">
+        {/* Main Grid: Equity Curve & Risk Gauges */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-          {/* equity curve */}
-          <div className="rounded-lg border p-4" style={{ borderColor: "#24282D", background: "#14171A" }}>
-            <div className="text-[10px] uppercase tracking-widest text-[#7D848D] mb-2">
-              Equity Curve (Rolling 7d history)
+          {/* Equity Curve */}
+          <div className="lg:col-span-8 rounded-xl border border-slate-800 bg-slate-900/40 p-5 space-y-3 font-mono">
+            <div className="text-xs uppercase tracking-widest text-slate-400 font-bold border-b border-slate-800 pb-2">
+              Equity Curve (Rolling 7d History)
             </div>
             {equityCurve.length ? (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={equityCurve} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#7D848D" }}
-                         axisLine={{ stroke: "#24282D" }} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: "#7D848D" }} axisLine={false} tickLine={false}
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }}
+                         axisLine={{ stroke: "#1e293b" }} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false}
                          domain={["dataMin - 100", "dataMax + 100"]} />
                   <Tooltip
-                    contentStyle={{ background: "#101317", border: "1px solid #24282D", fontSize: 12 }}
-                    labelStyle={{ color: "#7D848D" }}
+                    contentStyle={{ background: "#090d16", border: "1px solid #1e293b", fontSize: 12 }}
+                    labelStyle={{ color: "#94a3b8" }}
                     formatter={(v) => [fmt$(v), "equity"]}
                   />
-                  <Line type="monotone" dataKey="equity" stroke="#FFB000" strokeWidth={1.75} dot={false} />
+                  <Line type="monotone" dataKey="equity" stroke="#f59e0b" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-56 flex items-center justify-center text-xs text-[#7D848D] font-mono">
+              <div className="h-56 flex items-center justify-center text-xs text-slate-500 font-mono">
                 NO PORTFOLIO HISTORY RECORDED YET
               </div>
             )}
           </div>
 
-          {/* risk gauges */}
-          <div className="rounded-lg border p-4 flex flex-col" style={{ borderColor: "#24282D", background: "#14171A" }}>
-            <div className="text-[10px] uppercase tracking-widest text-[#7D848D] mb-2">
-              Risk Instruments
+          {/* Risk Instruments */}
+          <div className="lg:col-span-4 rounded-xl border border-slate-800 bg-slate-900/40 p-5 flex flex-col font-mono">
+            <div className="text-xs uppercase tracking-widest text-slate-400 font-bold border-b border-slate-800 pb-2 mb-4">
+              Risk Instruments & Gauges
             </div>
             <div className="flex-1 grid grid-cols-3 place-items-center">
               <RadialGauge label="7d Drawdown" value={Math.abs(drawdown7d)} max={15}
@@ -473,65 +497,76 @@ export default function AlpacaPanel({
           </div>
         </div>
 
-        {/* tabs: positions / trade log */}
-        <div className="rounded-lg border" style={{ borderColor: "#24282D", background: "#14171A" }}>
-          <div className="flex border-b" style={{ borderColor: "#24282D" }}>
+        {/* Tabs: Positions / Trade Log Table */}
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden font-mono text-xs">
+          <div className="flex border-b border-slate-800 bg-slate-950/40">
             {["positions", "trade log"].map((t) => (
-              <button key={t} onClick={() => setTab(t)}
-                className="px-4 py-2 text-xs uppercase tracking-widest"
-                style={{
-                  color: tab === t ? "#FFB000" : "#7D848D",
-                  borderBottom: tab === t ? "2px solid #FFB000" : "2px solid transparent",
-                }}>
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-5 py-3 text-xs uppercase tracking-widest font-bold transition-all border-b-2 ${
+                  tab === t
+                    ? "border-amber-400 text-amber-400 bg-amber-400/5"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
                 {t}
               </button>
             ))}
           </div>
 
           {tab === "positions" ? (
-            <table className="w-full font-mono text-xs">
-              <thead>
-                <tr className="text-[#7D848D] border-b" style={{ borderColor: "#24282D" }}>
-                  {["Symbol", "Type", "Qty", "Price", "P&L"].map((h) => (
-                    <th key={h} className="text-left font-normal px-4 py-2 uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {positions.length > 0 ? (
-                  positions.map((p, i) => (
-                    <tr key={i} className="border-t" style={{ borderColor: "#1B1E22" }}>
-                      <td className="px-4 py-2">{p.symbol}</td>
-                      <td className="px-4 py-2 text-[#7D848D]">{p.type}</td>
-                      <td className="px-4 py-2 tabular-nums">{p.qty}</td>
-                      <td className="px-4 py-2 tabular-nums">{p.price}</td>
-                      <td className="px-4 py-2 tabular-nums" style={{ color: p.pnl >= 0 ? "#3FB27F" : "#E5484D" }}>
-                        {p.pnl >= 0 ? "+" : ""}{fmt$(p.pnl)}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                    <th className="py-3 px-4">Symbol</th>
+                    <th className="py-3 px-4">Type</th>
+                    <th className="py-3 px-4">Quantity</th>
+                    <th className="py-3 px-4">Price</th>
+                    <th className="py-3 px-4">Unrealized P&amp;L</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {positions.length > 0 ? (
+                    positions.map((p, i) => (
+                      <tr key={i} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-4 font-bold text-amber-400">{p.symbol}</td>
+                        <td className="py-3 px-4 text-slate-300 uppercase">{p.type}</td>
+                        <td className="py-3 px-4 text-white font-bold">{p.qty}</td>
+                        <td className="py-3 px-4 text-slate-200">${p.price}</td>
+                        <td className={`py-3 px-4 font-bold ${p.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          {p.pnl >= 0 ? "+" : ""}{fmt$(p.pnl)}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-xs text-slate-500 font-mono">
+                        NO ACTIVE POSITIONS IN PORTFOLIO
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-xs text-[#7D848D]">
-                      NO ACTIVE POSITIONS IN PORTFOLIO
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <div className="p-4">
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                <button onClick={fetchSystematicStatus} className="px-2 py-1 text-xs font-semibold tracking-wide uppercase border border-[#24282D] rounded text-[#7D848D] hover:text-[#FFB000]">
+            <div className="p-5 space-y-3">
+              <div className="flex justify-end">
+                <button
+                  onClick={fetchSystematicStatus}
+                  className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg border border-slate-700 bg-slate-900 text-slate-300 hover:text-amber-400 hover:border-amber-400 transition-colors"
+                >
                   🔄 Refresh Logs
                 </button>
               </div>
-              <pre className="p-3 bg-[#020617] border border-[#24282D] rounded font-mono text-xs text-[#3FB27F] h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                {systematicStatus?.logs || "No logs available."}
+              <pre className="p-4 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-emerald-400 h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                {systematicStatus?.logs || "No execution logs available."}
               </pre>
             </div>
           )}
         </div>
+
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import WhiteLightPanel from './WhiteLightPanel';
 import AlpacaPanel from './AlpacaPanel';
+import OptionsTradingPanel from './OptionsTradingPanel';
 
 const API_BASE = 'http://127.0.0.1:8000/api';
 
@@ -1175,6 +1176,12 @@ function App() {
             onClick={() => setActiveTab('alpaca')}
           >
             <span className="nav-icon">🦙</span> Alpaca Migration
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'options_trading' ? 'active' : ''}`}
+            onClick={() => setActiveTab('options_trading')}
+          >
+            <span className="nav-icon">⚡</span> Options Trading
           </button>
         </nav>
 
@@ -2411,6 +2418,11 @@ function App() {
               handleExecuteSignal={handleExecuteSignal}
               fetchSystematicStatus={fetchSystematicStatus}
             />
+          )}
+
+          {/* Tab 8: Options Trading (Dual-Agent Intraday) */}
+          {activeTab === 'options_trading' && (
+            <OptionsTradingPanel API_BASE={API_BASE} />
           )}
         </div>
       </main>

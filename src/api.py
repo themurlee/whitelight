@@ -240,7 +240,31 @@ class APIServerHandler(BaseHTTPRequestHandler):
         elif path == "/api/systematic/status":
             status_data = _get_systematic_status()
             self._send_json(status_data)
-            
+
+        elif path == "/api/options/intraday_signals":
+            query_params = parse_qs(parsed_url.query)
+            ticker = query_params.get("ticker", ["AAPL"])[0].upper()
+            from src.options.alpaca_options import fetch_intraday_5min_candles
+            from src.options.signals import calculate_intraday_signals
+            df_5min = fetch_intraday_5min_candles(ticker)
+            signals = calculate_intraday_signals(df_5min)
+            self._send_json({"success": True, "ticker": ticker, "signals": signals})
+
+        elif path == "/api/options/account_summary":
+            from src.options.alpaca_options import get_alpaca_options_account_summary
+            summary = get_alpaca_options_account_summary()
+            self._send_json(summary)
+
+        elif path == "/api/options/chain":
+            query_params = parse_qs(parsed_url.query)
+            ticker = query_params.get("ticker", ["AAPL"])[0].upper()
+            timeframe = query_params.get("timeframe", ["WEEKLY"])[0].upper()
+            from src.options.alpaca_options import fetch_intraday_5min_candles, get_options_chain
+            df_5min = fetch_intraday_5min_candles(ticker)
+            price = float(df_5min['close'].iloc[-1]) if df_5min is not None and not df_5min.empty else 230.0
+            chain = get_options_chain(ticker, price, timeframe)
+            self._send_json({"success": True, "ticker": ticker, "timeframe": timeframe, "current_price": price, "chain": chain})
+
         else:
             self.send_error(404, "API endpoint not found")
 
@@ -887,6 +911,51 @@ class APIServerHandler(BaseHTTPRequestHandler):
                     "final_equity": round(result.final_equity, 2),
                     "initial_capital": capital,
                 }})
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+
+        elif path == "/api/options/evaluate_dual_agent":
+            ticker = post_data.get("ticker", "AAPL").upper()
+            proposer_provider = post_data.get("proposer_provider", "gemini")
+            proposer_model = post_data.get("proposer_model", "gemini-2.5-flash")
+            validator_provider = post_data.get("validator_provider", "gemini")
+            validator_model = post_data.get("validator_model", "gemini-2.5-flash")
+
+            try:
+                from src.options.alpaca_options import fetch_intraday_5min_candles
+                from src.options.signals import calculate_intraday_signals
+                from src.options.agents import DualAgentPipeline
+
+                df_5min = fetch_intraday_5min_candles(ticker)
+                signals = calculate_intraday_signals(df_5min)
+
+                pipeline = DualAgentPipeline(
+                    proposer_provider=proposer_provider,
+                    proposer_model=proposer_model,
+                    validator_provider=validator_provider,
+                    validator_model=validator_model
+                )
+
+                result = pipeline.run(ticker, signals, timeframe=post_data.get("timeframe", "WEEKLY"))
+                self._send_json({
+                    "success": True,
+                    "ticker": ticker,
+                    "signals": signals,
+                    "dual_agent_result": result
+                })
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+
+        elif path == "/api/options/execute_order":
+            contract_symbol = post_data.get("contract_symbol", "")
+            qty = int(post_data.get("qty", 1))
+            side = post_data.get("side", "buy")
+            limit_price = float(post_data.get("limit_price", 2.50))
+
+            try:
+                from src.options.alpaca_options import execute_alpaca_paper_option_order
+                res = execute_alpaca_paper_option_order(contract_symbol, qty, side, limit_price)
+                self._send_json(res)
             except Exception as e:
                 self._send_json({"success": False, "error": str(e)})
 
