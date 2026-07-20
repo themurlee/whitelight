@@ -1508,67 +1508,75 @@ export default function WhitelightCortexIntegratedPanel({
               <span className="text-xs text-slate-400 font-bold">{positions.length} Options + {parentPositions.active_positions?.length || 0} Stocks</span>
             </div>
 
-            {/* Option Positions Grid */}
-            {/* Unified Top-Down Scrollable Positions List */}
-            <div className="overflow-y-auto max-h-[400px] space-y-2 pr-1 text-xs">
-              {/* Option Positions */}
-              {positions.map((pos, idx) => (
-                <div key={idx} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-800 flex flex-wrap md:flex-nowrap justify-between items-center gap-4 hover:border-slate-700 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-base">🎫</span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-amber-400 text-sm">{pos.ticker}</span>
-                        <span className="text-xs font-bold text-white">${pos.strike} {pos.type}</span>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">Exp: {pos.exp}</span>
+            {/* Two-Column Stocks and Options Split Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column: Stocks Positions */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider border-b border-slate-800 pb-1.5 flex justify-between">
+                  <span>📈 Stock Positions</span>
+                  <span className="text-[10px] text-slate-500">{parentPositions.active_positions?.length || 0} Assets</span>
+                </h4>
+                <div className="overflow-y-auto max-h-[350px] space-y-2 pr-1 text-xs">
+                  {parentPositions.active_positions?.map((pos, idx) => (
+                    <div key={idx} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-800 flex justify-between items-center gap-3 hover:border-slate-700 transition-colors">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-emerald-400 text-sm">{pos.symbol}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Qty: {pos.qty}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                          <span>Cost: <strong>${pos.avg_entry_price?.toFixed(2)}</strong></span>
+                          <span>Current: <strong>${pos.current_price?.toFixed(2)}</strong></span>
+                          <span>Value: <strong>${pos.market_value?.toFixed(2)}</strong></span>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                        <span>Entry: <strong className="text-slate-200">${pos.entryPrice}</strong></span>
-                        <span>Current: <strong className="text-amber-300">${pos.currentPrice}</strong></span>
-                        <span>Peak: <strong className="text-emerald-400">${pos.highWaterMark}</strong></span>
-                        <span>Stop: <strong className="text-rose-400">${pos.trailingStop}</strong></span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-black text-emerald-400">
-                      +${pos.pnl.toFixed(2)} (+{pos.pnlPct}%)
-                    </span>
-                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">Options Position</div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Equities Stock Positions */}
-              {parentPositions.active_positions?.map((pos, idx) => (
-                <div key={idx} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-800 flex flex-wrap md:flex-nowrap justify-between items-center gap-4 hover:border-slate-700 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-base">📈</span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-emerald-400 text-sm">{pos.symbol}</span>
-                        <span className="text-xs font-bold text-slate-300">Equity Asset</span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                        <span>Qty: <strong className="text-slate-200">{pos.qty}</strong></span>
-                        <span>Avg Cost: <strong className="text-slate-200">${pos.avg_entry_price?.toFixed(2)}</strong></span>
-                        <span>Current: <strong className="text-amber-300">${pos.current_price?.toFixed(2)}</strong></span>
-                        <span>Market Val: <strong className="text-slate-200">${pos.market_value?.toFixed(2)}</strong></span>
+                      <div className="text-right">
+                        <span className={`text-xs font-black ${pos.unrealized_pl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          {pos.unrealized_pl >= 0 ? "+" : ""}${pos.unrealized_pl?.toFixed(2)}
+                        </span>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <span className={`text-xs font-black ${pos.unrealized_pl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                      {pos.unrealized_pl >= 0 ? "+" : ""}${pos.unrealized_pl?.toFixed(2)}
-                    </span>
-                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">Stock Asset</div>
-                  </div>
+                  ))}
+                  {(!parentPositions.active_positions || parentPositions.active_positions.length === 0) && (
+                    <div className="text-center py-12 text-slate-600">No active stock positions.</div>
+                  )}
                 </div>
-              ))}
+              </div>
 
-              {positions.length === 0 && (!parentPositions.active_positions || parentPositions.active_positions.length === 0) && (
-                <div className="text-center py-12 text-slate-500">No active positions currently held. Scan watchlist or submit limit orders to execute.</div>
-              )}
+              {/* Right Column: Options Positions */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider border-b border-slate-800 pb-1.5 flex justify-between">
+                  <span>🎫 Options Positions</span>
+                  <span className="text-[10px] text-slate-500">{positions.length} Contracts</span>
+                </h4>
+                <div className="overflow-y-auto max-h-[350px] space-y-2 pr-1 text-xs">
+                  {positions.map((pos, idx) => (
+                    <div key={idx} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-800 flex justify-between items-center gap-3 hover:border-slate-700 transition-colors">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-amber-400 text-sm">{pos.ticker}</span>
+                          <span className="text-xs font-bold text-white">${pos.strike} {pos.type}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Exp: {pos.exp}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                          <span>Entry: <strong>${pos.entryPrice}</strong></span>
+                          <span>Current: <strong className="text-amber-300">${pos.currentPrice}</strong></span>
+                          <span>Peak: <strong className="text-emerald-400">${pos.highWaterMark}</strong></span>
+                          <span>Stop: <strong className="text-rose-400">${pos.trailingStop}</strong></span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-black text-emerald-400">
+                          +${pos.pnl.toFixed(2)} (+{pos.pnlPct}%)
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {positions.length === 0 && (
+                    <div className="text-center py-12 text-slate-600">No active options contracts.</div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
