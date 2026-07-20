@@ -256,6 +256,16 @@ export default function WhitelightCortexIntegratedPanel({
   // Scheduled Expiration Side Toast Alert Popup
   const [expirationAlert, setExpirationAlert] = useState(null);
 
+  // Conditional Order Builder states
+  const [conditionalOrders, setConditionalOrders] = useState([]);
+  const [condTicker, setCondTicker] = useState("AAPL");
+  const [condStrike, setCondStrike] = useState("230.00");
+  const [condType, setCondType] = useState("CALL");
+  const [condTriggerVal, setCondTriggerVal] = useState("195.00");
+  const [condQty, setCondQty] = useState(1);
+  const [condDirection, setCondDirection] = useState("CROSSES_ABOVE");
+  const [submittingCond, setSubmittingCond] = useState(false);
+
   // UI Views & Modals
   const [showOrdersDropdown, setShowOrdersDropdown] = useState(false);
   const [showStrategyGuide, setShowStrategyGuide] = useState(false);
@@ -295,6 +305,61 @@ export default function WhitelightCortexIntegratedPanel({
       }
     } catch (e) {
       console.error("Account summary error:", e);
+    }
+  };
+
+  const fetchConditionalOrders = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/options/conditional_orders`);
+      if (res.ok) {
+        const data = await res.json();
+        setConditionalOrders(data);
+      }
+    } catch (e) {
+      console.error("Error fetching conditional orders:", e);
+    }
+  };
+
+  const handleAddConditionalOrder = async (e) => {
+    e.preventDefault();
+    setSubmittingCond(true);
+    try {
+      const res = await fetch(`${API_BASE}/options/conditional_orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          underlying: condTicker,
+          option_type: condType,
+          strike: parseFloat(condStrike) || 100,
+          condition: condDirection,
+          trigger_value: parseFloat(condTriggerVal) || 100,
+          qty: parseInt(condQty) || 1
+        })
+      });
+      if (res.ok) {
+        fetchConditionalOrders();
+        // Reset form inputs except ticker
+        setCondQty(1);
+      }
+    } catch (err) {
+      console.error("Error adding conditional order:", err);
+    } finally {
+      setSubmittingCond(false);
+    }
+  };
+
+  const handleDeleteConditionalOrder = async (id) => {
+    try {
+      const res = await fetch(`${API_BASE}/options/conditional_orders/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      if (res.ok) {
+        fetchConditionalOrders();
+      }
+    } catch (err) {
+      console.error("Error deleting conditional order:", err);
     }
   };
 
@@ -364,11 +429,13 @@ export default function WhitelightCortexIntegratedPanel({
     fetchAccountSummary();
     fetchLocalTrades();
     fetchOptionsPositions();
+    fetchConditionalOrders();
     
     const interval = setInterval(() => {
       fetchAccountSummary();
       fetchLocalTrades();
       fetchOptionsPositions();
+      fetchConditionalOrders();
     }, 5000);
     return () => clearInterval(interval);
   }, [activeTicker, timeframe]);
@@ -1631,6 +1698,151 @@ export default function WhitelightCortexIntegratedPanel({
                   {positions.length === 0 && (
                     <div className="text-center py-12 text-slate-600">No active options contracts.</div>
                   )}
+                </div>
+              </div>
+            </div>
+
+            {/* Conditional Trigger Order Builder Section */}
+            <div className="border-t border-slate-800/80 pt-6 space-y-4">
+              <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span className="text-amber-400 text-base">🤖</span>
+                <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                  Conditional Trigger Options Order Builder
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Form column (col-span-5) */}
+                <form onSubmit={handleAddConditionalOrder} className="lg:col-span-5 space-y-3 p-4 rounded-xl border border-slate-800 bg-slate-950/40 text-xs font-mono">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Underlying Ticker</label>
+                      <select 
+                        value={condTicker}
+                        onChange={(e) => setCondTicker(e.target.value)}
+                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                      >
+                        {watchlist.map(tk => <option key={tk} value={tk}>{tk}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Option Type</label>
+                      <select 
+                        value={condType}
+                        onChange={(e) => setCondType(e.target.value)}
+                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                      >
+                        <option value="CALL">CALL</option>
+                        <option value="PUT">PUT</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Option Strike ($)</label>
+                      <input 
+                        type="number"
+                        step="0.01"
+                        value={condStrike}
+                        onChange={(e) => setCondStrike(e.target.value)}
+                        placeholder="Strike price"
+                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Quantity (Contracts)</label>
+                      <input 
+                        type="number"
+                        min="1"
+                        value={condQty}
+                        onChange={(e) => setCondQty(e.target.value)}
+                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Trigger Condition</label>
+                      <select 
+                        value={condDirection}
+                        onChange={(e) => setCondDirection(e.target.value)}
+                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                      >
+                        <option value="CROSSES_ABOVE">Crosses Above (📈)</option>
+                        <option value="CROSSES_BELOW">Crosses Below (📉)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Stock Price Threshold ($)</label>
+                      <input 
+                        type="number"
+                        step="0.01"
+                        value={condTriggerVal}
+                        onChange={(e) => setCondTriggerVal(e.target.value)}
+                        placeholder="Stock trigger px"
+                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit"
+                    disabled={submittingCond}
+                    className="w-full py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-black uppercase tracking-wider transition-colors shadow-md shadow-amber-500/10"
+                  >
+                    {submittingCond ? "⏳ Scheduling Order..." : "⚡ Arm Conditional Order"}
+                  </button>
+                </form>
+
+                {/* List column (col-span-7) */}
+                <div className="lg:col-span-7 space-y-3 p-4 rounded-xl border border-slate-800 bg-slate-950/40 text-xs font-mono">
+                  <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800/60 pb-1 flex justify-between">
+                    <span>Armed Conditional Triggers</span>
+                    <span className="text-amber-400 font-bold">{conditionalOrders.filter(o => o.status === "PENDING").length} Pending</span>
+                  </h5>
+
+                  <div className="overflow-y-auto max-h-[220px] space-y-2 pr-1">
+                    {conditionalOrders.map((o) => (
+                      <div key={o.id} className={`p-3 rounded-lg border flex justify-between items-center ${
+                        o.status === "EXECUTED" 
+                          ? "bg-slate-900/20 border-slate-800/40 text-slate-500" 
+                          : "bg-slate-900/60 border-slate-800 text-slate-300"
+                      }`}>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-black ${o.option_type === "CALL" ? "text-emerald-400" : "text-rose-400"}`}>
+                              {o.underlying} {o.strike} {o.option_type}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Qty: {o.qty}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${
+                              o.status === "EXECUTED" ? "bg-slate-800 text-slate-500" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            }`}>
+                              {o.status}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-slate-400 mt-1">
+                            Trigger when {o.underlying} stock {o.condition === "CROSSES_ABOVE" ? " rises above " : " falls below "} 
+                            <strong className="text-white">${o.trigger_value}</strong>
+                            {o.triggered_at && <span className="text-[8px] text-slate-500 ml-2">At: {new Date(o.triggered_at).toLocaleString()}</span>}
+                          </div>
+                        </div>
+                        {o.status === "PENDING" && (
+                          <button 
+                            onClick={() => handleDeleteConditionalOrder(o.id)}
+                            className="text-slate-500 hover:text-rose-400 font-bold text-xs"
+                            title="Cancel Trigger"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {conditionalOrders.length === 0 && (
+                      <div className="text-center py-12 text-slate-600">No conditional orders scheduled. Use the form to arm new triggers.</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -309,6 +309,12 @@ class APIServerHandler(BaseHTTPRequestHandler):
                 self._send_json([])
             return
 
+        elif path == "/api/options/conditional_orders":
+            cond_file = os.path.join(DATA_DIR, "conditional_orders.json")
+            data = _read_json_file(cond_file, [])
+            self._send_json(data)
+            return
+
         elif path == "/api/options/alerts":
             with ALERTS_LOCK:
                 alerts = list(GLOBAL_ALERTS)
@@ -447,7 +453,36 @@ class APIServerHandler(BaseHTTPRequestHandler):
             self.send_error(400, "Invalid JSON body")
             return
 
-        if path == "/api/state/update_equity":
+        if path == "/api/options/conditional_orders":
+            cond_file = os.path.join(DATA_DIR, "conditional_orders.json")
+            orders = _read_json_file(cond_file, [])
+            new_order = {
+                "id": f"trigger_{int(time.time())}_{len(orders)}",
+                "timestamp": datetime.now().isoformat(),
+                "underlying": post_data.get("underlying", "").upper(),
+                "option_type": post_data.get("option_type", "CALL").upper(),
+                "strike": float(post_data.get("strike", 100.0)),
+                "condition": post_data.get("condition", "CROSSES_ABOVE").upper(),
+                "trigger_value": float(post_data.get("trigger_value", 100.0)),
+                "qty": int(post_data.get("qty", 1)),
+                "status": "PENDING"
+            }
+            orders.append(new_order)
+            _write_json_file(cond_file, orders)
+            self._send_json({"success": True, "order": new_order})
+            return
+
+        elif path == "/api/options/conditional_orders/delete":
+            cond_file = os.path.join(DATA_DIR, "conditional_orders.json")
+            orders = _read_json_file(cond_file, [])
+            order_id = post_data.get("id")
+            orders = [o for o in orders if o.get("id") != order_id]
+            _write_json_file(cond_file, orders)
+            self._send_json({"success": True})
+            return
+
+        elif path == "/api/state/update_equity":
+
             # Update equity history
             state = _read_json_file(STATE_FILE, {"lockdown_active": False, "drawdown_locked_at": None, "equity_history": []})
             equity = float(post_data.get("equity", 10000.0))
@@ -1523,6 +1558,92 @@ def position_risk_checker_loop():
         except Exception as err:
             print(f"[RISK CHECKER] Error in monitor loop: {err}", flush=True)
             
+        # Check pending conditional orders
+        try:
+            cond_file = os.path.join(DATA_DIR, "conditional_orders.json")
+            if os.path.exists(cond_file):
+                orders = _read_json_file(cond_file, [])
+                updated = False
+                
+                for o in orders:
+                    if o.get("status") == "PENDING":
+                        underlying = o.get("underlying")
+                        # Fetch current stock price of underlying
+                        stock_price = None
+                        if underlying in stock_positions:
+                            stock_price = float(stock_positions[underlying].current_price)
+                        else:
+                            sig_data = _fetch_real_ticker_signal(underlying)
+                            stock_price = sig_data.get("basePrice")
+                            
+                        if stock_price:
+                            cond = o.get("condition")
+                            trig_val = o.get("trigger_value")
+                            trigger_met = False
+                            
+                            if cond == "CROSSES_ABOVE" and stock_price >= trig_val:
+                                trigger_met = True
+                            elif cond == "CROSSES_BELOW" and stock_price <= trig_val:
+                                trigger_met = True
+                                
+                            if trigger_met:
+                                print(f"[RISK CHECKER] Conditional order triggered for {underlying}! Stock: ${stock_price} vs Trigger: ${trig_val}", flush=True)
+                                
+                                # Now fetch option chain to locate matching option contract
+                                from src.options.alpaca_options import get_alpaca_options_chain
+                                chain_res = get_alpaca_options_chain(underlying, timeframe="WEEKLY")
+                                target_contract = None
+                                
+                                if chain_res.get("success") and chain_res.get("chain"):
+                                    target_strike = o.get("strike")
+                                    target_type = o.get("option_type")
+                                    
+                                    candidates = [c for c in chain_res["chain"] if c["type"] == target_type]
+                                    candidates.sort(key=lambda x: abs(float(x["strike"]) - target_strike))
+                                    
+                                    if candidates:
+                                        target_contract = candidates[0]["symbol"]
+                                        
+                                if target_contract:
+                                    try:
+                                        from alpaca.trading.requests import MarketOrderRequest
+                                        from alpaca.trading.enums import OrderSide, TimeInForce
+                                        
+                                        qty = int(o.get("qty", 1))
+                                        order_req = MarketOrderRequest(
+                                            symbol=target_contract,
+                                            qty=qty,
+                                            side=OrderSide.BUY,
+                                            time_in_force=TimeInForce.DAY
+                                        )
+                                        client.submit_order(order_req)
+                                        
+                                        # Queue alert
+                                        alert = {
+                                            "id": f"cond_trigger_{o.get('id')}_{time.time()}",
+                                            "timestamp": datetime.now().isoformat(),
+                                            "type": "profit_bracket",
+                                            "symbol": target_contract,
+                                            "underlying": underlying,
+                                            "message": f"🤖 Triggered conditional order! Bought {qty} contracts of {target_contract} since {underlying} stock crossed {trig_val}!"
+                                        }
+                                        with ALERTS_LOCK:
+                                            GLOBAL_ALERTS.append(alert)
+                                            
+                                        o["status"] = "EXECUTED"
+                                        o["triggered_at"] = datetime.now().isoformat()
+                                        updated = True
+                                    except Exception as execution_err:
+                                        print(f"[RISK CHECKER] Failed to submit conditional order for {underlying}: {execution_err}", flush=True)
+                                else:
+                                    print(f"[RISK CHECKER] Could not resolve target option contract for {underlying} {target_type} strike {target_strike}", flush=True)
+                                    
+                if updated:
+                    _write_json_file(cond_file, orders)
+                    
+        except Exception as cond_err:
+            print(f"[RISK CHECKER] Error checking conditional orders: {cond_err}", flush=True)
+
         time.sleep(10)
 
 
