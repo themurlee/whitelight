@@ -9,7 +9,7 @@ import WhitelightCortexIntegratedPanel from './WhitelightCortexIntegratedPanel';
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('options');
+  const [activeTab, setActiveTab] = useState('whitelight_cortex');
   const [optionsSubTab, setOptionsSubTab] = useState('overview');
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -1162,22 +1162,16 @@ function App() {
 
         <nav className="sidebar-nav">
           <button 
+            className={`nav-item ${activeTab === 'whitelight_cortex' ? 'active' : ''}`}
+            onClick={() => setActiveTab('whitelight_cortex')}
+          >
+            <span className="nav-icon">⚡🧠</span> Whitelight + Cortex
+          </button>
+          <button 
             className={`nav-item ${activeTab === 'options' ? 'active' : ''}`}
             onClick={() => { setActiveTab('options'); setOptionsSubTab('overview'); }}
           >
             <span className="nav-icon">📊</span> Options
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'systematic' ? 'active' : ''}`}
-            onClick={() => setActiveTab('systematic')}
-          >
-            <span className="nav-icon">🤖</span> Systematic Pipeline
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'alpaca' ? 'active' : ''}`}
-            onClick={() => setActiveTab('alpaca')}
-          >
-            <span className="nav-icon">🦙</span> Alpaca Migration
           </button>
           <button 
             className={`nav-item ${activeTab === 'options_trading' ? 'active' : ''}`}
@@ -1192,10 +1186,16 @@ function App() {
             <span className="nav-icon">🧠</span> Shadow Cortex
           </button>
           <button 
-            className={`nav-item ${activeTab === 'whitelight_cortex' ? 'active' : ''}`}
-            onClick={() => setActiveTab('whitelight_cortex')}
+            className={`nav-item ${activeTab === 'systematic' ? 'active' : ''}`}
+            onClick={() => setActiveTab('systematic')}
           >
-            <span className="nav-icon">⚡🧠</span> Whitelight + Cortex
+            <span className="nav-icon">🤖</span> Systematic Pipeline
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'alpaca' ? 'active' : ''}`}
+            onClick={() => setActiveTab('alpaca')}
+          >
+            <span className="nav-icon">🦙</span> Alpaca Migration
           </button>
         </nav>
 
@@ -1207,13 +1207,7 @@ function App() {
 
       {/* Main Content Pane */}
       <main className="app-main">
-        {/* Main Content Header */}
-        <header className="main-header">
-          <div>
-            <h1>Trade Performance Dashboard</h1>
-            <p className="header-subtitle">Continuous discipline analysis and P&L targets</p>
-          </div>
-        </header>
+
 
         {/* Global Kinfo-style KPI Rings for Options Tab */}
         {activeTab === 'options' && (

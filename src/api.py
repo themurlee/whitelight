@@ -232,15 +232,36 @@ class APIServerHandler(BaseHTTPRequestHandler):
         elif path == "/api/trades":
             local_trades = _read_json_file(TRADE_LOG_FILE, [])
             live_trades = _get_alpaca_orders()
-            # Combine without duplicating timestamps
-            seen_ts = {t.get("timestamp") for t in local_trades}
-            combined = list(local_trades)
-            for lt in live_trades:
-                if lt.get("timestamp") not in seen_ts:
-                    combined.append(lt)
-            # Sort descending (newest first)
-            combined.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-            self._send_json(combined)
+            
+            combined = list(local_trades) + list(live_trades)
+            
+            from datetime import datetime
+            
+            def parse_time(ts_str):
+                for fmt in ["%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%b %d, %Y, %I:%M:%S %p"]:
+                    # Clean up timezone or formatting issues
+                    clean_str = ts_str.split("+")[0].split("- trade")[0].strip()
+                    try:
+                        return datetime.strptime(clean_str, fmt)
+                    except:
+                        pass
+                return None
+
+            deduped = []
+            for t in combined:
+                is_dup = False
+                t_time = parse_time(t.get("timestamp", ""))
+                for d in deduped:
+                    if d.get("symbol") == t.get("symbol") and d.get("action") == t.get("action") and d.get("quantity") == t.get("quantity"):
+                        d_time = parse_time(d.get("timestamp", ""))
+                        if t_time and d_time and abs((t_time - d_time).total_seconds()) < 10:
+                            is_dup = True
+                            break
+                if not is_dup:
+                    deduped.append(t)
+
+            deduped.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            self._send_json(deduped)
             
         elif path == "/api/psychology":
             data = _read_json_file(PSYCHOLOGY_FILE, [])
