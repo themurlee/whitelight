@@ -14,5 +14,6 @@
       "timestamp": "2026-07-17T20:04:30.655088Z",
       "equity": 10000.0
     }
-  ]
+  ],
+  "manual_pause": false
 }

@@ -147,6 +147,26 @@ class BacktestResult:
         ]
         return "\n".join(lines)
 
+    @property
+    def total_return(self) -> float:
+        return self.metrics.get("total_return_pct", 0.0) / 100.0
+
+    @property
+    def sharpe(self) -> float:
+        return self.metrics.get("sharpe", 0.0)
+
+    @property
+    def max_drawdown(self) -> float:
+        return self.metrics.get("max_drawdown_pct", 0.0) / 100.0
+
+    @property
+    def num_trades(self) -> int:
+        return self.metrics.get("num_trades", 0)
+
+    @property
+    def final_equity(self) -> float:
+        return float(self.equity_curve.iloc[-1]) if len(self.equity_curve) > 0 else 0.0
+
 
 # --------------------------------------------------------------------------- #
 # Metrics
