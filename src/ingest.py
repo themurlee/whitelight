@@ -22,7 +22,7 @@ def log_to_journal(message: str, level: str = "INFO"):
         f.write(log_line)
     print(f"[{level}] {message}")
 
-def fetch_and_save_ohlcv(ticker: str, days_to_fetch: int = 100):
+def fetch_and_save_ohlcv(ticker: str, days_to_fetch: int = 400):
     """
     Fetches historical OHLCV data for a ticker and saves each day's bar
     into data/{ticker}/YYYY-MM-DD.jsonl if the file does not exist.
