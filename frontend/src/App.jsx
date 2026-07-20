@@ -314,7 +314,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'systematic') {
+    if (activeTab === 'systematic' || activeTab === 'alpaca') {
       fetchSystematicStatus();
     }
   }, [activeTab]);
