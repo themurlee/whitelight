@@ -256,6 +256,11 @@ export default function WhitelightCortexIntegratedPanel({
   // Scheduled Expiration Side Toast Alert Popup
   const [expirationAlert, setExpirationAlert] = useState(null);
 
+  // Robinhood options UI states
+  const [rhAction, setRhAction] = useState("buy");
+  const [rhType, setRhType] = useState("call");
+  const [rhExpiration, setRhExpiration] = useState("");
+
   // Conditional Order Builder states
   const [conditionalOrders, setConditionalOrders] = useState([]);
   const [condTicker, setCondTicker] = useState("AAPL");
@@ -1407,27 +1412,87 @@ export default function WhitelightCortexIntegratedPanel({
                           </button>
                         </div>
 
-                        {/* Right Side: Options Chain (col-span-8) */}
-                        <div className="md:col-span-8 pt-2 md:pt-0 border-t md:border-t-0 md:border-l border-slate-800/60 md:pl-4 space-y-2 max-h-[350px] overflow-y-auto">
-                          <div className="flex items-center justify-between border-b border-slate-800/40 pb-1">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Option Contracts Chain ({timeframe})</span>
-                            <span className="text-[9px] text-emerald-400 font-bold">{chain.length} strikes</span>
+                        {/* Right Side: Options Chain (Robinhood Style UI) */}
+                        <div className="md:col-span-8 pt-2 md:pt-0 border-t md:border-t-0 md:border-l border-slate-800/60 md:pl-4 space-y-4 max-h-[350px] overflow-y-auto">
+                          
+                          {/* Robinhood Style Pill selectors */}
+                          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/60 pb-3">
+                            <div className="flex items-center gap-3">
+                              {/* Buy / Sell Pill Toggle */}
+                              <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-850 text-[10px] font-mono">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setRhAction("buy"); }}
+                                  className={`px-3 py-1 font-bold rounded transition-all ${
+                                    rhAction === "buy" ? "bg-emerald-500 text-slate-950" : "text-slate-400 hover:text-white"
+                                  }`}
+                                >
+                                  Buy
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setRhAction("sell"); }}
+                                  className={`px-3 py-1 font-bold rounded transition-all ${
+                                    rhAction === "sell" ? "bg-rose-500 text-slate-950" : "text-slate-400 hover:text-white"
+                                  }`}
+                                >
+                                  Sell
+                                </button>
+                              </div>
+
+                              {/* Call / Put Pill Toggle */}
+                              <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-850 text-[10px] font-mono">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setRhType("call"); }}
+                                  className={`px-3 py-1 font-bold rounded transition-all ${
+                                    rhType === "call" ? "bg-emerald-500 text-slate-950" : "text-slate-400 hover:text-white"
+                                  }`}
+                                >
+                                  Call
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setRhType("put"); }}
+                                  className={`px-3 py-1 font-bold rounded transition-all ${
+                                    rhType === "put" ? "bg-emerald-500 text-slate-950" : "text-slate-400 hover:text-white"
+                                  }`}
+                                >
+                                  Put
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Expiry Selector Dropdown */}
+                            {expirationDates.length > 0 && (
+                              <div className="text-[10px] font-mono">
+                                <select
+                                  value={selectedExp}
+                                  onChange={(e) => setRhExpiration(e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="p-1.5 rounded bg-slate-950 border border-slate-800 text-white font-bold cursor-pointer focus:outline-none focus:border-emerald-500"
+                                >
+                                  {expirationDates.map(date => {
+                                    const daysLeft = Math.ceil((new Date(date) - new Date()) / (1000 * 60 * 60 * 24));
+                                    const label = `Expiring ${new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} (${daysLeft >= 0 ? daysLeft : 0}d)`;
+                                    return <option key={date} value={date}>{label}</option>;
+                                  })}
+                                </select>
+                              </div>
+                            )}
                           </div>
+
                           <div className="overflow-x-auto">
                             <table className="w-full text-left text-[10px] border-collapse font-mono">
                               <thead>
                                 <tr className="border-b border-slate-800/40 text-slate-500 uppercase text-[8px]">
-                                  <th className="py-1 px-2">Type</th>
                                   <th className="py-1 px-2">Strike</th>
-                                  <th className="py-1 px-2">Expiry</th>
-                                  <th className="py-1 px-2">Bid/Ask</th>
-                                  <th className="py-1 px-2">Midpoint</th>
+                                  <th className="py-1 px-2">Price (Mid)</th>
+                                  <th className="py-1 px-2">Bid / Ask</th>
+                                  <th className="py-1 px-2">Today's Chg</th>
+                                  <th className="py-1 px-2">Open Int</th>
                                   <th className="py-1 px-2">Delta</th>
-                                  <th className="py-1 px-2">Action</th>
+                                  <th className="py-1 px-2 text-right">Action</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-800/30">
-                                {chain.map((c, idx) => (
+                                {filteredChain.map((c, idx) => (
                                   <tr 
                                     key={idx} 
                                     onClick={(e) => {
@@ -1436,19 +1501,21 @@ export default function WhitelightCortexIntegratedPanel({
                                     }}
                                     className="hover:bg-slate-800/40 transition-colors group cursor-pointer"
                                   >
-                                    <td className={`py-1.5 px-2 font-bold ${c.type === "CALL" ? "text-emerald-400" : "text-rose-400"}`}>{c.type}</td>
-                                    <td className="py-1.5 px-2 font-bold text-white">${c.strike}</td>
-                                    <td className="py-1.5 px-2 text-slate-400">{c.expiration}</td>
-                                    <td className="py-1.5 px-2 text-slate-400">${c.bid} / ${c.ask}</td>
-                                    <td className="py-1.5 px-2 text-amber-300 font-bold">${c.midpoint}</td>
-                                    <td className="py-1.5 px-2 text-slate-300">{c.greeks?.delta}</td>
-                                    <td className="py-1.5 px-2">
+                                    <td className="py-2 px-2 font-bold text-white">${c.strike}</td>
+                                    <td className="py-2 px-2 text-amber-300 font-bold">${c.midpoint}</td>
+                                    <td className="py-2 px-2 text-slate-400">${c.bid} / ${c.ask}</td>
+                                    <td className={`py-2 px-2 ${c.greeks?.iv_rank >= 30 ? "text-emerald-400" : "text-slate-400"}`}>
+                                      {c.greeks?.iv_rank >= 30 ? "+" : ""}{(c.greeks?.iv_rank || 0).toFixed(1)}%
+                                    </td>
+                                    <td className="py-2 px-2 text-slate-400">{c.open_interest?.toLocaleString()}</td>
+                                    <td className="py-2 px-2 text-slate-300">{c.greeks?.delta}</td>
+                                    <td className="py-2 px-2 text-right">
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleOpenContractModal(c);
                                         }}
-                                        className="px-2 py-0.5 text-[8px] font-bold uppercase rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
+                                        className="px-2.5 py-0.5 text-[8px] font-bold uppercase rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
                                       >
                                         Trade
                                       </button>
