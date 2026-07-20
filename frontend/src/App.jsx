@@ -2446,7 +2446,13 @@ function App() {
 
           {/* Tab 10: Whitelight + Shadow Cortex Integrated Master Tab */}
           {activeTab === 'whitelight_cortex' && (
-            <WhitelightCortexIntegratedPanel API_BASE={API_BASE} />
+            <WhitelightCortexIntegratedPanel 
+              API_BASE={API_BASE}
+              state={state}
+              trades={trades}
+              positions={positions}
+              systematicStatus={systematicStatus}
+            />
           )}
         </div>
       </main>

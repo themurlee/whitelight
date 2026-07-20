@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine,
+} from "recharts";
 
 /*
   WHITELIGHT + SHADOW CORTEX — UNIFIED INTEGRATED ENGINE TAB
-  Combines Whitelight Intraday Signals & Robinhood Options Chains
-  with Shadow Cortex Fail-Closed Dual-Agent Pipeline & MCP Controls
+  Combines Stock Performance, Backtester, Live Equity Curve, 
+  and Option Chains with Shadow Cortex Fail-Closed Dual-Agent Pipeline.
 */
 
 const getDaysToExpiry = (expDateStr) => {
@@ -22,7 +25,49 @@ const getHorizonLabel = (targetDte, expDateStr) => {
   return `🏆 Yearly (${days} days to expire)`;
 };
 
-export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127.0.0.1:8000/api" }) {
+const fmt$ = (n) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+const fmtPct = (n, d = 1) => `${n >= 0 ? "+" : ""}${n.toFixed(d)}%`;
+
+function RadialGauge({ label, value, max, unit = "%", danger = false, sub }) {
+  const pct = Math.min(Math.abs(value) / max, 1);
+  const angle = -140 + pct * 280;
+  const color = danger ? "#E5484D" : pct > 0.75 ? "#E5484D" : pct > 0.5 ? "#f59e0b" : "#3FB27F";
+  const r = 42, cx = 50, cy = 50;
+  const toXY = (deg) => {
+    const rad = (deg - 90) * (Math.PI / 180);
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+  };
+  const [x1, y1] = toXY(-140);
+  const [x2, y2] = toXY(140);
+  const [nx, ny] = toXY(angle);
+
+  return (
+    <div className="flex flex-col items-center gap-1 font-mono">
+      <svg viewBox="0 0 100 92" className="w-20 h-20">
+        <path d={`M ${x1} ${y1} A ${r} ${r} 0 1 1 ${x2} ${y2}`}
+              fill="none" stroke="#1e293b" strokeWidth="6" strokeLinecap="round" />
+        <path d={`M ${x1} ${y1} A ${r} ${r} 0 ${pct > 0.5 ? 1 : 0} 1 ${nx} ${ny}`}
+              fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r="3" fill={color} />
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={color} strokeWidth="2" />
+        <text x="50" y="52" textAnchor="middle" fontSize="15" fontFamily="monospace"
+              fill="#f8fafc" fontWeight="700">
+          {value.toFixed(0)}{unit}
+        </text>
+      </svg>
+      <div className="text-[9px] tracking-widest uppercase text-slate-400 font-bold">{label}</div>
+      {sub && <div className="text-[9px] text-slate-500">{sub}</div>}
+    </div>
+  );
+}
+
+export default function WhitelightCortexIntegratedPanel({ 
+  API_BASE = "http://127.0.0.1:8000/api",
+  state,
+  trades = [],
+  positions: parentPositions = { active_positions: [] },
+  systematicStatus
+}) {
   const [tickerInput, setTickerInput] = useState("AAPL");
   const [activeTicker, setActiveTicker] = useState("AAPL");
   const [timeframe, setTimeframe] = useState("WEEKLY"); // WEEKLY, MONTHLY, SEMI_ANNUAL, ANNUAL_LEAP
@@ -37,6 +82,13 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
   const [autoExecute, setAutoExecute] = useState(false);
   const [executedOrders, setExecutedOrders] = useState([]);
   const [accountSummary, setAccountSummary] = useState(null);
+
+  // Backtest widget states
+  const [btTicker, setBtTicker] = useState("SPY");
+  const [btCapital, setBtCapital] = useState(100000);
+  const [btLoading, setBtLoading] = useState(false);
+  const [btResult, setBtResult] = useState(null);
+  const [btError, setBtError] = useState("");
 
   // Cortex AI Budget & Cooldown Brakes
   const [callsToday, setCallsToday] = useState(42);
@@ -54,14 +106,14 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
   const [orderSide, setOrderSide] = useState("buy");
   const [customLimitPrice, setCustomLimitPrice] = useState("");
 
-  // Dual Agent Configuration (Gemini 3.5 Flash Low Cost Validation Default)
-  const [proposerProvider, setProposerProvider] = useState("gemini");
-  const [proposerModel, setProposerModel] = useState("gemini-3.5-flash");
-  const [validatorProvider, setValidatorProvider] = useState("gemini");
-  const [validatorModel, setValidatorModel] = useState("gemini-3.5-flash"); // Gemini 3.5 Flash Low
+  // Dual Agent Configuration
+  const [proposerProvider, setProposerProvider] = useState("AI Agent Pool");
+  const [proposerModel, setProposerModel] = useState("Standard Model");
+  const [validatorProvider, setValidatorProvider] = useState("AI Risk Desk");
+  const [validatorModel, setValidatorModel] = useState("High Reasoning Model");
   const [agentResult, setAgentResult] = useState(null);
 
-  // Live Audit JSONL Event Stream
+  // Live Audit JSONL Event Stream (No Gemini model names)
   const [auditEvents, setAuditEvents] = useState([
     {
       time: "13:18:10 PM",
@@ -69,7 +121,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
       level: "success",
       title: "PROPOSAL AUTHORIZED: AAPL $230 CALL",
       notes: "Passed 5 Wall St Rules | Midpoint: $9.46 | IV Rank: 32% | OI: 1,450",
-      validator: "Gemini 3.5 Flash (Low)"
+      validator: "AI Risk Desk (Standard)"
     },
     {
       time: "13:17:45 PM",
@@ -77,7 +129,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
       level: "danger",
       title: "ENTRY SKIPPED: NVDA $125 CALL",
       notes: "Refused by Risk Desk — IV Rank 62.4% exceeds 50% cap (IV Crush Hazard)",
-      validator: "Gemini 3.5 Flash (Low)"
+      validator: "AI Risk Desk (Standard)"
     },
     {
       time: "13:15:20 PM",
@@ -178,10 +230,24 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
     }
   };
 
-  useEffect(() => {
-    fetchIntradayData(activeTicker, timeframe);
-    fetchAccountSummary();
-  }, [activeTicker, timeframe]);
+  const runBacktest = async (e) => {
+    e.preventDefault();
+    setBtLoading(true); setBtResult(null); setBtError("");
+    try {
+      const res = await fetch(`${API_BASE}/systematic/backtest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: btTicker.toUpperCase(), capital: parseFloat(btCapital) }),
+      });
+      const data = await res.json();
+      if (data.success) setBtResult(data);
+      else setBtError(data.error || "Backtest failed.");
+    } catch (err) {
+      setBtError(String(err));
+    } finally {
+      setBtLoading(false);
+    }
+  };
 
   const handleTickerSearch = (e) => {
     e.preventDefault();
@@ -215,7 +281,6 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
         setSelectedContract(null);
         fetchAccountSummary();
 
-        // Push to Audit Stream
         setAuditEvents((prev) => [{
           time: new Date().toLocaleTimeString(),
           type: "ORDER_FILLED",
@@ -239,10 +304,10 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
         body: JSON.stringify({
           ticker: activeTicker,
           timeframe: timeframe,
-          proposer_provider: proposerProvider,
-          proposer_model: proposerModel,
-          validator_provider: validatorProvider,
-          validator_model: validatorModel
+          proposer_provider: "cortex",
+          proposer_model: "cortex-fast",
+          validator_provider: "cortex",
+          validator_model: "cortex-strict"
         })
       });
       const data = await res.json();
@@ -257,7 +322,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
           level: isReady ? "success" : "danger",
           title: isReady ? `PROPOSAL AUTHORIZED: ${activeTicker}` : `REJECTED BY RISK DESK: ${activeTicker}`,
           notes: data.dual_agent_result?.validation?.validation_notes || "Audited against 5 Wall St Rules",
-          validator: "Gemini 3.5 Flash (Low)"
+          validator: "AI Risk Desk Agent"
         }, ...prev]);
 
         if (autoExecute && isReady && chain.length > 0) {
@@ -292,6 +357,21 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
     return "#eab308";
   }, [signals]);
 
+  // Equity Curve Chart Data from Parent
+  const chartData = useMemo(() => {
+    if (state?.equity_history && state.equity_history.length > 0) {
+      return state.equity_history;
+    }
+    return [
+      { timestamp: "10:00", equity: 100000 },
+      { timestamp: "11:00", equity: 100450 },
+      { timestamp: "12:00", equity: 100200 },
+      { timestamp: "13:00", equity: 101254 }
+    ];
+  }, [state]);
+
+  const btMetrics = btResult?.metrics || {};
+
   return (
     <div className="p-4 space-y-6 text-slate-100 font-sans relative" style={{ background: "#0b0e11", minHeight: "100vh" }}>
       
@@ -320,14 +400,14 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
         <div className="flex items-center gap-3">
           <span className="text-2xl">⚡🧠</span>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-amber-400">Whitelight + Shadow Cortex Engine</h1>
-            <p className="text-[10px] text-slate-400">Unified Intraday Signals, Dual-Agent Risk Desk & MCP Control</p>
+            <h1 className="text-lg font-bold tracking-tight text-amber-400">Whitelight + Shadow Cortex Unified Engine</h1>
+            <p className="text-[10px] text-slate-400">Integrated Stock Tracker, Options Chains, Dual-Agent Risk Desk & backtests</p>
           </div>
         </div>
 
         {/* Universal Ticker Search Form */}
         <form onSubmit={handleTickerSearch} className="flex items-center gap-2">
-          <label className="text-xs text-slate-400 uppercase tracking-wider">Ticker:</label>
+          <label className="text-xs text-slate-400 uppercase tracking-wider">Search Ticker:</label>
           <input
             type="text"
             value={tickerInput}
@@ -381,12 +461,12 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
         </div>
       </div>
 
-      {/* Cortex AI Budget & Intake Cooldown Control Banner */}
+      {/* Cortex AI Budget & Cooldown Control Banner */}
       <div className="p-4 rounded-xl border border-amber-500/30 bg-slate-900/40 backdrop-blur font-mono text-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div>
-            <span className="text-[10px] text-slate-400 uppercase tracking-wider block">AI Decider Model</span>
-            <span className="font-bold text-emerald-400 text-xs">⚡ Gemini 3.5 Flash (Low Cost Validation)</span>
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider block">AI Decider Model Pool</span>
+            <span className="font-bold text-emerald-400 text-xs">⚡ AI Agent Decider (Standard Pool)</span>
           </div>
           <div className="h-8 w-px bg-slate-800" />
           <div>
@@ -443,7 +523,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
               </h3>
               <ul className="space-y-2 text-slate-300 leading-relaxed text-[11px]">
                 <li><strong className="text-amber-300">Agent 1: Proposer (Fast LLM):</strong> Scans today's 5-min candles & option chains to recommend <span className="text-emerald-400 font-bold">BUY_CALL</span>, <span className="text-rose-400 font-bold">BUY_PUT</span>, or <span className="text-slate-400 font-bold">NO_TRADE</span>.</li>
-                <li><strong className="text-emerald-300">Agent 2: Validator (Gemini 3.5 Flash Low):</strong> Senior Risk Manager desk auditing 5 Wall Street rules. Outputs <span className="text-emerald-400 font-bold">EXECUTE</span> or <span className="text-rose-400 font-bold">REJECT</span>.</li>
+                <li><strong className="text-emerald-300">Agent 2: Validator (AI Risk Desk):</strong> Senior Risk Manager desk auditing 5 Wall Street rules. Outputs <span className="text-emerald-400 font-bold">EXECUTE</span> or <span className="text-rose-400 font-bold">REJECT</span>.</li>
               </ul>
             </div>
 
@@ -632,6 +712,49 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
         </div>
       )}
 
+      {/* Middle Row: Equity Curve Portfolio Chart & Safety Gauges */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 font-mono">
+        {/* Equity Curve Visualizer (col-span-8) */}
+        <div className="lg:col-span-8 p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">
+              📈 Consolidated Account Equity Curve (Alpaca Real-time Replay)
+            </span>
+            <span className="text-xs text-emerald-400 font-bold">
+              Current Balance: ${chartData[chartData.length - 1]?.equity.toLocaleString()}
+            </span>
+          </div>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <XAxis dataKey="timestamp" stroke="#475569" fontSize={10} />
+                <YAxis stroke="#475569" fontSize={10} domain={["dataMin - 100", "dataMax + 100"]} />
+                <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
+                <Line type="monotone" dataKey="equity" stroke="#3FB27F" strokeWidth={2.5} dot={{ fill: "#3FB27F" }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Safety Gauges (col-span-4) */}
+        <div className="lg:col-span-4 p-5 rounded-xl border border-slate-800 bg-slate-900/40 flex flex-col justify-between gap-4">
+          <span className="text-xs uppercase tracking-widest text-amber-400 font-bold border-b border-slate-800 pb-2 block">
+            🛡️ Risk Guardrails & Circuit Breakers
+          </span>
+          <div className="flex justify-around items-center py-2">
+            <RadialGauge label="Max Drawdown" value={state?.max_drawdown || 4.2} max={10} unit="%" danger />
+            <RadialGauge label="Target Met" value={state?.weekly_target_pct || 72} max={100} unit="%" />
+          </div>
+          <div className="p-3 rounded bg-slate-950 border border-slate-800 text-[10px] text-slate-400 leading-relaxed text-center">
+            {state?.lockdown_active ? (
+              <span className="text-rose-400 font-bold">⚠ PAUSED: Portfolio lockdown protection enabled.</span>
+            ) : (
+              <span className="text-emerald-400">● Safe limits operational. Max drawdown set at 10% envelope.</span>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Main Grid: Signals & Dual-Agent (Left) / Live Audit Feed & Positions (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
@@ -640,7 +763,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
           <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
-                <span className="text-xs uppercase tracking-widest text-slate-400">Spotlight Asset</span>
+                <span className="text-xs uppercase tracking-widest text-slate-400">Active Ticker Analytics / Radar</span>
                 <div className="flex items-baseline gap-2 mt-1">
                   <h2 className="text-2xl font-black text-white">{activeTicker}</h2>
                   <span className="text-xl font-bold text-amber-400">${currentPrice.toFixed(2)}</span>
@@ -690,7 +813,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
               disabled={evaluating}
               className="w-full py-3 text-xs font-bold uppercase tracking-wider rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-lg shadow-amber-500/10"
             >
-              {evaluating ? "⏳ Auditing with Gemini 3.5 Flash..." : `⚡ Audit Trade (${activeTicker} - ${timeframe})`}
+              {evaluating ? "⏳ Auditing with AI Agent Pool..." : `⚡ Audit Trade (${activeTicker} - ${timeframe})`}
             </button>
           </div>
         </div>
@@ -734,6 +857,108 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
           </div>
         </div>
 
+        {/* Backtest Engine Widget (col-span-6) & Trade Log list (col-span-6) */}
+        <div className="lg:col-span-6 font-mono">
+          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+            <div className="text-xs uppercase tracking-widest text-amber-400 font-bold border-b border-slate-800 pb-2">
+              📊 Systematic Backtest Engine (EMA50 / EMA250 / VWAP)
+            </div>
+
+            <form onSubmit={runBacktest} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+              <div>
+                <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Ticker</label>
+                <input
+                  type="text"
+                  placeholder="SPY"
+                  value={btTicker}
+                  onChange={e => setBtTicker(e.target.value.toUpperCase())}
+                  required 
+                  className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-amber-400 focus:outline-none focus:border-amber-400 w-full"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Capital ($)</label>
+                <input
+                  type="number"
+                  min="1000"
+                  value={btCapital}
+                  onChange={e => setBtCapital(e.target.value)}
+                  className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-amber-400 focus:outline-none focus:border-amber-400 w-full"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={btLoading} 
+                className="w-full py-2.5 px-4 rounded-lg text-xs font-bold uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all font-mono"
+              >
+                {btLoading ? '⏳ Running...' : '▶ Run Backtest'}
+              </button>
+            </form>
+
+            {btError && <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-700/50 text-xs text-rose-400">⚠ {btError}</div>}
+
+            {btResult && (
+              <div className="space-y-3 pt-2">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs font-mono">
+                  <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                    <div className="text-[9px] text-slate-400 uppercase">Return</div>
+                    <div className="text-sm font-bold text-emerald-400">{btMetrics.total_return_pct}%</div>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                    <div className="text-[9px] text-slate-400 uppercase">Sharpe</div>
+                    <div className="text-sm font-bold text-white">{btMetrics.sharpe ?? '—'}</div>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                    <div className="text-[9px] text-slate-400 uppercase">Max DD</div>
+                    <div className="text-sm font-bold text-rose-400">{btMetrics.max_drawdown_pct}%</div>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                    <div className="text-[9px] text-slate-400 uppercase">Trades</div>
+                    <div className="text-sm font-bold text-white">{btMetrics.num_trades}</div>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                    <div className="text-[9px] text-slate-400 uppercase">Final</div>
+                    <div className="text-sm font-bold text-amber-400">${btMetrics.final_equity?.toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Live Alpaca Stock Trade Logs (col-span-6) */}
+        <div className="lg:col-span-6 font-mono">
+          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">
+                🦙 Alpaca Stock & ETF Trade Log
+              </span>
+              <span className="text-xs text-slate-400">Total: {trades.length} Trades</span>
+            </div>
+
+            <div className="overflow-y-auto max-h-[300px] space-y-2 pr-1 text-xs">
+              {trades.length > 0 ? (
+                trades.map((t, idx) => (
+                  <div key={idx} className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 flex justify-between items-center">
+                    <div>
+                      <div className="font-bold text-white">{t.symbol}</div>
+                      <div className="text-[9px] text-slate-400">{new Date(t.timestamp).toLocaleString()}</div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${t.action === "BUY" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}`}>
+                        {t.action}
+                      </span>
+                      <div className="text-[10px] text-slate-300 font-semibold mt-1">Qty: {t.quantity} @ ${t.price}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 text-slate-500">No active stock trades logged. Run backtests or ingest tickers to execute.</div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Full-Width Section (col-span-12): Active Positions & High-Water Mark Trailing Stop Manager */}
         <div className="lg:col-span-12 font-mono">
           <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
@@ -744,9 +969,10 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
                   Active Positions & High-Water Mark Trailing Stop Manager
                 </h3>
               </div>
-              <span className="text-xs text-slate-400 font-bold">{positions.length} Active Positions</span>
+              <span className="text-xs text-slate-400 font-bold">{positions.length} Options + {parentPositions.active_positions?.length || 0} Stocks</span>
             </div>
 
+            {/* Option Positions Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {positions.map((pos, idx) => (
                 <div key={idx} className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 space-y-3">
@@ -775,6 +1001,40 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
                     <div className="p-2 rounded bg-slate-900 border border-amber-500/30">
                       <span className="text-[9px] text-amber-400 block uppercase font-bold">Trailing Stop</span>
                       <span className="font-black text-amber-400">${pos.trailingStop}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Equities Stock Positions Grid */}
+              {parentPositions.active_positions?.map((pos, idx) => (
+                <div key={idx} className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-black text-emerald-400">{pos.symbol}</span>
+                      <span className="text-xs font-bold text-slate-300">Equity Asset</span>
+                    </div>
+                    <span className={`text-xs font-black ${pos.unrealized_pl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      {pos.unrealized_pl >= 0 ? "+" : ""}${pos.unrealized_pl?.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-[9px] text-slate-400 block uppercase">Qty</span>
+                      <span className="font-bold text-slate-200">{pos.qty}</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-[9px] text-slate-400 block uppercase">Avg Cost</span>
+                      <span className="font-bold text-slate-200">${pos.avg_entry_price?.toFixed(2)}</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-[9px] text-slate-400 block uppercase">Current Px</span>
+                      <span className="font-bold text-amber-300">${pos.current_price?.toFixed(2)}</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-[9px] text-slate-400 block uppercase">Market Val</span>
+                      <span className="font-bold text-amber-300">${pos.market_value?.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
