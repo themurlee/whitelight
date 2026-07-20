@@ -34,8 +34,8 @@ def fetch_and_save_ohlcv(ticker: str, days_to_fetch: int = 100):
         log_to_journal("Alpaca credentials missing in environment", "ERROR")
         return False
 
-    # Determine date range
-    end_date = datetime.now(timezone.utc)
+    # Determine date range (offset 16 min for free tier)
+    end_date = datetime.now(timezone.utc) - timedelta(minutes=16)
     start_date = end_date - timedelta(days=days_to_fetch)
     
     # Pre-check: which dates are missing?

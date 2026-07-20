@@ -222,7 +222,7 @@ class RobinhoodMCPClient:
             from alpaca.data.enums import DataFeed
             from datetime import timedelta, timezone
 
-            end_dt = datetime.now(timezone.utc)
+            end_dt = datetime.now(timezone.utc) - timedelta(minutes=16)
             start_dt = end_dt - timedelta(days=7)
             request = StockBarsRequest(
                 symbol_or_symbols=[ticker],
