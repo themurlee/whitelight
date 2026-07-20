@@ -4,6 +4,7 @@ import WhiteLightPanel from './WhiteLightPanel';
 import AlpacaPanel from './AlpacaPanel';
 import OptionsTradingPanel from './OptionsTradingPanel';
 import ShadowCortexPanel from './ShadowCortexPanel';
+import WhitelightCortexIntegratedPanel from './WhitelightCortexIntegratedPanel';
 
 const API_BASE = 'http://127.0.0.1:8000/api';
 
@@ -1189,6 +1190,12 @@ function App() {
             onClick={() => setActiveTab('shadow_cortex')}
           >
             <span className="nav-icon">🧠</span> Shadow Cortex
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'whitelight_cortex' ? 'active' : ''}`}
+            onClick={() => setActiveTab('whitelight_cortex')}
+          >
+            <span className="nav-icon">⚡🧠</span> Whitelight + Cortex
           </button>
         </nav>
 
@@ -2435,6 +2442,11 @@ function App() {
           {/* Tab 9: Shadow Cortex Decision Engine */}
           {activeTab === 'shadow_cortex' && (
             <ShadowCortexPanel API_BASE={API_BASE} />
+          )}
+
+          {/* Tab 10: Whitelight + Shadow Cortex Integrated Master Tab */}
+          {activeTab === 'whitelight_cortex' && (
+            <WhitelightCortexIntegratedPanel API_BASE={API_BASE} />
           )}
         </div>
       </main>
