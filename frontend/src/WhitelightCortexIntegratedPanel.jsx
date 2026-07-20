@@ -814,6 +814,23 @@ export default function WhitelightCortexIntegratedPanel({
               </div>
             )}
 
+            {/* Auto-Execute Toggle Switch */}
+            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-950/60 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-400">🤖</span>
+                <span className="text-slate-300 font-bold uppercase tracking-wider">Auto-Execute Trades</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer select-none">
+                <input 
+                  type="checkbox" 
+                  checked={autoExecute}
+                  onChange={(e) => setAutoExecute(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-6 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-slate-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+              </label>
+            </div>
+
             {/* Dual Agent Execution Trigger Button */}
             <button
               onClick={handleRunDualAgent}
