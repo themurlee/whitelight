@@ -82,6 +82,7 @@ export default function WhitelightCortexIntegratedPanel({
   const [autoExecute, setAutoExecute] = useState(false);
   const [executedOrders, setExecutedOrders] = useState([]);
   const [accountSummary, setAccountSummary] = useState(null);
+  const [localTrades, setLocalTrades] = useState([]);
 
   // Backtest widget states
   const [btTicker, setBtTicker] = useState("SPY");
@@ -192,6 +193,30 @@ export default function WhitelightCortexIntegratedPanel({
       console.error("Account summary error:", e);
     }
   };
+
+  const fetchLocalTrades = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/trades`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setLocalTrades(data);
+      }
+    } catch (e) {
+      console.error("Error fetching trades:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchIntradayData(activeTicker, timeframe);
+    fetchAccountSummary();
+    fetchLocalTrades();
+    
+    const interval = setInterval(() => {
+      fetchAccountSummary();
+      fetchLocalTrades();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeTicker, timeframe]);
 
   const fetchIntradayData = async (symbol, tf = timeframe) => {
     setLoading(true);
@@ -915,12 +940,12 @@ export default function WhitelightCortexIntegratedPanel({
               <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">
                 🦙 Alpaca Stock & ETF Trade Log
               </span>
-              <span className="text-xs text-slate-400">Total: {trades.length} Trades</span>
+              <span className="text-xs text-slate-400 font-semibold">Total: {localTrades.length} Trades</span>
             </div>
 
             <div className="overflow-y-auto max-h-[300px] space-y-2 pr-1 text-xs">
-              {trades.length > 0 ? (
-                trades.map((t, idx) => (
+              {localTrades.length > 0 ? (
+                localTrades.map((t, idx) => (
                   <div key={idx} className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 flex justify-between items-center">
                     <div>
                       <div className="font-bold text-white">{t.symbol}</div>
