@@ -3,6 +3,7 @@ import './App.css';
 import WhiteLightPanel from './WhiteLightPanel';
 import AlpacaPanel from './AlpacaPanel';
 import OptionsTradingPanel from './OptionsTradingPanel';
+import ShadowCortexPanel from './ShadowCortexPanel';
 
 const API_BASE = 'http://127.0.0.1:8000/api';
 
@@ -1182,6 +1183,12 @@ function App() {
             onClick={() => setActiveTab('options_trading')}
           >
             <span className="nav-icon">⚡</span> Options Trading
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'shadow_cortex' ? 'active' : ''}`}
+            onClick={() => setActiveTab('shadow_cortex')}
+          >
+            <span className="nav-icon">🧠</span> Shadow Cortex
           </button>
         </nav>
 
@@ -2423,6 +2430,11 @@ function App() {
           {/* Tab 8: Options Trading (Dual-Agent Intraday) */}
           {activeTab === 'options_trading' && (
             <OptionsTradingPanel API_BASE={API_BASE} />
+          )}
+
+          {/* Tab 9: Shadow Cortex Decision Engine */}
+          {activeTab === 'shadow_cortex' && (
+            <ShadowCortexPanel API_BASE={API_BASE} />
           )}
         </div>
       </main>
