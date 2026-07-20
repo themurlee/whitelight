@@ -90,6 +90,53 @@ function RadialGauge({ label, value, max, unit = "%", danger = false, sub }) {
   );
 }
 
+// Live TradingView Candlestick Chart Widget Component
+function TradingViewChart({ symbol }) {
+  const containerRef = React.useRef();
+
+  React.useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.type = "text/javascript";
+    script.async = true;
+    
+    const resolvedSymbol = symbol === "SPY" ? "AMEX:SPY" : `NASDAQ:${symbol}`;
+
+    script.innerHTML = JSON.stringify({
+      "autosize": true,
+      "symbol": resolvedSymbol,
+      "interval": "1",
+      "timezone": "exchange",
+      "theme": "dark",
+      "style": "1",
+      "locale": "en",
+      "enable_publishing": false,
+      "hide_side_toolbar": false,
+      "allow_symbol_change": false,
+      "calendar": false,
+      "studies": [
+        "STD;VWAP",
+        "STD;RSI"
+      ],
+      "support_host": "https://www.tradingview.com"
+    });
+
+    if (containerRef.current) {
+      containerRef.current.appendChild(script);
+    }
+  }, [symbol]);
+
+  return (
+    <div className="tradingview-widget-container border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40" style={{ height: "400px", width: "100%" }}>
+      <div ref={containerRef} className="tradingview-widget-container__widget" style={{ height: "100%", width: "100%" }}></div>
+    </div>
+  );
+}
+
 export default function WhitelightCortexIntegratedPanel({ 
   API_BASE = "http://127.0.0.1:8000/api",
   state,
@@ -1329,6 +1376,15 @@ export default function WhitelightCortexIntegratedPanel({
                               </tbody>
                             </table>
                           </div>
+                        </div>
+
+                        {/* Full-Width Real-Time TradingView Chart */}
+                        <div className="md:col-span-12 pt-4 border-t border-slate-800/60 space-y-2">
+                          <div className="flex items-center justify-between pb-1">
+                            <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">📈 Real-Time 1-Min Candlestick Stream (VWAP + RSI)</span>
+                            <span className="text-[9px] text-slate-500 font-bold">NASDAQ / AMEX Live feed</span>
+                          </div>
+                          <TradingViewChart symbol={tk} />
                         </div>
                       </>
                     )}
