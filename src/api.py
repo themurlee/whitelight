@@ -33,6 +33,20 @@ def _get_alpaca_account_info():
         from alpaca.trading.client import TradingClient
         client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
         acc = client.get_account()
+        positions = []
+        try:
+            raw_positions = client.get_all_positions()
+            for p in raw_positions:
+                positions.append({
+                    "symbol": p.symbol,
+                    "qty": float(p.qty),
+                    "price": float(p.current_price),
+                    "pnl": float(p.unrealized_pl),
+                    "type": "LONG" if float(p.qty) > 0 else "SHORT"
+                })
+        except Exception:
+            pass
+
         return {
             "configured": True,
             "account_number": acc.account_number,
@@ -40,7 +54,8 @@ def _get_alpaca_account_info():
             "equity": float(acc.equity),
             "buying_power": float(acc.buying_power),
             "portfolio_value": float(acc.portfolio_value),
-            "status": acc.status
+            "status": str(acc.status),
+            "positions": positions
         }
     except Exception as e:
         return {"configured": True, "error": str(e)}
