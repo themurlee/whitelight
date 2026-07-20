@@ -57,6 +57,35 @@ function RadialGauge({ label, value, max, unit = "%", danger = false, sub }) {
       </svg>
       <div className="text-[9px] tracking-widest uppercase text-slate-400 font-bold">{label}</div>
       {sub && <div className="text-[9px] text-slate-500">{sub}</div>}
+
+      {/* Toast Alert Container */}
+      <div className="fixed top-6 right-6 z-50 space-y-3 w-80 max-w-full font-mono text-xs">
+        {activeToasts.map(toast => (
+          <div
+            key={toast.id}
+            className={`p-4 rounded-xl border backdrop-blur shadow-2xl flex items-start gap-3 transition-all duration-300 transform translate-x-0 ${
+              toast.type === "profit_bracket"
+                ? "bg-emerald-950/90 border-emerald-500/30 text-emerald-300 shadow-emerald-500/10"
+                : "bg-rose-950/90 border-rose-500/30 text-rose-300 shadow-rose-500/10"
+            }`}
+          >
+            <span className="text-lg">{toast.type === "profit_bracket" ? "📈" : "🚨"}</span>
+            <div className="flex-1">
+              <div className="font-bold uppercase tracking-wider text-[9px] text-slate-400">
+                {toast.type === "profit_bracket" ? `Target Hit (+${toast.bracket}%)` : "Invalidation Auto-Closed"}
+              </div>
+              <p className="mt-1 leading-relaxed text-slate-200">{toast.message}</p>
+            </div>
+            <button
+              onClick={() => setActiveToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className="text-slate-400 hover:text-white font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+
     </div>
   );
 }
@@ -158,6 +187,9 @@ export default function WhitelightCortexIntegratedPanel({
   const [callsToday, setCallsToday] = useState(42);
   const [maxCallsPerDay, setMaxCallsPerDay] = useState(500);
   const [cooldownSecs, setCooldownSecs] = useState(18);
+
+  // Active profit/invalidation notification toasts
+  const [activeToasts, setActiveToasts] = useState([]);
 
   // Scheduled Expiration Side Toast Alert Popup
   const [expirationAlert, setExpirationAlert] = useState(null);

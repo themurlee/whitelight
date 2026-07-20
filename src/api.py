@@ -8,7 +8,7 @@ import os
 import json
 import glob
 import base64
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 
@@ -22,6 +22,15 @@ PSYCHOLOGY_FILE = os.path.join(DATA_DIR, "psychology_log.json")
 JOURNAL_DIR = os.path.join(DATA_DIR, "journal")
 UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
 import sys
+import threading
+import time
+from datetime import datetime
+
+# Global alerts queue for profit brackets and invalidation stop alerts
+GLOBAL_ALERTS = []
+ALERTS_LOCK = threading.Lock()
+NOTIFIED_POSITIONS = {} # symbol -> set of profit brackets notified
+
 # Configure path imports
 sys.path.append(BASE_DIR)
 
@@ -220,6 +229,12 @@ class APIServerHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_error(500, f"Error reading file: {e}")
             return
+
+        elif path == "/api/options/alerts":
+            with ALERTS_LOCK:
+                alerts = list(GLOBAL_ALERTS)
+                GLOBAL_ALERTS.clear()
+            self._send_json(alerts)
 
         elif path == "/api/state":
             data = _read_json_file(STATE_FILE, {"lockdown_active": False, "drawdown_locked_at": None, "equity_history": []})
@@ -1303,10 +1318,143 @@ def _fetch_real_ticker_signal(ticker: str) -> dict:
         return fallback
 
 
+def position_risk_checker_loop():
+    import src.config as config
+    from alpaca.trading.client import TradingClient
+    
+    # Initialize trading client if configured
+    if not config.API_KEY or not config.SECRET_KEY or "YOUR_ALPACA" in config.API_KEY:
+        print("[RISK CHECKER] Credentials not configured. Risk checker inactive.", flush=True)
+        return
+        
+    print("[RISK CHECKER] Background thread active and monitoring positions...", flush=True)
+    while True:
+        try:
+            client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
+            # Fetch active options positions
+            raw_positions = client.get_all_positions()
+            option_positions = []
+            stock_positions = {}
+            
+            for pos in raw_positions:
+                symbol = pos.symbol
+                # Options symbols typically have length >= 15 with letters and numbers
+                is_option = len(symbol) >= 15 and ("C" in symbol[4:] or "P" in symbol[4:])
+                if is_option:
+                    option_positions.append(pos)
+                else:
+                    stock_positions[symbol] = pos
+
+            for pos in option_positions:
+                symbol = pos.symbol
+                # Parse underlying symbol from option symbol
+                underlying_symbol = ""
+                for char in symbol:
+                    if char.isalpha():
+                        underlying_symbol += char
+                    else:
+                        break
+                
+                current_price = float(pos.current_price)
+                avg_entry_price = float(pos.avg_entry_price)
+                
+                # Calculate profit ratio
+                profit_pct = 0.0
+                if avg_entry_price > 0:
+                    profit_pct = ((current_price - avg_entry_price) / avg_entry_price) * 100
+                
+                if symbol not in NOTIFIED_POSITIONS:
+                    NOTIFIED_POSITIONS[symbol] = set()
+                    
+                # Check profit brackets: 30%, 50%, 100%
+                for bracket in [30, 50, 100]:
+                    if profit_pct >= bracket and bracket not in NOTIFIED_POSITIONS[symbol]:
+                        NOTIFIED_POSITIONS[symbol].add(bracket)
+                        alert = {
+                            "id": f"{symbol}_{bracket}_{time.time()}",
+                            "timestamp": datetime.now().isoformat(),
+                            "type": "profit_bracket",
+                            "symbol": symbol,
+                            "underlying": underlying_symbol,
+                            "bracket": bracket,
+                            "profit_pct": round(profit_pct, 2),
+                            "message": f"📈 Option {symbol} is up {bracket}%! Current profit: {round(profit_pct, 2)}%"
+                        }
+                        with ALERTS_LOCK:
+                            GLOBAL_ALERTS.append(alert)
+                            print(f"[RISK CHECKER] Profit bracket alert queued: {alert['message']}", flush=True)
+                            
+                # Check underlying stop condition (breach of VWAP or support):
+                # We can call Yahoo Finance or Alpaca to get real-time price and VWAP of underlying
+                underlying_price = None
+                if underlying_symbol in stock_positions:
+                    underlying_price = float(stock_positions[underlying_symbol].current_price)
+                else:
+                    # Fallback to fetching signal data if not in active portfolio
+                    sig_data = _fetch_real_ticker_signal(underlying_symbol)
+                    underlying_price = sig_data.get("basePrice")
+                
+                if underlying_price:
+                    sig_data = _fetch_real_ticker_signal(underlying_symbol)
+                    vwap = sig_data.get("vwap", underlying_price)
+                    
+                    is_call = "C" in symbol[len(underlying_symbol):]
+                    is_put = "P" in symbol[len(underlying_symbol):]
+                    
+                    breached = False
+                    reason = ""
+                    if is_call and underlying_price < vwap:
+                        breached = True
+                        reason = f"Underlying {underlying_symbol} price (${underlying_price}) fell below VWAP (${round(vwap, 2)})"
+                    elif is_put and underlying_price > vwap:
+                        breached = True
+                        reason = f"Underlying {underlying_symbol} price (${underlying_price}) rose above VWAP (${round(vwap, 2)})"
+                        
+                    if breached:
+                        print(f"[RISK AUDIT] Invalidation breached for {symbol}. Triggering auto-close! Reason: {reason}", flush=True)
+                        try:
+                            from alpaca.trading.requests import MarketOrderRequest
+                            from alpaca.trading.enums import OrderSide, TimeInForce
+                            
+                            qty = abs(float(pos.qty))
+                            side = OrderSide.SELL if float(pos.qty) > 0 else OrderSide.BUY
+                            
+                            order_req = MarketOrderRequest(
+                                symbol=symbol,
+                                qty=qty,
+                                side=side,
+                                time_in_force=TimeInForce.DAY
+                            )
+                            client.submit_order(order_req)
+                            
+                            alert = {
+                                "id": f"{symbol}_breach_{time.time()}",
+                                "timestamp": datetime.now().isoformat(),
+                                "type": "invalidation_stop",
+                                "symbol": symbol,
+                                "underlying": underlying_symbol,
+                                "reason": reason,
+                                "message": f"🚨 Auto-Closed option {symbol} due to underlying breach: {reason}"
+                            }
+                            with ALERTS_LOCK:
+                                GLOBAL_ALERTS.append(alert)
+                        except Exception as close_err:
+                            print(f"[RISK AUDIT] Failed to auto-close position {symbol}: {close_err}", flush=True)
+                            
+        except Exception as err:
+            print(f"[RISK CHECKER] Error in monitor loop: {err}", flush=True)
+            
+        time.sleep(10)
+
+
 def run_server(port=8000):
     server_address = ('127.0.0.1', port)
-    httpd = HTTPServer(server_address, APIServerHandler)
+    httpd = ThreadingHTTPServer(server_address, APIServerHandler)
     print(f"[API SERVER] Running on http://127.0.0.1:{port}", flush=True)
+    # Start position risk and profit bracket checker loop
+    t = threading.Thread(target=position_risk_checker_loop, daemon=True)
+    t.start()
+    
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
