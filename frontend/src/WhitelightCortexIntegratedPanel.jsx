@@ -83,6 +83,69 @@ export default function WhitelightCortexIntegratedPanel({
   const [executedOrders, setExecutedOrders] = useState([]);
   const [accountSummary, setAccountSummary] = useState(null);
   const [localTrades, setLocalTrades] = useState([]);
+  
+  // Watchlist states
+  const [watchlist, setWatchlist] = useState(["AAPL", "NVDA", "SPY"]);
+  const [newTicker, setNewTicker] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResults, setScanResults] = useState({});
+  const [autoScanEnabled, setAutoScanEnabled] = useState(false);
+
+  // PPO RL Policy Strategy Optimizer states
+  const [ppoSteps, setPpoSteps] = useState(350000);
+  const [ppoRecency, setPpoRecency] = useState(true);
+  const [ppoMasking, setPpoMasking] = useState(true);
+  const [ppoAtr, setPpoAtr] = useState(true);
+  const [ppoBeta, setPpoBeta] = useState(true);
+  const [ppoTraining, setPpoTraining] = useState(false);
+  const [ppoProgress, setPpoProgress] = useState(0);
+  const [ppoMetrics, setPpoMetrics] = useState([]);
+
+  const handleTrainPPO = async () => {
+    setPpoTraining(true);
+    setPpoProgress(0);
+    setPpoMetrics([]);
+    
+    const interval = setInterval(() => {
+      setPpoProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 120);
+    
+    try {
+      const res = await fetch(`${API_BASE}/rl/train_ppo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          steps: ppoSteps,
+          use_recency: ppoRecency,
+          use_masking: ppoMasking,
+          use_atr: ppoAtr,
+          use_beta: ppoBeta
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPpoMetrics(data.metrics);
+        setAuditEvents((prev) => [{
+          time: new Date().toLocaleTimeString(),
+          type: "PROPOSAL_VALIDATED",
+          level: "success",
+          title: `PPO RL POLICY TRAINED: ${ppoSteps.toLocaleString()} Steps`,
+          notes: `Optimized with: Linear Recency Reward, Action Masking, ATR bounds, SPY Beta. Final Reward: ${data.metrics[9]?.reward}`,
+          validator: "Reinforcement Learning Engine"
+        }, ...prev]);
+      }
+    } catch (e) {
+      console.error("PPO training error:", e);
+    } finally {
+      setTimeout(() => setPpoTraining(false), 1200);
+    }
+  };
 
   // Backtest widget states
   const [btTicker, setBtTicker] = useState("SPY");
@@ -114,33 +177,8 @@ export default function WhitelightCortexIntegratedPanel({
   const [validatorModel, setValidatorModel] = useState("High Reasoning Model");
   const [agentResult, setAgentResult] = useState(null);
 
-  // Live Audit JSONL Event Stream (No Gemini model names)
-  const [auditEvents, setAuditEvents] = useState([
-    {
-      time: "13:18:10 PM",
-      type: "PROPOSAL_VALIDATED",
-      level: "success",
-      title: "PROPOSAL AUTHORIZED: AAPL $230 CALL",
-      notes: "Passed 5 Wall St Rules | Midpoint: $9.46 | IV Rank: 32% | OI: 1,450",
-      validator: "AI Risk Desk (Standard)"
-    },
-    {
-      time: "13:17:45 PM",
-      type: "RISK_GATE_REFUSAL",
-      level: "danger",
-      title: "ENTRY SKIPPED: NVDA $125 CALL",
-      notes: "Refused by Risk Desk — IV Rank 62.4% exceeds 50% cap (IV Crush Hazard)",
-      validator: "AI Risk Desk (Standard)"
-    },
-    {
-      time: "13:15:20 PM",
-      type: "ORDER_FILLED",
-      level: "info",
-      title: "PAPER ORDER FILLED: TSLA $240 PUT",
-      notes: "Limit Price: $5.10 | Qty: 1 | Broker: Alpaca Paper",
-      validator: "System Execution Gate"
-    }
-  ]);
+  // Live Audit JSONL Event Stream
+  const [auditEvents, setAuditEvents] = useState([]);
 
   // High-Water Mark Trailing Stop Active Positions
   const [positions, setPositions] = useState([
@@ -206,6 +244,43 @@ export default function WhitelightCortexIntegratedPanel({
     }
   };
 
+  const handleScanWatchlist = async () => {
+    if (watchlist.length === 0) return;
+    setIsScanning(true);
+    try {
+      const res = await fetch(`${API_BASE}/options/scan_watchlist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tickers: watchlist, timeframe })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setScanResults(data.results);
+        
+        // Auto-Execute checks for each authorized watchlist ticker
+        if (autoExecute) {
+          for (const tk of Object.keys(data.results)) {
+            const item = data.results[tk];
+            if (item.success && item.dual_agent_result?.execution_ready) {
+              setAuditEvents((prev) => [{
+                time: new Date().toLocaleTimeString(),
+                type: "PROPOSAL_VALIDATED",
+                level: "success",
+                title: `WATCHLIST AUTO-EXECUTE: ${tk}`,
+                notes: `Proposer and Validator authorized trade. Submitted order to Alpaca.`,
+                validator: "AI Risk Desk Agent"
+              }, ...prev]);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Watchlist scan error:", e);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   useEffect(() => {
     fetchIntradayData(activeTicker, timeframe);
     fetchAccountSummary();
@@ -217,6 +292,19 @@ export default function WhitelightCortexIntegratedPanel({
     }, 5000);
     return () => clearInterval(interval);
   }, [activeTicker, timeframe]);
+
+  useEffect(() => {
+    if (!autoScanEnabled) return;
+    
+    // Scan immediately
+    handleScanWatchlist();
+    
+    // Set 30-second interval
+    const scannerTimer = setInterval(() => {
+      handleScanWatchlist();
+    }, 30000);
+    return () => clearInterval(scannerTimer);
+  }, [autoScanEnabled, watchlist, timeframe, autoExecute]);
 
   const fetchIntradayData = async (symbol, tf = timeframe) => {
     setLoading(true);
@@ -762,87 +850,10 @@ export default function WhitelightCortexIntegratedPanel({
         </div>
       </div>
 
-      {/* Main Grid: Signals & Dual-Agent (Left) / Live Audit Feed & Positions (Right) */}
+      {/* Main Grid: Live Audit Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Column (col-span-6): Intraday Signals & Dual Agent Control */}
-        <div className="lg:col-span-6 space-y-4 font-mono">
-          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <span className="text-xs uppercase tracking-widest text-slate-400">Active Ticker Analytics / Radar</span>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <h2 className="text-2xl font-black text-white">{activeTicker}</h2>
-                  <span className="text-xl font-bold text-amber-400">${currentPrice.toFixed(2)}</span>
-                </div>
-              </div>
-              {signals && (
-                <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-md border"
-                      style={{ color: biasColor, borderColor: `${biasColor}44`, backgroundColor: `${biasColor}11` }}>
-                  {signals.intraday_bias}
-                </span>
-              )}
-            </div>
-
-            {/* 4 Intraday Signals Grid */}
-            {signals && (
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-lg border border-slate-800 bg-slate-950/50 space-y-1">
-                  <div className="text-[10px] text-slate-400 uppercase">1. % From Open</div>
-                  <div className={`text-base font-bold ${signals.pct_from_open >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                    {signals.pct_from_open >= 0 ? "+" : ""}{signals.pct_from_open}%
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg border border-slate-800 bg-slate-950/50 space-y-1">
-                  <div className="text-[10px] text-slate-400 uppercase">2. VWAP Diff</div>
-                  <div className={`text-base font-bold ${signals.vwap_diff_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                    {signals.vwap_diff_pct >= 0 ? "+" : ""}{signals.vwap_diff_pct}%
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg border border-slate-800 bg-slate-950/50 space-y-1">
-                  <div className="text-[10px] text-slate-400 uppercase">3. RSI-7 (5-Min)</div>
-                  <div className={`text-base font-bold ${signals.rsi_7 > 70 ? "text-rose-400" : signals.rsi_7 < 30 ? "text-emerald-400" : "text-amber-400"}`}>
-                    {signals.rsi_7}
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg border border-slate-800 bg-slate-950/50 space-y-1">
-                  <div className="text-[10px] text-slate-400 uppercase">4. MACD (6,13,5)</div>
-                  <div className={`text-base font-bold ${signals.macd_6_13_5?.histogram >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                    Hist: {signals.macd_6_13_5?.histogram}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Auto-Execute Toggle Switch */}
-            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-950/60 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-emerald-400">🤖</span>
-                <span className="text-slate-300 font-bold uppercase tracking-wider">Auto-Execute Trades</span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer select-none">
-                <input 
-                  type="checkbox" 
-                  checked={autoExecute}
-                  onChange={(e) => setAutoExecute(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-6 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-slate-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
-              </label>
-            </div>
-
-            {/* Dual Agent Execution Trigger Button */}
-            <button
-              onClick={handleRunDualAgent}
-              disabled={evaluating}
-              className="w-full py-3 text-xs font-bold uppercase tracking-wider rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-lg shadow-amber-500/10"
-            >
-              {evaluating ? "⏳ Auditing with AI Agent Pool..." : `⚡ Audit Trade (${activeTicker} - ${timeframe})`}
-            </button>
-          </div>
-        </div>
-
-        {/* Right Column (col-span-6): Live Audit Event Stream */}
+        {/* Full-Width (col-span-12): Live Audit Event Stream */}
         <div className="lg:col-span-6 space-y-4 font-mono text-xs">
           <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -858,25 +869,159 @@ export default function WhitelightCortexIntegratedPanel({
             </div>
 
             <div className="space-y-2.5 max-h-[310px] overflow-y-auto pr-1">
-              {auditEvents.map((evt, idx) => (
-                <div
-                  key={idx}
-                  className={`p-3 rounded-lg border text-xs space-y-1 transition-all ${
-                    evt.level === "success"
-                      ? "border-emerald-500/30 bg-emerald-500/5"
-                      : evt.level === "danger"
-                      ? "border-rose-500/30 bg-rose-500/5"
-                      : "border-slate-800 bg-slate-950/60"
-                  }`}
-                >
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="font-mono text-slate-400">{evt.time}</span>
-                    <span className="font-bold text-amber-400 uppercase">{evt.validator}</span>
+              {auditEvents.length > 0 ? (
+                auditEvents.map((evt, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg border text-xs space-y-1 transition-all ${
+                      evt.level === "success"
+                        ? "border-emerald-500/30 bg-emerald-500/5"
+                        : evt.level === "danger"
+                        ? "border-rose-500/30 bg-rose-500/5"
+                        : "border-slate-800 bg-slate-950/60"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-mono text-slate-400">{evt.time}</span>
+                      <span className="font-bold text-amber-400 uppercase">{evt.validator}</span>
+                    </div>
+                    <div className="font-bold text-white text-[11px]">{evt.title}</div>
+                    <p className="text-[10px] text-slate-300 leading-relaxed">{evt.notes}</p>
                   </div>
-                  <div className="font-bold text-white text-[11px]">{evt.title}</div>
-                  <p className="text-[10px] text-slate-300 leading-relaxed">{evt.notes}</p>
+                ))
+              ) : (
+                <div className="text-center py-12 text-slate-500 italic">
+                  No active audit stream. Click "Audit Trade" or activate the Watchlist Auto-Scanner to stream live risk decisions.
                 </div>
-              ))}
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* PPO RL Policy Strategy Optimizer Widget (col-span-6) */}
+        <div className="lg:col-span-6 space-y-4 font-mono text-xs">
+          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🤖</span>
+                <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
+                  PPO Reinforcement Learning Policy Optimizer
+                </h3>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                Stable-Baselines3
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {/* Training Steps Configuration */}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Target Training Budget:</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={ppoSteps}
+                    onChange={(e) => setPpoSteps(parseInt(e.target.value) || 350000)}
+                    className="w-24 px-2 py-1 bg-slate-950 border border-slate-800 text-amber-400 font-bold rounded text-right focus:outline-none"
+                  />
+                  <span className="text-slate-500">steps</span>
+                </div>
+              </div>
+
+              {/* Optimizations Toggles */}
+              <div className="space-y-2 pt-1 border-t border-slate-800/60">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">Active Hyperparameters</span>
+                
+                {/* 1. Linear Recency Reward */}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-slate-300 font-bold">1. Linear Recency Weighting</span>
+                    <span className="text-[9px] text-slate-500">Weight = 0.5 + 0.5 * (Step / Total)</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" checked={ppoRecency} onChange={(e) => setPpoRecency(e.target.checked)} className="sr-only peer" />
+                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                  </label>
+                </div>
+
+                {/* 2. Action Masking Shield */}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-slate-300 font-bold">2. Action Masking Layer</span>
+                    <span className="text-[9px] text-slate-500">Mask buy actions when SPY &lt; VWAP</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" checked={ppoMasking} onChange={(e) => setPpoMasking(e.target.checked)} className="sr-only peer" />
+                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                  </label>
+                </div>
+
+                {/* 3. ATR Breakout Normalization */}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-slate-300 font-bold">3. ATR boundary Normalization</span>
+                    <span className="text-[9px] text-slate-500">Normalize PDH/PDL distance by 14-day ATR</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" checked={ppoAtr} onChange={(e) => setPpoAtr(e.target.checked)} className="sr-only peer" />
+                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                  </label>
+                </div>
+
+                {/* 4. SPY Relative Beta Feature */}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-slate-300 font-bold">4. SPY Relative Beta Ratio</span>
+                    <span className="text-[9px] text-slate-500">Expose SPY price/VWAP as active state feature</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" checked={ppoBeta} onChange={(e) => setPpoBeta(e.target.checked)} className="sr-only peer" />
+                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Progress and training activation */}
+              <div className="pt-2 border-t border-slate-800/60 space-y-2">
+                {ppoTraining && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] text-slate-400">
+                      <span>Optimizing Policy weights...</span>
+                      <span>{ppoProgress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                      <div className="bg-amber-500 h-1.5 rounded-full transition-all duration-100" style={{ width: `${ppoProgress}%` }}></div>
+                    </div>
+                  </div>
+                )}
+
+                {ppoMetrics.length > 0 && (
+                  <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-1 text-[10px]">
+                    <div className="flex justify-between font-bold text-slate-400">
+                      <span>Step</span>
+                      <span>Loss</span>
+                      <span>Avg Reward</span>
+                    </div>
+                    <div className="max-h-20 overflow-y-auto space-y-0.5 pr-1">
+                      {ppoMetrics.map((m, i) => (
+                        <div key={i} className="flex justify-between font-mono text-slate-300">
+                          <span>{m.step.toLocaleString()}</span>
+                          <span>{m.loss}</span>
+                          <span className={m.reward >= 0 ? "text-emerald-400" : "text-rose-400"}>{m.reward}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleTrainPPO}
+                  disabled={ppoTraining}
+                  className="w-full py-2.5 text-xs font-bold uppercase tracking-wider rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-md shadow-emerald-500/10"
+                >
+                  {ppoTraining ? "⏳ Running PPO Optimizer..." : "⚡ Train Policy"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -983,6 +1128,267 @@ export default function WhitelightCortexIntegratedPanel({
           </div>
         </div>
 
+        {/* Full-Width Watchlist Scanner (col-span-12) */}
+        <div className="lg:col-span-12 font-mono">
+          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-400 text-base">👁️</span>
+                <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
+                  Cortex Watchlist Scanner & Decider Desk
+                </h3>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setAutoScanEnabled(!autoScanEnabled)}
+                  className={`px-3 py-1 text-[10px] font-bold uppercase rounded-md border transition-all ${
+                    autoScanEnabled
+                      ? "bg-emerald-500 text-slate-950 border-emerald-400 font-black"
+                      : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+                  }`}
+                >
+                  {autoScanEnabled ? "● Auto-Scan ACTIVE (30s)" : "○ Start Auto-Scan"}
+                </button>
+                <button
+                  onClick={handleScanWatchlist}
+                  disabled={isScanning}
+                  className="px-3 py-1 text-[10px] font-bold uppercase rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all"
+                >
+                  {isScanning ? "⏳ Scanning..." : "⚡ Scan Watchlist Now"}
+                </button>
+              </div>
+            </div>
+
+            {/* Add Ticker Form */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-400 font-bold uppercase">Add Ticker:</span>
+              <input
+                type="text"
+                value={newTicker}
+                onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
+                placeholder="e.g. TSLA, AMD..."
+                className="px-2.5 py-1.5 rounded bg-slate-950 border border-slate-800 text-amber-400 font-bold uppercase w-28 focus:outline-none focus:border-amber-400"
+              />
+              <button
+                onClick={() => {
+                  const cleaned = newTicker.trim().toUpperCase();
+                  if (cleaned && !watchlist.includes(cleaned)) {
+                    setWatchlist([...watchlist, cleaned]);
+                    setActiveTicker(cleaned);
+                    setNewTicker("");
+                  }
+                }}
+                className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold"
+              >
+                + Add
+              </button>
+            </div>
+
+            {/* Watchlist Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {watchlist.map((tk) => {
+                const res = scanResults[tk];
+                const isActive = activeTicker === tk;
+                return (
+                  <div key={tk} 
+                    className={`p-3 rounded-lg border text-xs space-y-2 relative transition-all ${
+                      isActive 
+                        ? "md:col-span-3 border-amber-500 bg-amber-500/[0.03] shadow-md shadow-amber-500/5 grid grid-cols-1 md:grid-cols-12 gap-4" 
+                        : "border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer"
+                    }`}
+                    onClick={() => {
+                      if (!isActive) setActiveTicker(tk);
+                    }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setWatchlist(watchlist.filter((x) => x !== tk));
+                      }}
+                      className="absolute top-2 right-2 text-slate-500 hover:text-rose-400 font-bold text-xs z-10"
+                      title="Remove Ticker"
+                    >
+                      ✕
+                    </button>
+                    <div 
+                      className="flex items-baseline gap-2 cursor-pointer select-none group md:col-span-12"
+                      title="Select as Active Analytics Ticker"
+                    >
+                      <span className={`text-base font-black transition-colors ${isActive ? "text-amber-400" : "text-white group-hover:text-amber-400"}`}>
+                        {tk}
+                      </span>
+                      <span className="text-[9px] text-slate-500 uppercase tracking-widest">
+                        {isActive ? "🟢 Active Analytics" : "Click to select"}
+                      </span>
+                    </div>
+
+                    {/* Non-Active Compact Preview */}
+                    {!isActive && (
+                      <div className="text-xs pt-1 border-t border-slate-800 space-y-1">
+                        {res ? (
+                          res.success ? (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Intraday Bias:</span>
+                                <span className="font-bold text-slate-200">
+                                  {res.signals?.intraday_bias || "NEUTRAL"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Agent Decision:</span>
+                                <span className={`font-black ${res.dual_agent_result?.execution_ready ? "text-emerald-400" : "text-slate-400"}`}>
+                                  {res.dual_agent_result?.execution_ready ? "AUTHORIZED" : "REJECT / HOLD"}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-[10px] text-rose-400">Scan Failed: {res.error}</div>
+                          )
+                        ) : (
+                          <div className="text-slate-500 italic text-[10px]">No scan data. Click Scan.</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Expanded Active Inline Dropdown Panel */}
+                    {isActive && (
+                      <>
+                        {/* Left Side: Intraday Signals (col-span-4) */}
+                        <div className="md:col-span-4 space-y-3 pt-2 border-t border-slate-800/60 font-mono">
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold">Asset Price:</span>
+                            <span className="text-base font-black text-amber-400">${currentPrice.toFixed(2)}</span>
+                          </div>
+
+                          {signals && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-slate-400 uppercase font-bold">Bias direction:</span>
+                              <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase border"
+                                    style={{ color: biasColor, borderColor: `${biasColor}44`, backgroundColor: `${biasColor}11` }}>
+                                {signals.intraday_bias}
+                              </span>
+                            </div>
+                          )}
+
+                          {signals && (
+                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                              <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-0.5">
+                                <div className="text-[9px] text-slate-500 uppercase">Open Diff</div>
+                                <div className={`font-bold ${signals.pct_from_open >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                  {signals.pct_from_open >= 0 ? "+" : ""}{signals.pct_from_open}%
+                                </div>
+                              </div>
+                              <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-0.5">
+                                <div className="text-[9px] text-slate-500 uppercase">VWAP Diff</div>
+                                <div className={`font-bold ${signals.vwap_diff_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                  {signals.vwap_diff_pct >= 0 ? "+" : ""}{signals.vwap_diff_pct}%
+                                </div>
+                              </div>
+                              <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-0.5">
+                                <div className="text-[9px] text-slate-500 uppercase">RSI-7</div>
+                                <div className={`font-bold ${signals.rsi_7 > 70 ? "text-rose-400" : signals.rsi_7 < 30 ? "text-emerald-400" : "text-amber-400"}`}>
+                                  {signals.rsi_7}
+                                </div>
+                              </div>
+                              <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-0.5">
+                                <div className="text-[9px] text-slate-500 uppercase">MACD Hist</div>
+                                <div className={`font-bold ${signals.macd_6_13_5?.histogram >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                  {signals.macd_6_13_5?.histogram}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Auto-Execute Toggle Switch */}
+                          <div className="flex items-center justify-between p-2 rounded bg-slate-950 border border-slate-850 text-[10px]">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-emerald-400">🤖</span>
+                              <span className="text-slate-300 font-bold uppercase">Auto-Execute</span>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer select-none">
+                              <input 
+                                type="checkbox" 
+                                checked={autoExecute}
+                                onChange={(e) => setAutoExecute(e.target.checked)}
+                                className="sr-only peer"
+                              />
+                              <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                            </label>
+                          </div>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRunDualAgent();
+                            }}
+                            disabled={evaluating}
+                            className="w-full py-2.5 text-[10px] font-bold uppercase tracking-wider rounded bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-md shadow-amber-500/10"
+                          >
+                            {evaluating ? "⏳ Auditing with AI Desk..." : `⚡ Audit Option Trade`}
+                          </button>
+                        </div>
+
+                        {/* Right Side: Options Chain (col-span-8) */}
+                        <div className="md:col-span-8 pt-2 md:pt-0 border-t md:border-t-0 md:border-l border-slate-800/60 md:pl-4 space-y-2 max-h-[350px] overflow-y-auto">
+                          <div className="flex items-center justify-between border-b border-slate-800/40 pb-1">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Option Contracts Chain ({timeframe})</span>
+                            <span className="text-[9px] text-emerald-400 font-bold">{chain.length} strikes</span>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-[10px] border-collapse font-mono">
+                              <thead>
+                                <tr className="border-b border-slate-800/40 text-slate-500 uppercase text-[8px]">
+                                  <th className="py-1 px-2">Type</th>
+                                  <th className="py-1 px-2">Strike</th>
+                                  <th className="py-1 px-2">Expiry</th>
+                                  <th className="py-1 px-2">Bid/Ask</th>
+                                  <th className="py-1 px-2">Midpoint</th>
+                                  <th className="py-1 px-2">Delta</th>
+                                  <th className="py-1 px-2">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-800/30">
+                                {chain.map((c, idx) => (
+                                  <tr 
+                                    key={idx} 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenContractModal(c);
+                                    }}
+                                    className="hover:bg-slate-800/40 transition-colors group cursor-pointer"
+                                  >
+                                    <td className={`py-1.5 px-2 font-bold ${c.type === "CALL" ? "text-emerald-400" : "text-rose-400"}`}>{c.type}</td>
+                                    <td className="py-1.5 px-2 font-bold text-white">${c.strike}</td>
+                                    <td className="py-1.5 px-2 text-slate-400">{c.expiration}</td>
+                                    <td className="py-1.5 px-2 text-slate-400">${c.bid} / ${c.ask}</td>
+                                    <td className="py-1.5 px-2 text-amber-300 font-bold">${c.midpoint}</td>
+                                    <td className="py-1.5 px-2 text-slate-300">{c.greeks?.delta}</td>
+                                    <td className="py-1.5 px-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenContractModal(c);
+                                        }}
+                                        className="px-2 py-0.5 text-[8px] font-bold uppercase rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
+                                      >
+                                        Trade
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* Full-Width Section (col-span-12): Active Positions & High-Water Mark Trailing Stop Manager */}
         <div className="lg:col-span-12 font-mono">
           <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
@@ -1067,69 +1473,7 @@ export default function WhitelightCortexIntegratedPanel({
           </div>
         </div>
 
-        {/* Full-Width Options Chain Table */}
-        <div className="lg:col-span-12 font-mono">
-          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-xs font-mono uppercase tracking-widest text-amber-400 font-bold">
-                Options Chain ({timeframe}) - Click Any Row for Robinhood Contract Detail Ticket
-              </h3>
-              <span className="text-xs font-mono text-emerald-400 font-bold px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
-                {chain.length} Liquid Contracts
-              </span>
-            </div>
-            <div className="overflow-x-auto max-h-[450px] overflow-y-auto pr-1">
-              <table className="w-full font-mono text-xs text-left border-collapse cursor-pointer">
-                <thead className="sticky top-0 bg-slate-900 z-10">
-                  <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
-                    <th className="py-2.5 px-3">Symbol</th>
-                    <th className="py-2.5 px-3">Type</th>
-                    <th className="py-2.5 px-3">Strike</th>
-                    <th className="py-2.5 px-3">Expiry / Days to Expire</th>
-                    <th className="py-2.5 px-3">Bid / Ask</th>
-                    <th className="py-2.5 px-3">Midpoint</th>
-                    <th className="py-2.5 px-3">Delta (Δ)</th>
-                    <th className="py-2.5 px-3">Theta (Θ)</th>
-                    <th className="py-2.5 px-3">Vega (V)</th>
-                    <th className="py-2.5 px-3">Open Interest</th>
-                    <th className="py-2.5 px-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {chain.map((c, idx) => (
-                    <tr 
-                      key={idx} 
-                      onClick={() => handleOpenContractModal(c)}
-                      className="hover:bg-slate-800/60 transition-colors group"
-                    >
-                      <td className="py-2.5 px-3 font-extrabold text-amber-400 group-hover:underline">{activeTicker}</td>
-                      <td className={`py-2.5 px-3 font-bold ${c.type === "CALL" ? "text-emerald-400" : "text-rose-400"}`}>{c.type}</td>
-                      <td className="py-2.5 px-3 font-bold text-white">${c.strike}</td>
-                      <td className="py-2.5 px-3 text-slate-400 font-semibold">{c.expiration} ({getDaysToExpiry(c.expiration)} days to expire)</td>
-                      <td className="py-2.5 px-3 text-slate-400">${c.bid} / ${c.ask}</td>
-                      <td className="py-2.5 px-3 text-amber-300 font-bold">${c.midpoint}</td>
-                      <td className="py-2.5 px-3 text-slate-200">{c.greeks?.delta}</td>
-                      <td className="py-2.5 px-3 text-rose-400">{c.greeks?.theta}</td>
-                      <td className="py-2.5 px-3 text-emerald-400">{c.greeks?.vega}</td>
-                      <td className="py-2.5 px-3 text-slate-300">{c.open_interest}</td>
-                      <td className="py-2.5 px-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenContractModal(c);
-                          }}
-                          className="px-3 py-1 text-[10px] font-bold uppercase rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-mono"
-                        >
-                          View Ticket
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+
 
       </div>
 
