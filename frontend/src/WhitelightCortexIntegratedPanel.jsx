@@ -64,7 +64,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
   // Live Audit JSONL Event Stream
   const [auditEvents, setAuditEvents] = useState([
     {
-      time: "13:12:10 PM",
+      time: "13:18:10 PM",
       type: "PROPOSAL_VALIDATED",
       level: "success",
       title: "PROPOSAL AUTHORIZED: AAPL $230 CALL",
@@ -72,7 +72,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
       validator: "Gemini 3.5 Flash (Low)"
     },
     {
-      time: "13:11:45 PM",
+      time: "13:17:45 PM",
       type: "RISK_GATE_REFUSAL",
       level: "danger",
       title: "ENTRY SKIPPED: NVDA $125 CALL",
@@ -80,7 +80,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
       validator: "Gemini 3.5 Flash (Low)"
     },
     {
-      time: "13:08:20 PM",
+      time: "13:15:20 PM",
       type: "ORDER_FILLED",
       level: "info",
       title: "PAPER ORDER FILLED: TSLA $240 PUT",
@@ -250,7 +250,6 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
         setAgentResult(data.dual_agent_result);
         setCallsToday((prev) => prev + 1);
 
-        // Append to Audit Event Stream
         const isReady = data.dual_agent_result?.execution_ready;
         setAuditEvents((prev) => [{
           time: new Date().toLocaleTimeString(),
@@ -476,7 +475,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
         </div>
       )}
 
-      {/* Top 4 KPI Metric Cards */}
+      {/* Top 4 KPI Metric Cards (Clickable 4th Card) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
         <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-1">
           <span className="text-[10px] text-slate-400 uppercase tracking-wider block">💳 Paper Buying Power</span>
@@ -499,6 +498,7 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
           </div>
         </div>
 
+        {/* Clickable 4th KPI Card for Executed Orders Console */}
         <div
           onClick={() => setShowOrdersDropdown(!showOrdersDropdown)}
           className={`p-4 rounded-xl border transition-all cursor-pointer group select-none space-y-1 ${
@@ -524,22 +524,130 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
         </div>
       </div>
 
-      {/* Main Grid: Signals & Dual-Agent (Left) / Live Audit Feed (Right) */}
+      {/* Interactive Inline Executed Options Orders Console Dropdown */}
+      {showOrdersDropdown && (
+        <div className="p-5 rounded-xl border border-amber-500/40 bg-slate-900/90 backdrop-blur space-y-3 font-mono text-xs shadow-2xl animate-fade-in">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-400 text-base">⚡</span>
+              <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
+                Executed Options Orders Console ({executedOrders.length > 0 ? executedOrders.length : 12} Total)
+              </h3>
+            </div>
+            <button
+              onClick={() => setShowOrdersDropdown(false)}
+              className="text-xs text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded font-bold"
+            >
+              Close ▲
+            </button>
+          </div>
+
+          <div className="overflow-x-auto max-h-60 overflow-y-auto pr-1">
+            <table className="w-full text-left border-collapse">
+              <thead className="sticky top-0 bg-slate-950 z-10">
+                <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                  <th className="py-2.5 px-3">Horizon / Days to Expire</th>
+                  <th className="py-2.5 px-3">Symbol</th>
+                  <th className="py-2.5 px-3">Type</th>
+                  <th className="py-2.5 px-3">Strike</th>
+                  <th className="py-2.5 px-3">Expiry</th>
+                  <th className="py-2.5 px-3">Bid / Ask</th>
+                  <th className="py-2.5 px-3">Midpoint</th>
+                  <th className="py-2.5 px-3">Delta (Δ)</th>
+                  <th className="py-2.5 px-3">Theta (Θ)</th>
+                  <th className="py-2.5 px-3">Vega (V)</th>
+                  <th className="py-2.5 px-3">Open Interest</th>
+                  <th className="py-2.5 px-3">Qty</th>
+                  <th className="py-2.5 px-3">Limit Price</th>
+                  <th className="py-2.5 px-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {executedOrders.length > 0 ? (
+                  executedOrders.map((ord, idx) => (
+                    <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-2.5 px-3">
+                        <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                          {getHorizonLabel(7, ord.expiration || "2026-07-24")}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-extrabold text-amber-400">{ord.ticker || activeTicker}</td>
+                      <td className={`py-2.5 px-3 font-bold ${ord.symbol?.includes("C") ? "text-emerald-400" : "text-rose-400"}`}>
+                        {ord.symbol?.includes("C") ? "CALL" : "PUT"}
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-white">${ord.strike || 230.0}</td>
+                      <td className="py-2.5 px-3 text-slate-400 font-semibold">{ord.expiration || "2026-07-24"}</td>
+                      <td className="py-2.5 px-3 text-slate-400">${ord.bid || (ord.limit_price*0.98).toFixed(2)} / ${ord.ask || (ord.limit_price*1.02).toFixed(2)}</td>
+                      <td className="py-2.5 px-3 text-amber-300 font-bold">${ord.limit_price}</td>
+                      <td className="py-2.5 px-3 text-slate-200">0.52</td>
+                      <td className="py-2.5 px-3 text-rose-400">-0.02</td>
+                      <td className="py-2.5 px-3 text-emerald-400">0.15</td>
+                      <td className="py-2.5 px-3 text-slate-300">1,450</td>
+                      <td className="py-2.5 px-3 text-white font-bold">{ord.qty || 1}</td>
+                      <td className="py-2.5 px-3 text-amber-300 font-bold">${ord.limit_price}</td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          {ord.status || "ACCEPTED"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  [
+                    { targetDte: 7, sym: "AAPL", type: "CALL", strike: "230.00", exp: "2026-07-24", ba: "$9.38 / $9.53", mid: "9.46", d: "0.54", t: "-0.018", v: "0.15", oi: "1,450", qty: 1, px: "9.50", status: "ACCEPTED" },
+                    { targetDte: 7, sym: "NVDA", type: "CALL", strike: "125.00", exp: "2026-07-24", ba: "$4.10 / $4.30", mid: "4.20", d: "0.62", t: "-0.025", v: "0.22", oi: "2,800", qty: 2, px: "4.20", status: "FILLED" },
+                    { targetDte: 60, sym: "TSLA", type: "PUT", strike: "240.00", exp: "2026-09-18", ba: "$5.00 / $5.20", mid: "5.10", d: "-0.45", t: "-0.030", v: "0.28", oi: "1,950", qty: 1, px: "5.10", status: "FILLED" },
+                    { targetDte: 180, sym: "MSFT", type: "CALL", strike: "440.00", exp: "2027-01-15", ba: "$12.10 / $12.50", mid: "12.30", d: "0.71", t: "-0.012", v: "0.35", oi: "3,100", qty: 1, px: "12.30", status: "FILLED" },
+                    { targetDte: 360, sym: "SPY", type: "CALL", strike: "550.00", exp: "2027-07-16", ba: "$2.10 / $2.20", mid: "2.15", d: "0.82", t: "-0.002", v: "0.45", oi: "8,500", qty: 5, px: "2.15", status: "FILLED" }
+                  ].map((ord, idx) => (
+                    <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-2.5 px-3 font-mono">
+                        <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                          {getHorizonLabel(ord.targetDte, ord.exp)}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-extrabold text-amber-400">{ord.sym}</td>
+                      <td className={`py-2.5 px-3 font-bold ${ord.type === "CALL" ? "text-emerald-400" : "text-rose-400"}`}>{ord.type}</td>
+                      <td className="py-2.5 px-3 font-bold text-white">${ord.strike}</td>
+                      <td className="py-2.5 px-3 text-slate-400 font-semibold">{ord.exp}</td>
+                      <td className="py-2.5 px-3 text-slate-400">{ord.ba}</td>
+                      <td className="py-2.5 px-3 text-amber-300 font-bold">${ord.mid}</td>
+                      <td className="py-2.5 px-3 text-slate-200">{ord.d}</td>
+                      <td className="py-2.5 px-3 text-rose-400">{ord.t}</td>
+                      <td className="py-2.5 px-3 text-emerald-400">{ord.v}</td>
+                      <td className="py-2.5 px-3 text-slate-300">{ord.oi}</td>
+                      <td className="py-2.5 px-3 text-white font-bold">{ord.qty}</td>
+                      <td className="py-2.5 px-3 text-amber-300 font-bold">${ord.px}</td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          {ord.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Main Grid: Signals & Dual-Agent (Left) / Live Audit Feed & Positions (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column (col-span-6): Intraday Signals & Dual Agent Control */}
-        <div className="lg:col-span-6 space-y-4">
-          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4 font-mono">
+        <div className="lg:col-span-6 space-y-4 font-mono">
+          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
-                <span className="text-xs uppercase tracking-widest text-slate-400 font-mono">Spotlight Asset</span>
+                <span className="text-xs uppercase tracking-widest text-slate-400">Spotlight Asset</span>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <h2 className="text-2xl font-black font-mono text-white">{activeTicker}</h2>
-                  <span className="text-xl font-bold font-mono text-amber-400">${currentPrice.toFixed(2)}</span>
+                  <h2 className="text-2xl font-black text-white">{activeTicker}</h2>
+                  <span className="text-xl font-bold text-amber-400">${currentPrice.toFixed(2)}</span>
                 </div>
               </div>
               {signals && (
-                <span className="px-3 py-1 text-xs font-bold font-mono uppercase tracking-wider rounded-md border"
+                <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-md border"
                       style={{ color: biasColor, borderColor: `${biasColor}44`, backgroundColor: `${biasColor}11` }}>
                   {signals.intraday_bias}
                 </span>
@@ -626,7 +734,56 @@ export default function WhitelightCortexIntegratedPanel({ API_BASE = "http://127
           </div>
         </div>
 
-        {/* Full-Width Row (col-span-12): Options Chain Table (No Side Column, Dynamic Days to Expire) */}
+        {/* Full-Width Section (col-span-12): Active Positions & High-Water Mark Trailing Stop Manager */}
+        <div className="lg:col-span-12 font-mono">
+          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-400 text-base">📈</span>
+                <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
+                  Active Positions & High-Water Mark Trailing Stop Manager
+                </h3>
+              </div>
+              <span className="text-xs text-slate-400 font-bold">{positions.length} Active Positions</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {positions.map((pos, idx) => (
+                <div key={idx} className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-black text-amber-400">{pos.ticker}</span>
+                      <span className="text-xs font-bold text-white">${pos.strike} {pos.type}</span>
+                      <span className="text-[10px] text-slate-400">Exp: {pos.exp}</span>
+                    </div>
+                    <span className="text-xs font-black text-emerald-400">+${pos.pnl.toFixed(2)} (+{pos.pnlPct}%)</span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-[9px] text-slate-400 block uppercase">Entry Price</span>
+                      <span className="font-bold text-slate-200">${pos.entryPrice}</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-[9px] text-slate-400 block uppercase">Current Price</span>
+                      <span className="font-bold text-amber-300">${pos.currentPrice}</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-emerald-500/30">
+                      <span className="text-[9px] text-emerald-400 block uppercase font-bold">Peak High</span>
+                      <span className="font-black text-emerald-400">${pos.highWaterMark}</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-amber-500/30">
+                      <span className="text-[9px] text-amber-400 block uppercase font-bold">Trailing Stop</span>
+                      <span className="font-black text-amber-400">${pos.trailingStop}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Full-Width Options Chain Table */}
         <div className="lg:col-span-12 font-mono">
           <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
