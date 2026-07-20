@@ -293,6 +293,29 @@ export default function WhitelightCortexIntegratedPanel({
   // High-Water Mark Trailing Stop Active Positions
   const [positions, setPositions] = useState([]);
 
+  // Expiration dates helper for Robinhood UI dropdown
+  const expirationDates = useMemo(() => {
+    const dates = new Set();
+    if (Array.isArray(chain)) {
+      chain.forEach(c => {
+        if (c.expiration) dates.add(c.expiration);
+      });
+    }
+    return Array.from(dates).sort();
+  }, [chain]);
+
+  const selectedExp = rhExpiration || expirationDates[0] || "";
+
+  // Filter chain matching Robinhood style Call/Put toggles and Expiry dropdown
+  const filteredChain = useMemo(() => {
+    if (!Array.isArray(chain)) return [];
+    return chain.filter(c => {
+      const matchesType = c.type === rhType.toUpperCase();
+      const matchesExp = selectedExp ? c.expiration === selectedExp : true;
+      return matchesType && matchesExp;
+    });
+  }, [chain, rhType, selectedExp]);
+
   // Cooldown Timer simulation
   useEffect(() => {
     const timer = setInterval(() => {
