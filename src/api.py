@@ -230,6 +230,85 @@ class APIServerHandler(BaseHTTPRequestHandler):
                 self.send_error(500, f"Error reading file: {e}")
             return
 
+        elif path == "/api/options/positions":
+            import src.config as config
+            if not config.API_KEY or not config.SECRET_KEY or "YOUR_ALPACA" in config.API_KEY:
+                self._send_json([])
+                return
+            try:
+                from alpaca.trading.client import TradingClient
+                client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
+                raw_positions = client.get_all_positions()
+                opt_positions = []
+                for p in raw_positions:
+                    symbol = p.symbol
+                    #OCC Option symbol format checking (length >= 15 with letters and numbers)
+                    is_option = len(symbol) >= 15 and ("C" in symbol[4:] or "P" in symbol[4:])
+                    if is_option:
+                        underlying = ""
+                        for idx, char in enumerate(symbol):
+                            if char.isdigit():
+                                break
+                            underlying += char
+                        
+                        rest = symbol[len(underlying):]
+                        exp_yy = rest[:2]
+                        exp_mm = rest[2:4]
+                        exp_dd = rest[4:6]
+                        expiry_date = f"20{exp_yy}-{exp_mm}-{exp_dd}"
+                        
+                        option_type = "CALL" if "C" in rest else "PUT"
+                        type_char = "C" if "C" in rest else "P"
+                        strike_part = rest.split(type_char)[1]
+                        strike_val = float(strike_part) / 1000.0
+                        
+                        current_price = float(p.current_price)
+                        avg_entry_price = float(p.avg_entry_price)
+                        pnl = float(p.unrealized_pl)
+                        pnl_pct = 0.0
+                        if avg_entry_price > 0:
+                            pnl_pct = ((current_price - avg_entry_price) / avg_entry_price) * 100
+                            
+                        # Manage high-water marks (persisted in data/positions_hwm.json)
+                        hwm_file = os.path.join(DATA_DIR, "positions_hwm.json")
+                        hwm_data = {}
+                        if os.path.exists(hwm_file):
+                            try:
+                                with open(hwm_file, "r") as hf:
+                                    hwm_data = json.load(hf)
+                            except Exception:
+                                pass
+                        
+                        if symbol not in hwm_data or current_price > hwm_data[symbol]["hwm"]:
+                            hwm_data[symbol] = {
+                                "hwm": current_price,
+                                "stop": current_price * 0.8
+                            }
+                            try:
+                                with open(hwm_file, "w") as hf:
+                                    json.dump(hwm_data, hf)
+                            except Exception:
+                                pass
+                        
+                        opt_positions.append({
+                            "symbol": symbol,
+                            "ticker": underlying,
+                            "type": option_type,
+                            "strike": f"{strike_val:.2f}",
+                            "entryPrice": avg_entry_price,
+                            "currentPrice": current_price,
+                            "highWaterMark": hwm_data[symbol]["hwm"],
+                            "trailingStop": round(hwm_data[symbol]["stop"], 2),
+                            "pnl": pnl,
+                            "pnlPct": round(pnl_pct, 1),
+                            "exp": expiry_date
+                        })
+                self._send_json(opt_positions)
+            except Exception as e:
+                print("Error fetching Alpaca option positions:", e)
+                self._send_json([])
+            return
+
         elif path == "/api/options/alerts":
             with ALERTS_LOCK:
                 alerts = list(GLOBAL_ALERTS)

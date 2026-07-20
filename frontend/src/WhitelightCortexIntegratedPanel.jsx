@@ -214,36 +214,7 @@ export default function WhitelightCortexIntegratedPanel({
   const [auditEvents, setAuditEvents] = useState([]);
 
   // High-Water Mark Trailing Stop Active Positions
-  const [positions, setPositions] = useState([
-    {
-      symbol: "AAPL260724C00230000",
-      ticker: "AAPL",
-      type: "CALL",
-      strike: "230.00",
-      entryPrice: 9.46,
-      currentPrice: 11.20,
-      highWaterMark: 11.50,
-      trailingStop: 10.35,
-      pnl: 174.00,
-      pnlPct: 18.4,
-      targetDte: 7,
-      exp: "2026-07-24"
-    },
-    {
-      symbol: "MSFT260918C00440000",
-      ticker: "MSFT",
-      type: "CALL",
-      strike: "440.00",
-      entryPrice: 12.30,
-      currentPrice: 13.10,
-      highWaterMark: 13.50,
-      trailingStop: 12.15,
-      pnl: 80.00,
-      pnlPct: 6.5,
-      targetDte: 60,
-      exp: "2026-09-18"
-    }
-  ]);
+  const [positions, setPositions] = useState([]);
 
   // Cooldown Timer simulation
   useEffect(() => {
@@ -262,6 +233,18 @@ export default function WhitelightCortexIntegratedPanel({
       }
     } catch (e) {
       console.error("Account summary error:", e);
+    }
+  };
+
+  const fetchOptionsPositions = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/options/positions`);
+      if (res.ok) {
+        const data = await res.json();
+        setPositions(data);
+      }
+    } catch (e) {
+      console.error("Error fetching options positions:", e);
     }
   };
 
@@ -318,10 +301,12 @@ export default function WhitelightCortexIntegratedPanel({
     fetchIntradayData(activeTicker, timeframe);
     fetchAccountSummary();
     fetchLocalTrades();
+    fetchOptionsPositions();
     
     const interval = setInterval(() => {
       fetchAccountSummary();
       fetchLocalTrades();
+      fetchOptionsPositions();
     }, 5000);
     return () => clearInterval(interval);
   }, [activeTicker, timeframe]);
