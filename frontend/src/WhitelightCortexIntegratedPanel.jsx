@@ -552,152 +552,6 @@ export default function WhitelightCortexIntegratedPanel({
           </p>
         </div>
       )}
-      {/* Collapsible PPO Policy Optimizer Dropdown Panel */}
-      {showPPO && (
-        <div className="p-6 rounded-xl border border-slate-800 bg-slate-900/95 backdrop-blur space-y-4 font-mono text-xs shadow-2xl animate-fade-in">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🤖</span>
-              <h2 className="text-sm font-bold text-amber-400 uppercase tracking-widest">
-                PPO Reinforcement Learning Policy Optimizer (Stable-Baselines3)
-              </h2>
-            </div>
-            <button
-              onClick={() => setShowPPO(false)}
-              className="px-2 py-1 text-slate-400 hover:text-white bg-slate-800 rounded text-xs font-bold"
-            >
-              Close Optimizer ✕
-            </button>
-          </div>
-          
-                    <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-base">🤖</span>
-                <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
-                  PPO Reinforcement Learning Policy Optimizer
-                </h3>
-              </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                Stable-Baselines3
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              {/* Training Steps Configuration */}
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Target Training Budget:</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={ppoSteps}
-                    onChange={(e) => setPpoSteps(parseInt(e.target.value) || 350000)}
-                    className="w-24 px-2 py-1 bg-slate-950 border border-slate-800 text-amber-400 font-bold rounded text-right focus:outline-none"
-                  />
-                  <span className="text-slate-500">steps</span>
-                </div>
-              </div>
-
-              {/* Optimizations Toggles */}
-              <div className="space-y-2 pt-1 border-t border-slate-800/60">
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">Active Hyperparameters</span>
-                
-                {/* 1. Linear Recency Reward */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-slate-300 font-bold">1. Linear Recency Weighting</span>
-                    <span className="text-[9px] text-slate-500">Weight = 0.5 + 0.5 * (Step / Total)</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer select-none">
-                    <input type="checkbox" checked={ppoRecency} onChange={(e) => setPpoRecency(e.target.checked)} className="sr-only peer" />
-                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
-                  </label>
-                </div>
-
-                {/* 2. Action Masking Shield */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-slate-300 font-bold">2. Action Masking Layer</span>
-                    <span className="text-[9px] text-slate-500">Mask buy actions when SPY &lt; VWAP</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer select-none">
-                    <input type="checkbox" checked={ppoMasking} onChange={(e) => setPpoMasking(e.target.checked)} className="sr-only peer" />
-                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
-                  </label>
-                </div>
-
-                {/* 3. ATR Breakout Normalization */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-slate-300 font-bold">3. ATR boundary Normalization</span>
-                    <span className="text-[9px] text-slate-500">Normalize PDH/PDL distance by 14-day ATR</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer select-none">
-                    <input type="checkbox" checked={ppoAtr} onChange={(e) => setPpoAtr(e.target.checked)} className="sr-only peer" />
-                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
-                  </label>
-                </div>
-
-                {/* 4. SPY Relative Beta Feature */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-slate-300 font-bold">4. SPY Relative Beta Ratio</span>
-                    <span className="text-[9px] text-slate-500">Expose SPY price/VWAP as active state feature</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer select-none">
-                    <input type="checkbox" checked={ppoBeta} onChange={(e) => setPpoBeta(e.target.checked)} className="sr-only peer" />
-                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
-                  </label>
-                </div>
-              </div>
-
-              {/* Progress and training activation */}
-              <div className="pt-2 border-t border-slate-800/60 space-y-2">
-                {ppoTraining && (
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] text-slate-400">
-                      <span>Optimizing Policy weights...</span>
-                      <span>{ppoProgress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-amber-500 h-1.5 rounded-full transition-all duration-100" style={{ width: `${ppoProgress}%` }}></div>
-                    </div>
-                  </div>
-                )}
-
-                {ppoMetrics.length > 0 && (
-                  <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-1 text-[10px]">
-                    <div className="flex justify-between font-bold text-slate-400">
-                      <span>Step</span>
-                      <span>Loss</span>
-                      <span>Avg Reward</span>
-                    </div>
-                    <div className="max-h-20 overflow-y-auto space-y-0.5 pr-1">
-                      {ppoMetrics.map((m, i) => (
-                        <div key={i} className="flex justify-between font-mono text-slate-300">
-                          <span>{m.step.toLocaleString()}</span>
-                          <span>{m.loss}</span>
-                          <span className={m.reward >= 0 ? "text-emerald-400" : "text-rose-400"}>{m.reward}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  onClick={handleTrainPPO}
-                  disabled={ppoTraining}
-                  className="w-full py-2.5 text-xs font-bold uppercase tracking-wider rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-md shadow-emerald-500/10"
-                >
-                  {ppoTraining ? "⏳ Running PPO Optimizer..." : "⚡ Train Policy"}
-                </button>
-              </div>
-            </div>
-          </div>
-
-
-        </div>
-      )}
 
       {/* Top Integrated Master Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border border-slate-800 bg-slate-900/60 backdrop-blur font-mono">
@@ -873,6 +727,152 @@ export default function WhitelightCortexIntegratedPanel({
               </ul>
             </div>
           </div>
+        </div>
+      )}
+      {/* Collapsible PPO Policy Optimizer Dropdown Panel */}
+      {showPPO && (
+        <div className="p-6 rounded-xl border border-slate-800 bg-slate-900/95 backdrop-blur space-y-4 font-mono text-xs shadow-2xl animate-fade-in">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🤖</span>
+              <h2 className="text-sm font-bold text-amber-400 uppercase tracking-widest">
+                PPO Reinforcement Learning Policy Optimizer (Stable-Baselines3)
+              </h2>
+            </div>
+            <button
+              onClick={() => setShowPPO(false)}
+              className="px-2 py-1 text-slate-400 hover:text-white bg-slate-800 rounded text-xs font-bold"
+            >
+              Close Optimizer ✕
+            </button>
+          </div>
+          
+                    <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🤖</span>
+                <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
+                  PPO Reinforcement Learning Policy Optimizer
+                </h3>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                Stable-Baselines3
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {/* Training Steps Configuration */}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Target Training Budget:</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={ppoSteps}
+                    onChange={(e) => setPpoSteps(parseInt(e.target.value) || 350000)}
+                    className="w-24 px-2 py-1 bg-slate-950 border border-slate-800 text-amber-400 font-bold rounded text-right focus:outline-none"
+                  />
+                  <span className="text-slate-500">steps</span>
+                </div>
+              </div>
+
+              {/* Optimizations Toggles */}
+              <div className="space-y-2 pt-1 border-t border-slate-800/60">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">Active Hyperparameters</span>
+                
+                {/* 1. Linear Recency Reward */}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-slate-300 font-bold">1. Linear Recency Weighting</span>
+                    <span className="text-[9px] text-slate-500">Weight = 0.5 + 0.5 * (Step / Total)</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" checked={ppoRecency} onChange={(e) => setPpoRecency(e.target.checked)} className="sr-only peer" />
+                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                  </label>
+                </div>
+
+                {/* 2. Action Masking Shield */}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-slate-300 font-bold">2. Action Masking Layer</span>
+                    <span className="text-[9px] text-slate-500">Mask buy actions when SPY &lt; VWAP</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" checked={ppoMasking} onChange={(e) => setPpoMasking(e.target.checked)} className="sr-only peer" />
+                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                  </label>
+                </div>
+
+                {/* 3. ATR Breakout Normalization */}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-slate-300 font-bold">3. ATR boundary Normalization</span>
+                    <span className="text-[9px] text-slate-500">Normalize PDH/PDL distance by 14-day ATR</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" checked={ppoAtr} onChange={(e) => setPpoAtr(e.target.checked)} className="sr-only peer" />
+                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                  </label>
+                </div>
+
+                {/* 4. SPY Relative Beta Feature */}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-slate-300 font-bold">4. SPY Relative Beta Ratio</span>
+                    <span className="text-[9px] text-slate-500">Expose SPY price/VWAP as active state feature</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" checked={ppoBeta} onChange={(e) => setPpoBeta(e.target.checked)} className="sr-only peer" />
+                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Progress and training activation */}
+              <div className="pt-2 border-t border-slate-800/60 space-y-2">
+                {ppoTraining && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] text-slate-400">
+                      <span>Optimizing Policy weights...</span>
+                      <span>{ppoProgress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                      <div className="bg-amber-500 h-1.5 rounded-full transition-all duration-100" style={{ width: `${ppoProgress}%` }}></div>
+                    </div>
+                  </div>
+                )}
+
+                {ppoMetrics.length > 0 && (
+                  <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-1 text-[10px]">
+                    <div className="flex justify-between font-bold text-slate-400">
+                      <span>Step</span>
+                      <span>Loss</span>
+                      <span>Avg Reward</span>
+                    </div>
+                    <div className="max-h-20 overflow-y-auto space-y-0.5 pr-1">
+                      {ppoMetrics.map((m, i) => (
+                        <div key={i} className="flex justify-between font-mono text-slate-300">
+                          <span>{m.step.toLocaleString()}</span>
+                          <span>{m.loss}</span>
+                          <span className={m.reward >= 0 ? "text-emerald-400" : "text-rose-400"}>{m.reward}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleTrainPPO}
+                  disabled={ppoTraining}
+                  className="w-full py-2.5 text-xs font-bold uppercase tracking-wider rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-md shadow-emerald-500/10"
+                >
+                  {ppoTraining ? "⏳ Running PPO Optimizer..." : "⚡ Train Policy"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+
         </div>
       )}
 
@@ -1477,72 +1477,66 @@ export default function WhitelightCortexIntegratedPanel({
             </div>
 
             {/* Option Positions Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Unified Top-Down Scrollable Positions List */}
+            <div className="overflow-y-auto max-h-[400px] space-y-2 pr-1 text-xs">
+              {/* Option Positions */}
               {positions.map((pos, idx) => (
-                <div key={idx} className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-sm font-black text-amber-400">{pos.ticker}</span>
-                      <span className="text-xs font-bold text-white">${pos.strike} {pos.type}</span>
-                      <span className="text-[10px] text-slate-400">Exp: {pos.exp}</span>
+                <div key={idx} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-800 flex flex-wrap md:flex-nowrap justify-between items-center gap-4 hover:border-slate-700 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className="text-base">🎫</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-amber-400 text-sm">{pos.ticker}</span>
+                        <span className="text-xs font-bold text-white">${pos.strike} {pos.type}</span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">Exp: {pos.exp}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                        <span>Entry: <strong className="text-slate-200">${pos.entryPrice}</strong></span>
+                        <span>Current: <strong className="text-amber-300">${pos.currentPrice}</strong></span>
+                        <span>Peak: <strong className="text-emerald-400">${pos.highWaterMark}</strong></span>
+                        <span>Stop: <strong className="text-rose-400">${pos.trailingStop}</strong></span>
+                      </div>
                     </div>
-                    <span className="text-xs font-black text-emerald-400">+${pos.pnl.toFixed(2)} (+{pos.pnlPct}%)</span>
                   </div>
-
-                  <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                      <span className="text-[9px] text-slate-400 block uppercase">Entry Price</span>
-                      <span className="font-bold text-slate-200">${pos.entryPrice}</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                      <span className="text-[9px] text-slate-400 block uppercase">Current Price</span>
-                      <span className="font-bold text-amber-300">${pos.currentPrice}</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-900 border border-emerald-500/30">
-                      <span className="text-[9px] text-emerald-400 block uppercase font-bold">Peak High</span>
-                      <span className="font-black text-emerald-400">${pos.highWaterMark}</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-900 border border-amber-500/30">
-                      <span className="text-[9px] text-amber-400 block uppercase font-bold">Trailing Stop</span>
-                      <span className="font-black text-amber-400">${pos.trailingStop}</span>
-                    </div>
+                  <div className="text-right">
+                    <span className="text-xs font-black text-emerald-400">
+                      +${pos.pnl.toFixed(2)} (+{pos.pnlPct}%)
+                    </span>
+                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">Options Position</div>
                   </div>
                 </div>
               ))}
 
-              {/* Equities Stock Positions Grid */}
+              {/* Equities Stock Positions */}
               {parentPositions.active_positions?.map((pos, idx) => (
-                <div key={idx} className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-sm font-black text-emerald-400">{pos.symbol}</span>
-                      <span className="text-xs font-bold text-slate-300">Equity Asset</span>
+                <div key={idx} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-800 flex flex-wrap md:flex-nowrap justify-between items-center gap-4 hover:border-slate-700 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className="text-base">📈</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-emerald-400 text-sm">{pos.symbol}</span>
+                        <span className="text-xs font-bold text-slate-300">Equity Asset</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                        <span>Qty: <strong className="text-slate-200">{pos.qty}</strong></span>
+                        <span>Avg Cost: <strong className="text-slate-200">${pos.avg_entry_price?.toFixed(2)}</strong></span>
+                        <span>Current: <strong className="text-amber-300">${pos.current_price?.toFixed(2)}</strong></span>
+                        <span>Market Val: <strong className="text-slate-200">${pos.market_value?.toFixed(2)}</strong></span>
+                      </div>
                     </div>
+                  </div>
+                  <div className="text-right">
                     <span className={`text-xs font-black ${pos.unrealized_pl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                       {pos.unrealized_pl >= 0 ? "+" : ""}${pos.unrealized_pl?.toFixed(2)}
                     </span>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                      <span className="text-[9px] text-slate-400 block uppercase">Qty</span>
-                      <span className="font-bold text-slate-200">{pos.qty}</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                      <span className="text-[9px] text-slate-400 block uppercase">Avg Cost</span>
-                      <span className="font-bold text-slate-200">${pos.avg_entry_price?.toFixed(2)}</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                      <span className="text-[9px] text-slate-400 block uppercase">Current Px</span>
-                      <span className="font-bold text-amber-300">${pos.current_price?.toFixed(2)}</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                      <span className="text-[9px] text-slate-400 block uppercase">Market Val</span>
-                      <span className="font-bold text-amber-300">${pos.market_value?.toFixed(2)}</span>
-                    </div>
+                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">Stock Asset</div>
                   </div>
                 </div>
               ))}
+
+              {positions.length === 0 && (!parentPositions.active_positions || parentPositions.active_positions.length === 0) && (
+                <div className="text-center py-12 text-slate-500">No active positions currently held. Scan watchlist or submit limit orders to execute.</div>
+              )}
             </div>
           </div>
         </div>
