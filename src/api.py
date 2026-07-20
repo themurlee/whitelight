@@ -128,6 +128,48 @@ def _write_json_file(filepath: str, data: any):
         json.dump(data, f, indent=2)
 
 
+def _get_alpaca_orders():
+    import src.config as config
+    if not config.API_KEY or not config.SECRET_KEY or "YOUR_ALPACA" in config.API_KEY:
+        return []
+    try:
+        from alpaca.trading.client import TradingClient
+        from alpaca.trading.requests import GetOrdersRequest
+        from alpaca.trading.enums import QueryOrderStatus
+        client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
+        # Fetch closed/all orders
+        req = GetOrdersRequest(status=QueryOrderStatus.ALL, limit=100)
+        raw_orders = client.get_orders(filter=req)
+        orders = []
+        for o in raw_orders:
+            try:
+                status_str = str(o.status.value).upper() if hasattr(o.status, "value") else str(o.status).upper()
+                side_str = str(o.side.value).upper() if hasattr(o.side, "value") else str(o.side).upper()
+                qty_val = float(o.qty) if o.qty else 0.0
+                price_val = float(o.filled_avg_price) if o.filled_avg_price else (float(o.limit_price) if o.limit_price else 0.0)
+                dt = o.filled_at or o.submitted_at
+                ts = dt.isoformat() if hasattr(dt, "isoformat") else str(dt)
+                
+                orders.append({
+                    "timestamp": ts,
+                    "action": side_str,
+                    "symbol": o.symbol,
+                    "quantity": qty_val,
+                    "price": price_val,
+                    "details": {
+                        "strategy": "Alpaca Live Execution",
+                        "pnl": 0.0,
+                        "status": status_str
+                    }
+                })
+            except Exception as inner_err:
+                print("Error parsing order object:", inner_err)
+        return orders
+    except Exception as e:
+        print("Error fetching Alpaca orders:", e)
+        return []
+
+
 class APIServerHandler(BaseHTTPRequestHandler):
     def end_headers(self):
         # Enable CORS for local Vite development server
@@ -188,8 +230,17 @@ class APIServerHandler(BaseHTTPRequestHandler):
             self._send_json(data)
             
         elif path == "/api/trades":
-            data = _read_json_file(TRADE_LOG_FILE, [])
-            self._send_json(data)
+            local_trades = _read_json_file(TRADE_LOG_FILE, [])
+            live_trades = _get_alpaca_orders()
+            # Combine without duplicating timestamps
+            seen_ts = {t.get("timestamp") for t in local_trades}
+            combined = list(local_trades)
+            for lt in live_trades:
+                if lt.get("timestamp") not in seen_ts:
+                    combined.append(lt)
+            # Sort descending (newest first)
+            combined.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            self._send_json(combined)
             
         elif path == "/api/psychology":
             data = _read_json_file(PSYCHOLOGY_FILE, [])
