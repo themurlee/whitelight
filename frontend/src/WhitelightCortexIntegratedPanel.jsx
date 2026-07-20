@@ -712,10 +712,10 @@ export default function WhitelightCortexIntegratedPanel({
         </div>
       )}
 
-      {/* Middle Row: Equity Curve Portfolio Chart & Safety Gauges */}
+      {/* Middle Row: Equity Curve Portfolio Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 font-mono">
-        {/* Equity Curve Visualizer (col-span-8) */}
-        <div className="lg:col-span-8 p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
+        {/* Equity Curve Visualizer (col-span-12) */}
+        <div className="lg:col-span-12 p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">
               📈 Consolidated Account Equity Curve (Alpaca Real-time Replay)
@@ -733,24 +733,6 @@ export default function WhitelightCortexIntegratedPanel({
                 <Line type="monotone" dataKey="equity" stroke="#3FB27F" strokeWidth={2.5} dot={{ fill: "#3FB27F" }} />
               </LineChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Safety Gauges (col-span-4) */}
-        <div className="lg:col-span-4 p-5 rounded-xl border border-slate-800 bg-slate-900/40 flex flex-col justify-between gap-4">
-          <span className="text-xs uppercase tracking-widest text-amber-400 font-bold border-b border-slate-800 pb-2 block">
-            🛡️ Risk Guardrails & Circuit Breakers
-          </span>
-          <div className="flex justify-around items-center py-2">
-            <RadialGauge label="Max Drawdown" value={state?.max_drawdown || 4.2} max={10} unit="%" danger />
-            <RadialGauge label="Target Met" value={state?.weekly_target_pct || 72} max={100} unit="%" />
-          </div>
-          <div className="p-3 rounded bg-slate-950 border border-slate-800 text-[10px] text-slate-400 leading-relaxed text-center">
-            {state?.lockdown_active ? (
-              <span className="text-rose-400 font-bold">⚠ PAUSED: Portfolio lockdown protection enabled.</span>
-            ) : (
-              <span className="text-emerald-400">● Safe limits operational. Max drawdown set at 10% envelope.</span>
-            )}
           </div>
         </div>
       </div>
