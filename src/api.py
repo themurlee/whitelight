@@ -85,7 +85,7 @@ def _get_systematic_status():
         try:
             with open(log_path, "r") as f:
                 lines = f.readlines()
-                log_content = "".join(lines[-100:]) # Last 100 lines
+                log_content = "".join(reversed(lines[-100:])) # Newest logs first
         except Exception as e:
             log_content = f"Error reading logs: {e}"
     else:
