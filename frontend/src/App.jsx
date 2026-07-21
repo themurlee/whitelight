@@ -317,10 +317,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'systematic' || activeTab === 'alpaca') {
+    if (activeTab === 'options' && optionsSubTab === 'alpaca') {
       fetchSystematicStatus();
     }
-  }, [activeTab]);
+  }, [activeTab, optionsSubTab]);
 
   const handleResetLockdown = async () => {
     try {
@@ -1165,7 +1165,7 @@ function App() {
             className={`nav-item ${activeTab === 'whitelight_cortex' ? 'active' : ''}`}
             onClick={() => setActiveTab('whitelight_cortex')}
           >
-            <span className="nav-icon">⚡🧠</span> Whitelight + Cortex
+            <span className="nav-icon">⚡🧠</span> Whitelight(Prod)
           </button>
           <button 
             className={`nav-item ${activeTab === 'options' ? 'active' : ''}`}
@@ -1178,24 +1178,6 @@ function App() {
             onClick={() => setActiveTab('options_trading')}
           >
             <span className="nav-icon">⚡</span> Options Trading
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'shadow_cortex' ? 'active' : ''}`}
-            onClick={() => setActiveTab('shadow_cortex')}
-          >
-            <span className="nav-icon">🧠</span> Shadow Cortex
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'systematic' ? 'active' : ''}`}
-            onClick={() => setActiveTab('systematic')}
-          >
-            <span className="nav-icon">🤖</span> Systematic Pipeline
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'alpaca' ? 'active' : ''}`}
-            onClick={() => setActiveTab('alpaca')}
-          >
-            <span className="nav-icon">🦙</span> Alpaca Migration
           </button>
         </nav>
 
@@ -1218,6 +1200,8 @@ function App() {
               { key: 'calendar',        label: '📅 Trade Calendar' },
               { key: 'monthly_summary', label: '🗂️ Monthly Summary' },
               { key: 'weekly',          label: '🗓️ Weekly Reviews' },
+              { key: 'shadow_cortex',   label: '🧠 Shadow Cortex' },
+              { key: 'alpaca',          label: '🦙 Alpaca Migration' },
             ].map(({ key, label }) => (
               <button
                 key={key}
@@ -2386,29 +2370,8 @@ function App() {
             </div>
           )}
 
-          {/* Tab 6: Systematic Trading Pipeline */}
-          {activeTab === 'systematic' && (
-            <WhiteLightPanel
-              state={state}
-              systematicStatus={systematicStatus}
-              onRefreshState={fetchData}
-              onRefreshStatus={fetchSystematicStatus}
-              ingestTicker={ingestTicker}
-              setIngestTicker={setIngestTicker}
-              ingestLoading={ingestLoading}
-              handleIngestSubmit={handleIngestSubmit}
-              signalTicker={signalTicker}
-              setSignalTicker={setSignalTicker}
-              signalLoading={signalLoading}
-              handleGenerateSignal={handleGenerateSignal}
-              executingLoading={executingLoading}
-              handleExecuteSignal={handleExecuteSignal}
-              fetchSystematicStatus={fetchSystematicStatus}
-            />
-          )}
-
-          {/* Tab 7: Alpaca Migration */}
-          {activeTab === 'alpaca' && (
+          {/* Tab 7: Alpaca Migration (under Options) */}
+          {activeTab === 'options' && optionsSubTab === 'alpaca' && (
             <AlpacaPanel
               state={state}
               systematicStatus={systematicStatus}
@@ -2433,12 +2396,12 @@ function App() {
             <OptionsTradingPanel API_BASE={API_BASE} />
           )}
 
-          {/* Tab 9: Shadow Cortex Decision Engine */}
-          {activeTab === 'shadow_cortex' && (
+          {/* Tab 9: Shadow Cortex Decision Engine (under Options) */}
+          {activeTab === 'options' && optionsSubTab === 'shadow_cortex' && (
             <ShadowCortexPanel API_BASE={API_BASE} />
           )}
 
-          {/* Tab 10: Whitelight + Shadow Cortex Integrated Master Tab */}
+          {/* Tab 10: Whitelight(Prod) Integrated Master Tab */}
           {activeTab === 'whitelight_cortex' && (
             <WhitelightCortexIntegratedPanel 
               API_BASE={API_BASE}
