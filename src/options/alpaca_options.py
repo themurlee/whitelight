@@ -99,8 +99,9 @@ def get_options_chain(ticker: str = "AAPL", current_price: float = 230.0, timefr
             from alpaca.trading.requests import GetOptionContractsRequest
 
             client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
-            # Increase limit from 30 to 1000 to fetch the full option chain expirations
-            req = GetOptionContractsRequest(underlying_symbol=[ticker], limit=1000)
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            # Increase limit from 1000 to 10000 to fetch the full option chain expirations and all contract types
+            req = GetOptionContractsRequest(underlying_symbol=[ticker], limit=10000, expiration_date_gte=today_str)
             res = client.get_option_contracts(req)
 
             if res and res.option_contracts:

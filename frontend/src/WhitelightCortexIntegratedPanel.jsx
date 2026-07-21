@@ -500,6 +500,10 @@ export default function WhitelightCortexIntegratedPanel({
         setCurrentPrice(chainData.current_price || 230.0);
 
         if (contracts.length > 0) {
+          const uniqueDates = Array.from(new Set(contracts.map(c => c.expiration))).sort();
+          if (uniqueDates.length > 0 && !rhExpiration) {
+            setRhExpiration(uniqueDates[0]);
+          }
           const nearest = contracts[0];
           const daysLeft = getDaysToExpiry(nearest.expiration);
           setExpirationAlert({
