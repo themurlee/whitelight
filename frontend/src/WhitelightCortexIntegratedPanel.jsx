@@ -1474,7 +1474,7 @@ export default function WhitelightCortexIntegratedPanel({
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setRhType("put"); }}
                                   className={`px-3 py-1 font-bold rounded transition-all ${
-                                    rhType === "put" ? "bg-emerald-500 text-slate-950" : "text-slate-400 hover:text-white"
+                                    rhType === "put" ? "bg-rose-500 text-slate-950" : "text-slate-400 hover:text-white"
                                   }`}
                                 >
                                   Put
@@ -1482,23 +1482,39 @@ export default function WhitelightCortexIntegratedPanel({
                               </div>
                             </div>
 
-                            {/* Expiry Selector Dropdown */}
-                            {expirationDates.length > 0 && (
-                              <div className="text-[10px] font-mono">
-                                <select
-                                  value={selectedExp}
-                                  onChange={(e) => setRhExpiration(e.target.value)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="p-1.5 rounded bg-slate-950 border border-slate-800 text-white font-bold cursor-pointer focus:outline-none focus:border-emerald-500"
-                                >
-                                  {expirationDates.map(date => {
-                                    const daysLeft = Math.ceil((new Date(date) - new Date()) / (1000 * 60 * 60 * 24));
-                                    const label = `Expiring ${new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} (${daysLeft >= 0 ? daysLeft : 0}d)`;
-                                    return <option key={date} value={date}>{label}</option>;
-                                  })}
-                                </select>
+                            <div className="flex items-center gap-3">
+                              {/* Expiry Selector Dropdown */}
+                              {expirationDates.length > 0 && (
+                                <div className="text-[10px] font-mono">
+                                  <select
+                                    value={selectedExp}
+                                    onChange={(e) => setRhExpiration(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="p-1.5 rounded bg-slate-950 border border-slate-800 text-white font-bold cursor-pointer focus:outline-none focus:border-emerald-500"
+                                  >
+                                    {expirationDates.map(date => {
+                                      const daysLeft = Math.ceil((new Date(date) - new Date()) / (1000 * 60 * 60 * 24));
+                                      const label = `Expiring ${new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} (${daysLeft >= 0 ? daysLeft : 0}d)`;
+                                      return <option key={date} value={date}>{label}</option>;
+                                    })}
+                                  </select>
+                                </div>
+                              )}
+
+                              {/* Auto-Execute Toggle Switch (Moved to the right end) */}
+                              <div className="flex items-center gap-2 bg-slate-950 px-2 py-1 rounded border border-slate-850 text-[10px]">
+                                <span className="text-slate-300 font-bold uppercase">Auto Trade</span>
+                                <label className="relative inline-flex items-center cursor-pointer select-none">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={autoExecute}
+                                    onChange={(e) => setAutoExecute(e.target.checked)}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                                </label>
                               </div>
-                            )}
+                            </div>
                           </div>
 
                           <div className="overflow-x-auto">

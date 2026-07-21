@@ -99,7 +99,8 @@ def get_options_chain(ticker: str = "AAPL", current_price: float = 230.0, timefr
             from alpaca.trading.requests import GetOptionContractsRequest
 
             client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
-            req = GetOptionContractsRequest(underlying_symbol=[ticker], limit=30)
+            # Increase limit from 30 to 1000 to fetch the full option chain expirations
+            req = GetOptionContractsRequest(underlying_symbol=[ticker], limit=1000)
             res = client.get_option_contracts(req)
 
             if res and res.option_contracts:
@@ -144,35 +145,41 @@ def get_options_chain(ticker: str = "AAPL", current_price: float = 230.0, timefr
 
     # Fallback synthetic chain with Black-Scholes Greeks
     strikes = [round(current_price * multiplier, 1) for multiplier in [0.95, 0.98, 1.00, 1.02, 1.05]]
-    target_exp = (datetime.now() + timedelta(days=target_dte_days)).strftime("%Y-%m-%d")
+    
+    # Generate multiple expiration dates relative to the target_dte_days bucket
+    exp_dates = []
+    # Include multiple dates to show all option chain expirations in the dropdown
+    for offset in [0, 7, 14, 21]:
+        exp_dates.append((datetime.now() + timedelta(days=target_dte_days + offset)).strftime("%Y-%m-%d"))
 
     chain = []
-    for strike in strikes:
-        for opt_type in ["CALL", "PUT"]:
-            greeks = calculate_black_scholes_greeks(
-                stock_price=current_price,
-                strike_price=strike,
-                time_to_maturity_years=target_dte_days / 365.0,
-                option_type=opt_type
-            )
-            intrinsic = max(0.0, current_price - strike if opt_type == "CALL" else strike - current_price)
-            bid = round(intrinsic + 2.50, 2)
-            ask = round(bid + 0.15, 2)
-            midpoint = round((bid + ask) / 2.0, 2)
+    for target_exp in exp_dates:
+        for strike in strikes:
+            for opt_type in ["CALL", "PUT"]:
+                greeks = calculate_black_scholes_greeks(
+                    stock_price=current_price,
+                    strike_price=strike,
+                    time_to_maturity_years=target_dte_days / 365.0,
+                    option_type=opt_type
+                )
+                intrinsic = max(0.0, current_price - strike if opt_type == "CALL" else strike - current_price)
+                bid = round(intrinsic + 2.50, 2)
+                ask = round(bid + 0.15, 2)
+                midpoint = round((bid + ask) / 2.0, 2)
 
-            chain.append({
-                "symbol": f"{ticker}{target_exp.replace('-','')}{'C' if opt_type == 'CALL' else 'P'}{int(strike*1000)}",
-                "type": opt_type,
-                "strike": strike,
-                "expiration": target_exp,
-                "target_dte": target_dte_days,
-                "bid": bid,
-                "ask": ask,
-                "midpoint": midpoint,
-                "spread_pct": round(((ask - bid) / midpoint) * 100.0, 1),
-                "open_interest": 1450,
-                "greeks": greeks
-            })
+                chain.append({
+                    "symbol": f"{ticker}{target_exp.replace('-','')}{'C' if opt_type == 'CALL' else 'P'}{int(strike*1000)}",
+                    "type": opt_type,
+                    "strike": strike,
+                    "expiration": target_exp,
+                    "target_dte": target_dte_days,
+                    "bid": bid,
+                    "ask": ask,
+                    "midpoint": midpoint,
+                    "spread_pct": round(((ask - bid) / midpoint) * 100.0, 1),
+                    "open_interest": 1450,
+                    "greeks": greeks
+                })
     return chain
 
 def get_alpaca_options_account_summary() -> dict:

@@ -1,0 +1,13 @@
+[
+  {
+    "id": "trigger_1784598405_0",
+    "timestamp": "2026-07-20T21:46:45.152996",
+    "underlying": "NVDA",
+    "option_type": "CALL",
+    "strike": 250.0,
+    "condition": "CROSSES_ABOVE",
+    "trigger_value": 195.0,
+    "qty": 1,
+    "status": "PENDING"
+  }
+]
