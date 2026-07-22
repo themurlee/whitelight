@@ -1823,30 +1823,30 @@ export default function WhitelightCortexIntegratedPanel({
                         )}
                       </div>
 
-                      {/* Center: The 4 indicator boxes (inline and extra compact) */}
+                      {/* Center: The 4 indicator boxes (inline and matching pill sizes) */}
                       {isActive && signals && (
-                        <div className="flex items-center gap-1 font-mono text-[9px] flex-wrap">
-                          <div className="px-1.5 py-0.5 rounded bg-slate-950/40 border border-slate-850 flex items-center gap-1">
-                            <span className="text-slate-500 uppercase font-bold">Open:</span>
-                            <span className={`font-bold ${signals.pct_from_open >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        <div className="flex items-center gap-1.5 font-mono text-[10px] flex-wrap">
+                          <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-850 items-center">
+                            <span className="text-slate-500 px-1.5 font-bold">Open</span>
+                            <span className={`px-2 py-0.5 rounded font-extrabold bg-slate-900 transition-all ${signals.pct_from_open >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                               {signals.pct_from_open >= 0 ? "+" : ""}{signals.pct_from_open}%
                             </span>
                           </div>
-                          <div className="px-1.5 py-0.5 rounded bg-slate-950/40 border border-slate-850 flex items-center gap-1">
-                            <span className="text-slate-500 uppercase font-bold">VWAP:</span>
-                            <span className={`font-bold ${signals.vwap_diff_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-850 items-center">
+                            <span className="text-slate-500 px-1.5 font-bold">VWAP</span>
+                            <span className={`px-2 py-0.5 rounded font-extrabold bg-slate-900 transition-all ${signals.vwap_diff_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                               {signals.vwap_diff_pct >= 0 ? "+" : ""}{signals.vwap_diff_pct}%
                             </span>
                           </div>
-                          <div className="px-1.5 py-0.5 rounded bg-slate-950/40 border border-slate-850 flex items-center gap-1">
-                            <span className="text-slate-500 uppercase font-bold">RSI:</span>
-                            <span className={`font-bold ${signals.rsi_7 > 70 ? "text-rose-400" : signals.rsi_7 < 30 ? "text-emerald-400" : "text-amber-400"}`}>
+                          <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-850 items-center">
+                            <span className="text-slate-500 px-1.5 font-bold">RSI</span>
+                            <span className={`px-2 py-0.5 rounded font-extrabold bg-slate-900 transition-all ${signals.rsi_7 > 70 ? "text-rose-400" : signals.rsi_7 < 30 ? "text-emerald-400" : "text-amber-400"}`}>
                               {signals.rsi_7}
                             </span>
                           </div>
-                          <div className="px-1.5 py-0.5 rounded bg-slate-950/40 border border-slate-850 flex items-center gap-1">
-                            <span className="text-slate-500 uppercase font-bold">MACD:</span>
-                            <span className={`font-bold ${signals.macd_6_13_5?.histogram >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-850 items-center">
+                            <span className="text-slate-500 px-1.5 font-bold">MACD</span>
+                            <span className={`px-2 py-0.5 rounded font-extrabold bg-slate-900 transition-all ${signals.macd_6_13_5?.histogram >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                               {signals.macd_6_13_5?.histogram}
                             </span>
                           </div>
