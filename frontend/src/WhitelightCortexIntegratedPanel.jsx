@@ -149,6 +149,16 @@ export default function WhitelightCortexIntegratedPanel({
   const [timeframe, setTimeframe] = useState("WEEKLY"); // WEEKLY, MONTHLY, SEMI_ANNUAL, ANNUAL_LEAP
   const [activeProfile, setActiveProfile] = useState("safe_defaults");
 
+  useEffect(() => {
+    if (activeProfile === "safe_defaults" || activeProfile === "aggressive_scalp") {
+      setTimeframe("WEEKLY");
+    } else if (activeProfile === "monthly_swing") {
+      setTimeframe("MONTHLY");
+    } else if (activeProfile === "leaps_accum") {
+      setTimeframe("ANNUAL_LEAP");
+    }
+  }, [activeProfile]);
+
   // Engine State
   const [signals, setSignals] = useState(null);
   const [chain, setChain] = useState([]);
