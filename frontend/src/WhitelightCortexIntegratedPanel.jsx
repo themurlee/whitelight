@@ -1811,22 +1811,89 @@ export default function WhitelightCortexIntegratedPanel({
                       ✕
                     </button>
                     <div 
-                      className="flex flex-col cursor-pointer select-none group md:col-span-12"
-                      title="Select as Active Analytics Ticker"
+                      className="flex items-center justify-between flex-wrap gap-4 md:col-span-12 border-b border-slate-800 pb-3"
                     >
-                      <div className="flex items-baseline gap-2">
-                        <span className={`text-base font-black transition-colors ${isActive ? "text-amber-400" : "text-white group-hover:text-amber-400"}`}>
-                          {tk}
-                        </span>
-                        <span className="text-[9px] text-slate-500 uppercase tracking-widest">
-                          {isActive ? "🟢 Active Analytics" : "Click to select"}
-                        </span>
-                      </div>
-                      {isActive && (
-                        <div className="mt-1 flex items-baseline gap-1.5 text-[10px] text-slate-400 font-bold uppercase">
-                          <span>Price:</span>
-                          <span className="text-base font-black text-amber-400">${currentPrice.toFixed(2)}</span>
+                      {/* Left: Ticker name, price, bias */}
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="flex flex-col cursor-pointer select-none"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTicker(isActive ? null : tk);
+                          }}
+                        >
+                          <span className={`text-base font-black transition-colors ${isActive ? "text-amber-400" : "text-white"}`}>
+                            {tk}
+                          </span>
+                          <span className="text-[9px] text-slate-500 uppercase tracking-widest">
+                            {isActive ? "🟢 Active Analytics" : "Click to select"}
+                          </span>
                         </div>
+                        {isActive && (
+                          <>
+                            <div className="h-6 w-[1px] bg-slate-800" />
+                            <div className="flex flex-col">
+                              <span className="text-[8px] text-slate-500 font-bold uppercase">Price</span>
+                              <span className="text-xs font-black text-amber-400">${currentPrice.toFixed(2)}</span>
+                            </div>
+                            {signals && (
+                              <>
+                                <div className="h-6 w-[1px] bg-slate-800" />
+                                <div className="flex flex-col">
+                                  <span className="text-[8px] text-slate-500 font-bold uppercase">Bias</span>
+                                  <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase border mt-0.5"
+                                        style={{ color: biasColor, borderColor: `${biasColor}44`, backgroundColor: `${biasColor}11` }}>
+                                    {signals.intraday_bias}
+                                  </span>
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {/* Center: The 4 indicator boxes (inline and compact) */}
+                      {isActive && signals && (
+                        <div className="flex items-center gap-1.5 font-mono text-[9px] flex-wrap">
+                          <div className="px-2 py-1 rounded bg-slate-950 border border-slate-850 flex items-center gap-1.5">
+                            <span className="text-slate-500 uppercase font-bold">Open:</span>
+                            <span className={`font-bold ${signals.pct_from_open >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                              {signals.pct_from_open >= 0 ? "+" : ""}{signals.pct_from_open}%
+                            </span>
+                          </div>
+                          <div className="px-2 py-1 rounded bg-slate-950 border border-slate-850 flex items-center gap-1.5">
+                            <span className="text-slate-500 uppercase font-bold">VWAP:</span>
+                            <span className={`font-bold ${signals.vwap_diff_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                              {signals.vwap_diff_pct >= 0 ? "+" : ""}{signals.vwap_diff_pct}%
+                            </span>
+                          </div>
+                          <div className="px-2 py-1 rounded bg-slate-950 border border-slate-850 flex items-center gap-1.5">
+                            <span className="text-slate-500 uppercase font-bold">RSI:</span>
+                            <span className={`font-bold ${signals.rsi_7 > 70 ? "text-rose-400" : signals.rsi_7 < 30 ? "text-emerald-400" : "text-amber-400"}`}>
+                              {signals.rsi_7}
+                            </span>
+                          </div>
+                          <div className="px-2 py-1 rounded bg-slate-950 border border-slate-850 flex items-center gap-1.5">
+                            <span className="text-slate-500 uppercase font-bold">MACD:</span>
+                            <span className={`font-bold ${signals.macd_6_13_5?.histogram >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                              {signals.macd_6_13_5?.histogram}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Right: Audit Option Trade button */}
+                      {isActive && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRunDualAgent();
+                          }}
+                          disabled={evaluating}
+                          className="px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-md shadow-amber-500/10"
+                        >
+                          {evaluating ? "⏳ Auditing..." : `⚡ Audit Option Trade`}
+                        </button>
                       )}
                     </div>
 
@@ -1861,62 +1928,8 @@ export default function WhitelightCortexIntegratedPanel({
                     {/* Expanded Active Inline Dropdown Panel */}
                     {isActive && (
                       <>
-                        {/* Top Row: Horizontal Indicator Boxes (col-span-12) */}
-                        {signals && (
-                          <div className="md:col-span-12 grid grid-cols-4 gap-2.5 pt-2 border-t border-slate-800/60 font-mono text-[10px]">
-                            <div className="p-2.5 rounded bg-slate-950 border border-slate-850 space-y-0.5">
-                              <div className="text-[9px] text-slate-500 uppercase font-bold">Open Diff</div>
-                              <div className={`font-bold text-xs ${signals.pct_from_open >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                {signals.pct_from_open >= 0 ? "+" : ""}{signals.pct_from_open}%
-                              </div>
-                            </div>
-                            <div className="p-2.5 rounded bg-slate-950 border border-slate-850 space-y-0.5">
-                              <div className="text-[9px] text-slate-500 uppercase font-bold">VWAP Diff</div>
-                              <div className={`font-bold text-xs ${signals.vwap_diff_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                {signals.vwap_diff_pct >= 0 ? "+" : ""}{signals.vwap_diff_pct}%
-                              </div>
-                            </div>
-                            <div className="p-2.5 rounded bg-slate-950 border border-slate-850 space-y-0.5">
-                              <div className="text-[9px] text-slate-500 uppercase font-bold">RSI-7</div>
-                              <div className={`font-bold text-xs ${signals.rsi_7 > 70 ? "text-rose-400" : signals.rsi_7 < 30 ? "text-emerald-400" : "text-amber-400"}`}>
-                                {signals.rsi_7}
-                              </div>
-                            </div>
-                            <div className="p-2.5 rounded bg-slate-950 border border-slate-850 space-y-0.5">
-                              <div className="text-[9px] text-slate-500 uppercase font-bold">MACD Hist</div>
-                              <div className={`font-bold text-xs ${signals.macd_6_13_5?.histogram >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                {signals.macd_6_13_5?.histogram}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Left Side: Intraday Signals (col-span-4) */}
-                        <div className="md:col-span-4 space-y-3 pt-2 border-t border-slate-800/60 font-mono">
-                          {signals && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-slate-400 uppercase font-bold">Bias direction:</span>
-                              <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase border"
-                                    style={{ color: biasColor, borderColor: `${biasColor}44`, backgroundColor: `${biasColor}11` }}>
-                                {signals.intraday_bias}
-                              </span>
-                            </div>
-                          )}
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRunDualAgent();
-                            }}
-                            disabled={evaluating}
-                            className="w-full py-2.5 text-[10px] font-bold uppercase tracking-wider rounded bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-md shadow-amber-500/10"
-                          >
-                            {evaluating ? "⏳ Auditing with AI Desk..." : `⚡ Audit Option Trade`}
-                          </button>
-                        </div>
-
-                        {/* Right Side: Options Chain (Robinhood Style UI) */}
-                        <div className="md:col-span-8 pt-2 md:pt-0 border-t md:border-t-0 md:border-l border-slate-800/60 md:pl-4 space-y-4 max-h-[350px] overflow-y-auto">
+                        {/* Options Chain (Robinhood Style UI - Full Width) */}
+                        <div className="md:col-span-12 pt-2 md:pt-0 space-y-4 max-h-[350px] overflow-y-auto">
                           
                           {/* Robinhood Style Pill selectors */}
                           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/60 pb-3">
