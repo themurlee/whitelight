@@ -462,6 +462,8 @@ class APIServerHandler(BaseHTTPRequestHandler):
                 "underlying": post_data.get("underlying", "").upper(),
                 "option_type": post_data.get("option_type", "CALL").upper(),
                 "strike": float(post_data.get("strike", 100.0)),
+                "expiration": post_data.get("expiration", ""),
+                "timeframe": post_data.get("timeframe", "WEEKLY").upper(),
                 "condition": post_data.get("condition", "CROSSES_ABOVE").upper(),
                 "trigger_value": float(post_data.get("trigger_value", 100.0)),
                 "qty": int(post_data.get("qty", 1)),
@@ -1590,15 +1592,20 @@ def position_risk_checker_loop():
                                 print(f"[RISK CHECKER] Conditional order triggered for {underlying}! Stock: ${stock_price} vs Trigger: ${trig_val}", flush=True)
                                 
                                 # Now fetch option chain to locate matching option contract
-                                from src.options.alpaca_options import get_alpaca_options_chain
-                                chain_res = get_alpaca_options_chain(underlying, timeframe="WEEKLY")
+                                from src.options.alpaca_options import get_options_chain
+                                tf = o.get("timeframe", "WEEKLY")
+                                chain = get_options_chain(underlying, stock_price or 230.0, tf)
                                 target_contract = None
                                 
-                                if chain_res.get("success") and chain_res.get("chain"):
+                                if chain:
                                     target_strike = o.get("strike")
                                     target_type = o.get("option_type")
+                                    target_exp = o.get("expiration")
                                     
-                                    candidates = [c for c in chain_res["chain"] if c["type"] == target_type]
+                                    candidates = [c for c in chain if c["type"] == target_type]
+                                    if target_exp:
+                                        candidates = [c for c in candidates if c["expiration"] == target_exp]
+                                        
                                     candidates.sort(key=lambda x: abs(float(x["strike"]) - target_strike))
                                     
                                     if candidates:

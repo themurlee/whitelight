@@ -3,15 +3,15 @@
   "drawdown_locked_at": null,
   "equity_history": [
     {
-      "timestamp": "2026-07-17T20:04:30.654424Z",
+      "timestamp": "2026-07-22T03:21:38.929402Z",
       "equity": 10000.0
     },
     {
-      "timestamp": "2026-07-17T20:04:30.654654Z",
+      "timestamp": "2026-07-22T03:21:38.929897Z",
       "equity": 10000.0
     },
     {
-      "timestamp": "2026-07-17T20:04:30.655088Z",
+      "timestamp": "2026-07-22T03:21:38.930454Z",
       "equity": 10000.0
     }
   ],

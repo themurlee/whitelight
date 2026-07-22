@@ -9,5 +9,38 @@
     "trigger_value": 195.0,
     "qty": 1,
     "status": "PENDING"
+  },
+  {
+    "id": "trigger_1784640014_1",
+    "timestamp": "2026-07-21T09:20:14.554310",
+    "underlying": "MU",
+    "option_type": "CALL",
+    "strike": 1000.0,
+    "condition": "CROSSES_ABOVE",
+    "trigger_value": 925.0,
+    "qty": 1,
+    "status": "PENDING"
+  },
+  {
+    "id": "trigger_1784640040_2",
+    "timestamp": "2026-07-21T09:20:40.286748",
+    "underlying": "SPY",
+    "option_type": "CALL",
+    "strike": 750.0,
+    "condition": "CROSSES_ABOVE",
+    "trigger_value": 747.0,
+    "qty": 1,
+    "status": "PENDING"
+  },
+  {
+    "id": "trigger_1784640074_3",
+    "timestamp": "2026-07-21T09:21:14.192566",
+    "underlying": "SNDK",
+    "option_type": "CALL",
+    "strike": 1700.0,
+    "condition": "CROSSES_ABOVE",
+    "trigger_value": 1533.0,
+    "qty": 1,
+    "status": "PENDING"
   }
 ]

@@ -270,6 +270,10 @@ export default function WhitelightCortexIntegratedPanel({
   const [condQty, setCondQty] = useState(1);
   const [condDirection, setCondDirection] = useState("CROSSES_ABOVE");
   const [submittingCond, setSubmittingCond] = useState(false);
+  const [condTimeframe, setCondTimeframe] = useState("WEEKLY");
+  const [condExpiration, setCondExpiration] = useState("");
+  const [condChain, setCondChain] = useState([]);
+  const [loadingCondChain, setLoadingCondChain] = useState(false);
 
   // UI Views & Modals
   const [showOrdersDropdown, setShowOrdersDropdown] = useState(false);
@@ -316,6 +320,89 @@ export default function WhitelightCortexIntegratedPanel({
     });
   }, [chain, rhType, selectedExp]);
 
+  // Expiration dates helper for Conditional Order Builder
+  const condExpirations = useMemo(() => {
+    const dates = new Set();
+    if (Array.isArray(condChain)) {
+      condChain.forEach(c => {
+        if (c.expiration) dates.add(c.expiration);
+      });
+    }
+    return Array.from(dates).sort();
+  }, [condChain]);
+
+  // Strikes helper for Conditional Order Builder
+  const condStrikes = useMemo(() => {
+    if (!Array.isArray(condChain)) return [];
+    const strikes = new Set();
+    condChain.forEach(c => {
+      if (c.expiration === condExpiration && c.type === condType) {
+        strikes.add(c.strike);
+      }
+    });
+    return Array.from(strikes).sort((a, b) => a - b);
+  }, [condChain, condExpiration, condType]);
+
+  // Sync condTicker with watchlist
+  useEffect(() => {
+    if (watchlist.length > 0 && !watchlist.includes(condTicker)) {
+      setCondTicker(watchlist[0]);
+    }
+  }, [watchlist, condTicker]);
+
+  // Fetch options chain for conditional order builder when ticker/timeframe changes
+  useEffect(() => {
+    if (!condTicker) return;
+    let active = true;
+    const fetchCondChain = async () => {
+      setLoadingCondChain(true);
+      try {
+        const res = await fetch(`${API_BASE}/options/chain?ticker=${condTicker}&timeframe=${condTimeframe}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (active && data.success) {
+            const chainData = data.chain || [];
+            setCondChain(chainData);
+            if (chainData.length > 0) {
+              const uniqueDates = Array.from(new Set(chainData.map(c => c.expiration))).sort();
+              if (uniqueDates.length > 0) {
+                if (!condExpiration || !uniqueDates.includes(condExpiration)) {
+                  setCondExpiration(uniqueDates[0]);
+                }
+              } else {
+                setCondExpiration("");
+              }
+            } else {
+              setCondExpiration("");
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching conditional options chain:", err);
+      } finally {
+        if (active) setLoadingCondChain(false);
+      }
+    };
+
+    fetchCondChain();
+    return () => {
+      active = false;
+    };
+  }, [condTicker, condTimeframe]);
+
+  // Sync condStrike with available strikes
+  useEffect(() => {
+    if (condStrikes.length > 0) {
+      const strikeNums = condStrikes.map(Number);
+      const currentNum = parseFloat(condStrike);
+      if (!strikeNums.includes(currentNum)) {
+        // Set to middle strike
+        const midIdx = Math.floor(condStrikes.length / 2);
+        setCondStrike(condStrikes[midIdx].toString());
+      }
+    }
+  }, [condStrikes, condStrike]);
+
   // Cooldown Timer simulation
   useEffect(() => {
     const timer = setInterval(() => {
@@ -359,6 +446,8 @@ export default function WhitelightCortexIntegratedPanel({
           underlying: condTicker,
           option_type: condType,
           strike: parseFloat(condStrike) || 100,
+          expiration: condExpiration,
+          timeframe: condTimeframe,
           condition: condDirection,
           trigger_value: parseFloat(condTriggerVal) || 100,
           qty: parseInt(condQty) || 1
@@ -1850,15 +1939,60 @@ export default function WhitelightCortexIntegratedPanel({
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Option Strike ($)</label>
-                      <input 
-                        type="number"
-                        step="0.01"
-                        value={condStrike}
-                        onChange={(e) => setCondStrike(e.target.value)}
-                        placeholder="Strike price"
+                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Options Timeframe</label>
+                      <select 
+                        value={condTimeframe}
+                        onChange={(e) => setCondTimeframe(e.target.value)}
                         className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
-                      />
+                      >
+                        <option value="WEEKLY">WEEKLY (0-7 DTE)</option>
+                        <option value="MONTHLY">MONTHLY (30-90 DTE)</option>
+                        <option value="SEMI_ANNUAL">SEMI-ANNUAL (180 DTE)</option>
+                        <option value="ANNUAL_LEAP">ANNUAL LEAP (360 DTE)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Expiration Date</label>
+                      {loadingCondChain ? (
+                        <div className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-slate-500 font-bold animate-pulse">
+                          Loading Expirations...
+                        </div>
+                      ) : (
+                        <select 
+                          value={condExpiration}
+                          onChange={(e) => setCondExpiration(e.target.value)}
+                          className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                        >
+                          {condExpirations.map(exp => (
+                            <option key={exp} value={exp}>{exp}</option>
+                          ))}
+                          {condExpirations.length === 0 && <option value="">No Expirations Found</option>}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Option Strike ($)</label>
+                      {condStrikes.length > 0 ? (
+                        <select 
+                          value={condStrike}
+                          onChange={(e) => setCondStrike(e.target.value)}
+                          className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                        >
+                          {condStrikes.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      ) : (
+                        <input 
+                          type="number"
+                          step="0.01"
+                          value={condStrike}
+                          onChange={(e) => setCondStrike(e.target.value)}
+                          placeholder="Strike price"
+                          className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                        />
+                      )}
                     </div>
                     <div className="space-y-1">
                       <label className="text-slate-400 font-bold block uppercase text-[9px]">Quantity (Contracts)</label>
@@ -1923,7 +2057,7 @@ export default function WhitelightCortexIntegratedPanel({
                         <div>
                           <div className="flex items-center gap-2">
                             <span className={`font-black ${o.option_type === "CALL" ? "text-emerald-400" : "text-rose-400"}`}>
-                              {o.underlying} {o.strike} {o.option_type}
+                              {o.underlying} {o.expiration ? `${o.expiration} ` : ""}{o.strike} {o.option_type}
                             </span>
                             <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Qty: {o.qty}</span>
                             <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${
