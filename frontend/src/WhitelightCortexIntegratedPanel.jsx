@@ -1553,6 +1553,11 @@ export default function WhitelightCortexIntegratedPanel({
                         <span className="font-extrabold text-amber-400 text-sm">{pos.ticker}</span>
                         <span className="text-xs font-bold text-white">${pos.strike} {pos.type}</span>
                         <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Exp: {pos.exp}</span>
+                        {pos.pendingClose && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-rose-500/20 border border-rose-500/40 text-rose-400 uppercase tracking-wide animate-pulse">
+                            Pending Close
+                          </span>
+                        )}
                       </div>
                       <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
                         <span>Entry: <strong>${parseFloat(pos.entryPrice || 0).toFixed(2)}</strong></span>

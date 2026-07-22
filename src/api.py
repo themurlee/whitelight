@@ -241,6 +241,15 @@ class APIServerHandler(BaseHTTPRequestHandler):
                 from alpaca.trading.client import TradingClient
                 client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
                 raw_positions = client.get_all_positions()
+                pending_sells = set()
+                try:
+                    from alpaca.trading.requests import GetOrdersRequest
+                    from alpaca.trading.enums import QueryOrderStatus, OrderSide
+                    req = GetOrdersRequest(status=QueryOrderStatus.OPEN)
+                    open_orders = client.get_orders(req)
+                    pending_sells = {o.symbol for o in open_orders if o.side == OrderSide.SELL}
+                except Exception:
+                    pass
                 opt_positions = []
                 for p in raw_positions:
                     symbol = p.symbol
@@ -314,7 +323,8 @@ class APIServerHandler(BaseHTTPRequestHandler):
                             "trailingStop": round(hwm_data[symbol]["stop"], 2),
                             "pnl": pnl,
                             "pnlPct": round(pnl_pct, 1),
-                            "exp": expiry_date
+                            "exp": expiry_date,
+                            "pendingClose": symbol in pending_sells
                         })
                 self._send_json(opt_positions)
             except Exception as e:
