@@ -871,8 +871,10 @@ export default function WhitelightCortexIntegratedPanel({
     let filtered = chainList.filter(c => c.type === reqType);
     if (filtered.length === 0) filtered = chainList;
     const sorted = [...filtered].sort((a, b) => {
-      const diffA = Math.abs(a.strike - currentPriceValue);
-      const diffB = Math.abs(b.strike - currentPriceValue);
+      const strikeA = parseFloat(a.strike || a.strike_price || 0);
+      const strikeB = parseFloat(b.strike || b.strike_price || 0);
+      const diffA = Math.abs(strikeA - currentPriceValue);
+      const diffB = Math.abs(strikeB - currentPriceValue);
       return diffA - diffB;
     });
     return sorted[0];
@@ -1553,10 +1555,10 @@ export default function WhitelightCortexIntegratedPanel({
                         <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Exp: {pos.exp}</span>
                       </div>
                       <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                        <span>Entry: <strong>${pos.entryPrice}</strong></span>
-                        <span>Current: <strong className="text-amber-300">${pos.currentPrice}</strong></span>
-                        <span>Peak: <strong className="text-emerald-400">${pos.highWaterMark}</strong></span>
-                        <span>Stop: <strong className="text-rose-400">${pos.trailingStop}</strong></span>
+                        <span>Entry: <strong>${parseFloat(pos.entryPrice || 0).toFixed(2)}</strong></span>
+                        <span>Current: <strong className="text-amber-300">${parseFloat(pos.currentPrice || 0).toFixed(2)}</strong></span>
+                        <span>Peak: <strong className="text-emerald-400">${parseFloat(pos.highWaterMark || 0).toFixed(2)}</strong></span>
+                        <span>Stop: <strong className="text-rose-400">${parseFloat(pos.trailingStop || 0).toFixed(2)}</strong></span>
                       </div>
                     </div>
                     <div className="text-right">
