@@ -155,7 +155,30 @@ export default function WhitelightCortexIntegratedPanel({
   const [currentPrice, setCurrentPrice] = useState(230.0);
   const [loading, setLoading] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
-  const [autoExecute, setAutoExecute] = useState(false);
+  const [autoTradeTickers, setAutoTradeTickers] = useState(() => {
+    try {
+      const saved = localStorage.getItem("whitelight_auto_trade_tickers");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("whitelight_auto_trade_tickers", JSON.stringify(autoTradeTickers));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [autoTradeTickers]);
+
+  const toggleAutoTradeForTicker = (ticker) => {
+    setAutoTradeTickers((prev) => ({
+      ...prev,
+      [ticker]: !prev[ticker]
+    }));
+  };
+
   const [executedOrders, setExecutedOrders] = useState([]);
   const [accountSummary, setAccountSummary] = useState(null);
   const [localTrades, setLocalTrades] = useState([]);
@@ -576,10 +599,10 @@ export default function WhitelightCortexIntegratedPanel({
         setScanResults(data.results);
         
         // Auto-Execute checks for each authorized watchlist ticker
-        if (autoExecute) {
-          for (const tk of Object.keys(data.results)) {
-            const item = data.results[tk];
-            if (item.success && item.dual_agent_result?.execution_ready) {
+        for (const tk of Object.keys(data.results)) {
+          const item = data.results[tk];
+          const shouldAutoExecute = autoTradeTickers[tk];
+          if (shouldAutoExecute && item.success && item.dual_agent_result?.execution_ready) {
               try {
                 const chainRes = await fetch(`${API_BASE}/options/chain?ticker=${tk}&timeframe=${timeframe}`);
                 const chainData = await chainRes.json();
@@ -602,7 +625,6 @@ export default function WhitelightCortexIntegratedPanel({
             }
           }
         }
-      }
     } catch (e) {
       console.error("Watchlist scan error:", e);
     } finally {
@@ -657,7 +679,8 @@ export default function WhitelightCortexIntegratedPanel({
           validator: "AI Risk Desk Agent"
         }, ...prev]);
 
-        if (autoExecute && isReady) {
+        const shouldAutoExecute = autoTradeTickers[tickerSymbol];
+        if (shouldAutoExecute && isReady) {
           // Fetch option chain to execute the trade
           const chainRes = await fetch(`${API_BASE}/options/chain?ticker=${tickerSymbol}&timeframe=${timeframe}`);
           const chainData = await chainRes.json();
@@ -730,7 +753,7 @@ export default function WhitelightCortexIntegratedPanel({
       handleScanWatchlist();
     }, 30000);
     return () => clearInterval(scannerTimer);
-  }, [autoScanEnabled, watchlist, timeframe, autoExecute]);
+  }, [autoScanEnabled, watchlist, timeframe, autoTradeTickers]);
 
   const fetchIntradayData = async (symbol, tf = timeframe) => {
     if (!symbol || symbol === "null" || symbol === "undefined") return;
@@ -897,7 +920,8 @@ export default function WhitelightCortexIntegratedPanel({
           validator: "AI Risk Desk Agent"
         }, ...prev]);
 
-        if (autoExecute && isReady && chain.length > 0) {
+        const shouldAutoExecute = autoTradeTickers[activeTicker];
+        if (shouldAutoExecute && isReady && chain.length > 0) {
           const targetContract = chain[0].symbol;
           handleExecuteOrder(targetContract, chain[0].midpoint, 1, "buy");
         }
@@ -1562,21 +1586,7 @@ export default function WhitelightCortexIntegratedPanel({
                 </h3>
               </div>
               <div className="flex items-center gap-3">
-                {/* Auto Trade Toggle */}
-                <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-850 text-[10px] font-mono">
-                  <span className="text-slate-400 font-bold uppercase text-[9px]">Auto Trade Leg</span>
-                  <label className="relative inline-flex items-center cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={autoExecute}
-                      onChange={(e) => setAutoExecute(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-8 h-4.5 rounded-full transition-colors relative ${autoExecute ? "bg-emerald-500" : "bg-slate-800"}`}>
-                      <div className={`absolute top-[2px] left-[2px] rounded-full h-3.5 w-3.5 transition-all ${autoExecute ? "translate-x-3.5 bg-slate-950" : "bg-slate-400"}`} />
-                    </div>
-                  </label>
-                </div>
+
                 <button
                   onClick={() => setAutoScanEnabled(!autoScanEnabled)}
                   className={`px-3 py-1 text-[10px] font-bold uppercase rounded-md border transition-all ${
@@ -1639,6 +1649,25 @@ export default function WhitelightCortexIntegratedPanel({
                       setActiveTicker(isActive ? null : tk);
                     }}
                   >
+                    {/* Inline Ticker Auto-Trade Switch */}
+                    <div 
+                      className="absolute top-2.5 right-7 z-10 flex items-center gap-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Auto Trade</span>
+                      <label className="relative inline-flex items-center cursor-pointer select-none">
+                        <input 
+                          type="checkbox" 
+                          checked={!!autoTradeTickers[tk]}
+                          onChange={() => toggleAutoTradeForTicker(tk)}
+                          className="sr-only"
+                        />
+                        <div className={`w-7 h-4 rounded-full transition-colors relative ${autoTradeTickers[tk] ? "bg-emerald-500" : "bg-slate-800"}`}>
+                          <div className={`absolute top-[1.5px] left-[1.5px] rounded-full h-3 w-3 transition-all ${autoTradeTickers[tk] ? "translate-x-3 bg-slate-950" : "bg-slate-400"}`} />
+                        </div>
+                      </label>
+                    </div>
+
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
