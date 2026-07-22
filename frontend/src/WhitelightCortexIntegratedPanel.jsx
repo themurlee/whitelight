@@ -1678,6 +1678,19 @@ export default function WhitelightCortexIntegratedPanel({
                 </h3>
               </div>
               <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 mr-2">
+                  <span className="text-[9px] uppercase text-slate-400 font-bold">Auto-Expiry:</span>
+                  <select
+                    value={timeframe}
+                    onChange={(e) => setTimeframe(e.target.value)}
+                    className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-amber-400 font-bold uppercase text-[9px] focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    <option value="WEEKLY">Weekly (0-7 DTE)</option>
+                    <option value="MONTHLY">Monthly (30-90 DTE)</option>
+                    <option value="SEMI_ANNUAL">Semi-Annual (180 DTE)</option>
+                    <option value="ANNUAL_LEAP">LEAP (360 DTE)</option>
+                  </select>
+                </div>
 
                 <button
                   onClick={() => setAutoScanEnabled(!autoScanEnabled)}
