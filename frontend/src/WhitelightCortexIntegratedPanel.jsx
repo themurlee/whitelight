@@ -1781,35 +1781,6 @@ export default function WhitelightCortexIntegratedPanel({
                       setActiveTicker(isActive ? null : tk);
                     }}
                   >
-                    {/* Inline Ticker Auto-Trade Switch */}
-                    <div 
-                      className="absolute top-2.5 right-7 z-10 flex items-center gap-1.5"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Auto Trade</span>
-                      <label className="relative inline-flex items-center cursor-pointer select-none">
-                        <input 
-                          type="checkbox" 
-                          checked={!!autoTradeTickers[tk]}
-                          onChange={() => toggleAutoTradeForTicker(tk)}
-                          className="sr-only"
-                        />
-                        <div className={`w-7 h-4 rounded-full transition-colors relative ${autoTradeTickers[tk] ? "bg-emerald-500" : "bg-slate-800"}`}>
-                          <div className={`absolute top-[1.5px] left-[1.5px] rounded-full h-3 w-3 transition-all ${autoTradeTickers[tk] ? "translate-x-3 bg-slate-950" : "bg-slate-400"}`} />
-                        </div>
-                      </label>
-                    </div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setWatchlist(watchlist.filter((x) => x !== tk));
-                      }}
-                      className="absolute top-2 right-2 text-slate-500 hover:text-rose-400 font-bold text-xs z-10"
-                      title="Remove Ticker"
-                    >
-                      ✕
-                    </button>
                     <div 
                       className="flex items-center justify-between flex-wrap gap-4 md:col-span-12 border-b border-slate-800 pb-3"
                     >
@@ -1834,7 +1805,7 @@ export default function WhitelightCortexIntegratedPanel({
                             <div className="h-6 w-[1px] bg-slate-800" />
                             <div className="flex flex-col">
                               <span className="text-[8px] text-slate-500 font-bold uppercase">Price</span>
-                              <span className="text-xs font-black text-amber-400">${currentPrice.toFixed(2)}</span>
+                              <span className="text-base font-black text-amber-400">${currentPrice.toFixed(2)}</span>
                             </div>
                             {signals && (
                               <>
@@ -1852,28 +1823,28 @@ export default function WhitelightCortexIntegratedPanel({
                         )}
                       </div>
 
-                      {/* Center: The 4 indicator boxes (inline and compact) */}
+                      {/* Center: The 4 indicator boxes (inline and extra compact) */}
                       {isActive && signals && (
-                        <div className="flex items-center gap-1.5 font-mono text-[9px] flex-wrap">
-                          <div className="px-2 py-1 rounded bg-slate-950 border border-slate-850 flex items-center gap-1.5">
+                        <div className="flex items-center gap-1 font-mono text-[9px] flex-wrap">
+                          <div className="px-1.5 py-0.5 rounded bg-slate-950/40 border border-slate-850 flex items-center gap-1">
                             <span className="text-slate-500 uppercase font-bold">Open:</span>
                             <span className={`font-bold ${signals.pct_from_open >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                               {signals.pct_from_open >= 0 ? "+" : ""}{signals.pct_from_open}%
                             </span>
                           </div>
-                          <div className="px-2 py-1 rounded bg-slate-950 border border-slate-850 flex items-center gap-1.5">
+                          <div className="px-1.5 py-0.5 rounded bg-slate-950/40 border border-slate-850 flex items-center gap-1">
                             <span className="text-slate-500 uppercase font-bold">VWAP:</span>
                             <span className={`font-bold ${signals.vwap_diff_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                               {signals.vwap_diff_pct >= 0 ? "+" : ""}{signals.vwap_diff_pct}%
                             </span>
                           </div>
-                          <div className="px-2 py-1 rounded bg-slate-950 border border-slate-850 flex items-center gap-1.5">
+                          <div className="px-1.5 py-0.5 rounded bg-slate-950/40 border border-slate-850 flex items-center gap-1">
                             <span className="text-slate-500 uppercase font-bold">RSI:</span>
                             <span className={`font-bold ${signals.rsi_7 > 70 ? "text-rose-400" : signals.rsi_7 < 30 ? "text-emerald-400" : "text-amber-400"}`}>
                               {signals.rsi_7}
                             </span>
                           </div>
-                          <div className="px-2 py-1 rounded bg-slate-950 border border-slate-850 flex items-center gap-1.5">
+                          <div className="px-1.5 py-0.5 rounded bg-slate-950/40 border border-slate-850 flex items-center gap-1">
                             <span className="text-slate-500 uppercase font-bold">MACD:</span>
                             <span className={`font-bold ${signals.macd_6_13_5?.histogram >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                               {signals.macd_6_13_5?.histogram}
@@ -1882,19 +1853,48 @@ export default function WhitelightCortexIntegratedPanel({
                         </div>
                       )}
 
-                      {/* Right: Audit Option Trade button */}
-                      {isActive && (
+                      {/* Right: Auto Trade Toggle & Audit option button & Delete button */}
+                      <div className="flex items-center gap-2.5">
+                        {/* Auto Trade Toggle */}
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Auto Trade</span>
+                          <label className="relative inline-flex items-center cursor-pointer select-none">
+                            <input 
+                              type="checkbox" 
+                              checked={!!autoTradeTickers[tk]}
+                              onChange={() => toggleAutoTradeForTicker(tk)}
+                              className="sr-only"
+                            />
+                            <div className={`w-7 h-4 rounded-full transition-colors relative ${autoTradeTickers[tk] ? "bg-emerald-500" : "bg-slate-800"}`}>
+                              <div className={`absolute top-[1.5px] left-[1.5px] rounded-full h-3 w-3 transition-all ${autoTradeTickers[tk] ? "translate-x-3 bg-slate-950" : "bg-slate-400"}`} />
+                            </div>
+                          </label>
+                        </div>
+
+                        {isActive && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRunDualAgent();
+                            }}
+                            disabled={evaluating}
+                            className="px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-md shadow-amber-500/10"
+                          >
+                            {evaluating ? "⏳ Auditing..." : `⚡ Audit Option Trade`}
+                          </button>
+                        )}
+
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleRunDualAgent();
+                            setWatchlist(watchlist.filter((x) => x !== tk));
                           }}
-                          disabled={evaluating}
-                          className="px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-md shadow-amber-500/10"
+                          className="text-slate-500 hover:text-rose-400 font-bold text-xs"
+                          title="Remove Ticker"
                         >
-                          {evaluating ? "⏳ Auditing..." : `⚡ Audit Option Trade`}
+                          ✕
                         </button>
-                      )}
+                      </div>
                     </div>
 
                     {/* Non-Active Compact Preview */}
