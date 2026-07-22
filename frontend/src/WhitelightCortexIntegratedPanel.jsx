@@ -885,6 +885,17 @@ export default function WhitelightCortexIntegratedPanel({
       }
       
       if (!exists) {
+        // Suspend active Auto-Scan loop during manual trade ticketing
+        if (autoScanEnabled) {
+          setAutoScanEnabled(false);
+          addToast(
+            "Manual Override Active",
+            "Auto-Scan suspended to prevent AI agents from competing with manual executions.",
+            "warning",
+            "SCAN_SUSPENDED"
+          );
+        }
+
         setContractInputs(prevInputs => ({
           ...prevInputs,
           [contract.symbol]: {
@@ -1308,19 +1319,7 @@ export default function WhitelightCortexIntegratedPanel({
             🟢 Claude Desktop MCP Active
           </span>
 
-          <div className="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
-            <span className="text-slate-400">Profile:</span>
-            <select
-              value={activeProfile}
-              onChange={(e) => setActiveProfile(e.target.value)}
-              className="bg-slate-900 border border-slate-700 text-amber-400 font-bold rounded px-2 py-0.5 text-xs focus:outline-none"
-            >
-              <option value="safe_defaults">🛡️ Safe Defaults (Paper)</option>
-              <option value="aggressive_scalp">⚡ 0-7D Aggressive Scalp</option>
-              <option value="monthly_swing">📅 Pre-Earnings Monthly Swing</option>
-              <option value="leaps_accum">🏆 360D LEAPs Accumulator</option>
-            </select>
-          </div>
+
 
           <button
             onClick={() => {
@@ -1900,12 +1899,40 @@ export default function WhitelightCortexIntegratedPanel({
                 </h3>
               </div>
               <div className="flex items-center gap-3">
+                {/* Profile dropdown selector inside Watchlist Scanner header */}
+                <div className="flex items-center gap-1.5 mr-2">
+                  <span className="text-[9px] uppercase text-slate-400 font-bold">Profile:</span>
+                  <select
+                    value={activeProfile}
+                    onChange={(e) => {
+                      const selectedVal = e.target.value;
+                      const hasActiveAutoTrade = Object.values(autoTradeTickers).some(val => val === true);
+                      if (selectedVal !== "safe_defaults" && !hasActiveAutoTrade) {
+                        addToast(
+                          "AI Decider Warning",
+                          "Toggle 'Auto Trade' ON for at least one watchlist ticker to activate this profile.",
+                          "warning",
+                          "CONFIG_WARNING"
+                        );
+                      }
+                      setActiveProfile(selectedVal);
+                    }}
+                    className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-amber-400 font-bold text-[9px] focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    <option value="safe_defaults">🛡️ Safe (Paper)</option>
+                    <option value="aggressive_scalp">⚡ Scalp (0-7D)</option>
+                    <option value="monthly_swing">📅 Swing (30-90D)</option>
+                    <option value="leaps_accum">🏆 LEAPs (360D)</option>
+                  </select>
+                </div>
+
                 <div className="flex items-center gap-1.5 mr-2">
                   <span className="text-[9px] uppercase text-slate-400 font-bold">Auto-Expiry:</span>
                   <select
                     value={timeframe}
                     onChange={(e) => setTimeframe(e.target.value)}
-                    className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-amber-400 font-bold uppercase text-[9px] focus:outline-none focus:border-amber-400 cursor-pointer"
+                    disabled={activeProfile !== "safe_defaults"}
+                    className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-amber-400 font-bold uppercase text-[9px] focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <option value="WEEKLY">Weekly (0-7 DTE)</option>
                     <option value="MONTHLY">Monthly (30-90 DTE)</option>
