@@ -1999,49 +1999,105 @@ export default function WhitelightCortexIntegratedPanel({
                           </div>
 
                           <div className="overflow-x-auto">
-                            <table className="w-full text-left text-[10px] border-collapse font-mono">
+                            <table className="w-full text-left text-xs border-collapse font-sans tracking-wide">
                               <thead>
-                                <tr className="border-b border-slate-800/40 text-slate-500 uppercase text-[8px]">
-                                  <th className="py-1 px-2">Strike</th>
-                                  <th className="py-1 px-2">Price (Mid)</th>
-                                  <th className="py-1 px-2">Bid / Ask</th>
-                                  <th className="py-1 px-2">Today's Chg</th>
-                                  <th className="py-1 px-2">Open Int</th>
-                                  <th className="py-1 px-2">Delta</th>
-                                  <th className="py-1 px-2 text-right">Action</th>
+                                <tr className="border-b border-slate-800/40 text-slate-500 uppercase text-[9px] tracking-widest font-bold">
+                                  <th className="py-2.5 px-3">Strike</th>
+                                  <th className="py-2.5 px-3">Price (Mid)</th>
+                                  <th className="py-2.5 px-3">Bid / Ask</th>
+                                  <th className="py-2.5 px-3">IV Rank</th>
+                                  <th className="py-2.5 px-3">Open Int</th>
+                                  <th className="py-2.5 px-3">Delta</th>
+                                  <th className="py-2.5 px-3 text-right">Action</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-800/30">
-                                {filteredChain.map((c, idx) => (
-                                  <tr 
-                                    key={idx} 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenContractModal(c);
-                                    }}
-                                    className="hover:bg-slate-800/40 transition-colors group cursor-pointer"
-                                  >
-                                    <td className="py-2 px-2 font-bold text-white">${c.strike}</td>
-                                    <td className="py-2 px-2 text-amber-300 font-bold">${c.midpoint}</td>
-                                    <td className="py-2 px-2 text-slate-400">${c.bid} / ${c.ask}</td>
-                                    <td className={`py-2 px-2 ${c.greeks?.iv_rank >= 30 ? "text-emerald-400" : "text-slate-400"}`}>
-                                      {c.greeks?.iv_rank >= 30 ? "+" : ""}{(c.greeks?.iv_rank || 0).toFixed(1)}%
-                                    </td>
-                                    <td className="py-2 px-2 text-slate-400">{c.open_interest?.toLocaleString()}</td>
-                                    <td className="py-2 px-2 text-slate-300">{c.greeks?.delta}</td>
-                                    <td className="py-2 px-2 text-right">
-                                      <button
+                                {(() => {
+                                  // Sort the filtered contracts in descending order by strike price
+                                  const sortedFilteredChain = [...filteredChain].sort((a, b) => {
+                                    const strikeA = parseFloat(a.strike || a.strike_price || 0);
+                                    const strikeB = parseFloat(b.strike || b.strike_price || 0);
+                                    return strikeB - strikeA;
+                                  });
+
+                                  const rows = [];
+                                  let insertedDivider = false;
+                                  
+                                  sortedFilteredChain.forEach((c, idx) => {
+                                    const strikeVal = parseFloat(c.strike || c.strike_price || 0);
+                                    
+                                    // Insert the green Share Price divider row when we cross the currentPrice boundary
+                                    if (!insertedDivider && strikeVal <= currentPrice) {
+                                      rows.push(
+                                        <tr key="share-price-divider" className="bg-slate-950/20">
+                                          <td colSpan={7} className="py-3.5 px-0 relative">
+                                            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[2px] bg-emerald-500" />
+                                            <div className="relative flex justify-center">
+                                              <span className="px-4 py-1.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-md select-none">
+                                                Share price: ${currentPrice.toFixed(2)}
+                                              </span>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                      insertedDivider = true;
+                                    }
+                                    
+                                    rows.push(
+                                      <tr 
+                                        key={`contract-${idx}`} 
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleOpenContractModal(c);
                                         }}
-                                        className="px-2.5 py-0.5 text-[8px] font-bold uppercase rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
+                                        className="hover:bg-slate-800/40 transition-colors group cursor-pointer"
                                       >
-                                        Trade
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
+                                        <td className="py-3 px-3 font-bold text-white text-sm">${strikeVal.toFixed(2)}</td>
+                                        <td className="py-3 px-3 text-amber-300 font-bold">${parseFloat(c.midpoint || 0).toFixed(2)}</td>
+                                        <td className="py-3 px-3 text-slate-400">${parseFloat(c.bid || 0).toFixed(2)} / ${parseFloat(c.ask || 0).toFixed(2)}</td>
+                                        <td className={`py-3 px-3 ${(c.greeks?.iv_rank || 0) >= 30 ? "text-emerald-400" : "text-slate-400"}`}>
+                                          {(c.greeks?.iv_rank || 0) >= 30 ? "+" : ""}{(c.greeks?.iv_rank || 0).toFixed(1)}%
+                                        </td>
+                                        <td className="py-3 px-3 text-slate-400">{(c.open_interest || 0).toLocaleString()}</td>
+                                        <td className="py-3 px-3 text-slate-300">{(c.greeks?.delta || 0).toFixed(3)}</td>
+                                        <td className="py-3 px-3 text-right">
+                                          <div className="inline-flex items-center rounded border border-orange-500 overflow-hidden font-bold select-none text-[10px] bg-slate-950">
+                                            <span className="px-3 py-1.5 text-orange-400 font-extrabold">
+                                              ${parseFloat(c.midpoint || 0).toFixed(2)}
+                                            </span>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleOpenContractModal(c);
+                                              }}
+                                              className="px-3 py-1.5 text-orange-400 bg-orange-500/10 hover:bg-orange-500 hover:text-slate-950 transition-all font-black border-l border-orange-500/30"
+                                            >
+                                              +
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  });
+                                  
+                                  // Fallback append divider if not yet inserted
+                                  if (!insertedDivider && sortedFilteredChain.length > 0) {
+                                    rows.push(
+                                      <tr key="share-price-divider" className="bg-slate-950/20">
+                                        <td colSpan={7} className="py-3.5 px-0 relative">
+                                          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[2px] bg-emerald-500" />
+                                          <div className="relative flex justify-center">
+                                            <span className="px-4 py-1.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-md select-none">
+                                              Share price: ${currentPrice.toFixed(2)}
+                                            </span>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  }
+                                  
+                                  return rows;
+                                })()}
                               </tbody>
                             </table>
                           </div>
