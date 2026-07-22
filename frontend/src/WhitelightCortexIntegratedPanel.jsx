@@ -1811,15 +1811,23 @@ export default function WhitelightCortexIntegratedPanel({
                       ✕
                     </button>
                     <div 
-                      className="flex items-baseline gap-2 cursor-pointer select-none group md:col-span-12"
+                      className="flex flex-col cursor-pointer select-none group md:col-span-12"
                       title="Select as Active Analytics Ticker"
                     >
-                      <span className={`text-base font-black transition-colors ${isActive ? "text-amber-400" : "text-white group-hover:text-amber-400"}`}>
-                        {tk}
-                      </span>
-                      <span className="text-[9px] text-slate-500 uppercase tracking-widest">
-                        {isActive ? "🟢 Active Analytics" : "Click to select"}
-                      </span>
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-base font-black transition-colors ${isActive ? "text-amber-400" : "text-white group-hover:text-amber-400"}`}>
+                          {tk}
+                        </span>
+                        <span className="text-[9px] text-slate-500 uppercase tracking-widest">
+                          {isActive ? "🟢 Active Analytics" : "Click to select"}
+                        </span>
+                      </div>
+                      {isActive && (
+                        <div className="mt-1 flex items-baseline gap-1.5 text-[10px] text-slate-400 font-bold uppercase">
+                          <span>Price:</span>
+                          <span className="text-base font-black text-amber-400">${currentPrice.toFixed(2)}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Non-Active Compact Preview */}
@@ -1853,13 +1861,38 @@ export default function WhitelightCortexIntegratedPanel({
                     {/* Expanded Active Inline Dropdown Panel */}
                     {isActive && (
                       <>
+                        {/* Top Row: Horizontal Indicator Boxes (col-span-12) */}
+                        {signals && (
+                          <div className="md:col-span-12 grid grid-cols-4 gap-2.5 pt-2 border-t border-slate-800/60 font-mono text-[10px]">
+                            <div className="p-2.5 rounded bg-slate-950 border border-slate-850 space-y-0.5">
+                              <div className="text-[9px] text-slate-500 uppercase font-bold">Open Diff</div>
+                              <div className={`font-bold text-xs ${signals.pct_from_open >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                {signals.pct_from_open >= 0 ? "+" : ""}{signals.pct_from_open}%
+                              </div>
+                            </div>
+                            <div className="p-2.5 rounded bg-slate-950 border border-slate-850 space-y-0.5">
+                              <div className="text-[9px] text-slate-500 uppercase font-bold">VWAP Diff</div>
+                              <div className={`font-bold text-xs ${signals.vwap_diff_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                {signals.vwap_diff_pct >= 0 ? "+" : ""}{signals.vwap_diff_pct}%
+                              </div>
+                            </div>
+                            <div className="p-2.5 rounded bg-slate-950 border border-slate-850 space-y-0.5">
+                              <div className="text-[9px] text-slate-500 uppercase font-bold">RSI-7</div>
+                              <div className={`font-bold text-xs ${signals.rsi_7 > 70 ? "text-rose-400" : signals.rsi_7 < 30 ? "text-emerald-400" : "text-amber-400"}`}>
+                                {signals.rsi_7}
+                              </div>
+                            </div>
+                            <div className="p-2.5 rounded bg-slate-950 border border-slate-850 space-y-0.5">
+                              <div className="text-[9px] text-slate-500 uppercase font-bold">MACD Hist</div>
+                              <div className={`font-bold text-xs ${signals.macd_6_13_5?.histogram >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                {signals.macd_6_13_5?.histogram}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Left Side: Intraday Signals (col-span-4) */}
                         <div className="md:col-span-4 space-y-3 pt-2 border-t border-slate-800/60 font-mono">
-                          <div className="flex items-baseline justify-between">
-                            <span className="text-[10px] text-slate-400 uppercase font-bold">Asset Price:</span>
-                            <span className="text-base font-black text-amber-400">${currentPrice.toFixed(2)}</span>
-                          </div>
-
                           {signals && (
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] text-slate-400 uppercase font-bold">Bias direction:</span>
@@ -1867,35 +1900,6 @@ export default function WhitelightCortexIntegratedPanel({
                                     style={{ color: biasColor, borderColor: `${biasColor}44`, backgroundColor: `${biasColor}11` }}>
                                 {signals.intraday_bias}
                               </span>
-                            </div>
-                          )}
-
-                          {signals && (
-                            <div className="grid grid-cols-2 gap-2 text-[10px]">
-                              <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-0.5">
-                                <div className="text-[9px] text-slate-500 uppercase">Open Diff</div>
-                                <div className={`font-bold ${signals.pct_from_open >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                  {signals.pct_from_open >= 0 ? "+" : ""}{signals.pct_from_open}%
-                                </div>
-                              </div>
-                              <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-0.5">
-                                <div className="text-[9px] text-slate-500 uppercase">VWAP Diff</div>
-                                <div className={`font-bold ${signals.vwap_diff_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                  {signals.vwap_diff_pct >= 0 ? "+" : ""}{signals.vwap_diff_pct}%
-                                </div>
-                              </div>
-                              <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-0.5">
-                                <div className="text-[9px] text-slate-500 uppercase">RSI-7</div>
-                                <div className={`font-bold ${signals.rsi_7 > 70 ? "text-rose-400" : signals.rsi_7 < 30 ? "text-emerald-400" : "text-amber-400"}`}>
-                                  {signals.rsi_7}
-                                </div>
-                              </div>
-                              <div className="p-2 rounded bg-slate-950 border border-slate-850 space-y-0.5">
-                                <div className="text-[9px] text-slate-500 uppercase">MACD Hist</div>
-                                <div className={`font-bold ${signals.macd_6_13_5?.histogram >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                  {signals.macd_6_13_5?.histogram}
-                                </div>
-                              </div>
                             </div>
                           )}
 
