@@ -1663,30 +1663,6 @@ export default function WhitelightCortexIntegratedPanel({
         </div>
       )}
 
-      {/* Middle Row: Equity Curve Portfolio Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 font-mono">
-        {/* Equity Curve Visualizer (col-span-12) */}
-        <div className="lg:col-span-12 p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">
-              📈 Consolidated Account Equity Curve (Alpaca Real-time Replay)
-            </span>
-            <span className="text-xs text-emerald-400 font-bold">
-              Current Balance: ${chartData[chartData.length - 1]?.equity.toLocaleString()}
-            </span>
-          </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <XAxis dataKey="timestamp" stroke="#475569" fontSize={10} />
-                <YAxis stroke="#475569" fontSize={10} domain={["dataMin - 100", "dataMax + 100"]} />
-                <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
-                <Line type="monotone" dataKey="equity" stroke="#3FB27F" strokeWidth={2.5} dot={{ fill: "#3FB27F" }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
 
       {/* Main Grid: Live Audit Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -2220,6 +2196,28 @@ export default function WhitelightCortexIntegratedPanel({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Consolidated Account Equity Curve (Alpaca Real-time Replay) */}
+        <div className="lg:col-span-12 p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3 font-mono">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">
+              📈 Consolidated Account Equity Curve (Alpaca Real-time Replay)
+            </span>
+            <span className="text-xs text-emerald-400 font-bold">
+              Current Balance: ${chartData[chartData.length - 1]?.equity.toLocaleString()}
+            </span>
+          </div>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <XAxis dataKey="timestamp" stroke="#475569" fontSize={10} />
+                <YAxis stroke="#475569" fontSize={10} domain={["dataMin - 100", "dataMax + 100"]} />
+                <Tooltip contentStyle={{ background: "#0f172a", borderColor: "#334155", color: "#f8fafc" }} />
+                <Line type="monotone" dataKey="equity" stroke="#3FB27F" strokeWidth={2.5} dot={{ fill: "#3FB27F" }} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
