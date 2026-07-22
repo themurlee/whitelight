@@ -1036,7 +1036,7 @@ export default function WhitelightCortexIntegratedPanel({
   const btMetrics = btResult?.metrics || {};
 
   return (
-    <div className="p-4 space-y-6 text-slate-100 font-sans relative" style={{ background: "#0b0e11", minHeight: "100vh" }}>
+    <div className="p-4 space-y-6 text-slate-100 font-sans relative" style={{ background: "#0b0e11", minHeight: "100vh", marginRight: selectedContract ? "380px" : "0px", transition: "margin-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
       
       {/* Side Toast Alert Notification (Auto-dismisses in 30s) */}
       {expirationAlert && (
@@ -2478,25 +2478,20 @@ export default function WhitelightCortexIntegratedPanel({
         </div>
       </div>
 
-      {/* Robinhood Contract Detail Sidebar (Left-to-Right Drawer) */}
+      {/* Robinhood Contract Detail Sidebar (Right-to-Left Drawer) */}
       {selectedContract && (
         <>
           <style>{`
-            @keyframes slideInLeft {
-              from { transform: translateX(-100%); }
+            @keyframes slideInRight {
+              from { transform: translateX(100%); }
               to { transform: translateX(0); }
             }
           `}</style>
-          {/* Backdrop Overlay */}
+          {/* Slide-in Sidebar (Right to Left) */}
           <div 
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-fade-in"
-            onClick={() => setSelectedContract(null)}
-          />
-          {/* Slide-in Sidebar (Left to Right) */}
-          <div 
-            className="fixed top-0 bottom-0 left-0 z-50 w-full max-w-md bg-slate-900 border-r border-slate-800 shadow-2xl p-6 flex flex-col justify-between overflow-y-auto font-sans"
+            className="fixed top-0 bottom-0 right-0 z-50 w-full max-w-[380px] bg-slate-900 border-l border-slate-800 shadow-2xl p-6 flex flex-col justify-between overflow-y-auto font-sans"
             style={{
-              animation: "slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards"
+              animation: "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards"
             }}
           >
             <div className="space-y-6">
