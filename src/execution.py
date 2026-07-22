@@ -774,14 +774,15 @@ def submit_manual_order(
 
     order_type: "market" or "limit" (requires limit_price if limit)
     """
-    # Check BOTH flags independently
+    # Check BOTH flags independently (bypass pause/lockdown if selling/closing to reduce risk)
     state = risk_manager.load_state()
-    if state.get("lockdown_active", False):
-        print("[MANUAL ORDER REFUSED] System in automatic lockdown (lockdown_active=True).")
-        return None
-    if state.get("manual_pause", False):
-        print("[MANUAL ORDER REFUSED] Operator manual pause is active (manual_pause=True).")
-        return None
+    if side.lower() != "sell":
+        if state.get("lockdown_active", False):
+            print("[MANUAL ORDER REFUSED] System in automatic lockdown (lockdown_active=True).")
+            return None
+        if state.get("manual_pause", False):
+            print("[MANUAL ORDER REFUSED] Operator manual pause is active (manual_pause=True).")
+            return None
 
     if order_type.lower() == "limit" and limit_price is None:
         print("[MANUAL ORDER ERROR] limit order_type requires limit_price.")

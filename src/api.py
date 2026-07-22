@@ -31,6 +31,7 @@ GLOBAL_ALERTS = []
 ALERTS_LOCK = threading.Lock()
 NOTIFIED_POSITIONS = {} # symbol -> set of profit brackets notified
 LAST_3PM_ALERT_DATE = None
+LAST_EOD_CANCEL_DATE = None
 
 # Configure path imports
 sys.path.append(BASE_DIR)
@@ -1800,8 +1801,9 @@ def position_risk_checker_loop():
                             GLOBAL_ALERTS.append(alert)
                         LAST_3PM_ALERT_DATE = now_local.date()
                         
-            # 4 PM EOD Cancellation (Run when current_hour >= 16 / 4:00 PM)
-            if current_hour >= 16:
+            # 4 PM EOD Cancellation (Run once a day when current_hour >= 16)
+            global LAST_EOD_CANCEL_DATE
+            if current_hour >= 16 and LAST_EOD_CANCEL_DATE != now_local.date():
                 cond_file = os.path.join(DATA_DIR, "conditional_orders.json")
                 if os.path.exists(cond_file):
                     orders = _read_json_file(cond_file, [])
@@ -1821,6 +1823,19 @@ def position_risk_checker_loop():
                         }
                         with ALERTS_LOCK:
                             GLOBAL_ALERTS.append(alert)
+                
+                # ALSO cancel all active pending orders directly on Alpaca to clear the queue for the next day
+                try:
+                    import src.config as config
+                    if config.API_KEY and config.SECRET_KEY and "YOUR_ALPACA" not in config.API_KEY:
+                        from alpaca.trading.client import TradingClient
+                        tc = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
+                        tc.cancel_orders()
+                        print("[EOD] Cancelled open broker orders at market close.", flush=True)
+                except Exception as b_err:
+                    print(f"[EOD] Failed to cancel open broker orders: {b_err}", flush=True)
+
+                LAST_EOD_CANCEL_DATE = now_local.date()
         except Exception as eod_err:
             print(f"[RISK CHECKER] Error in EOD checks: {eod_err}", flush=True)
 
