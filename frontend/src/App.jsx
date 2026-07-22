@@ -10,6 +10,7 @@ const API_BASE = 'http://127.0.0.1:8000/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('whitelight_cortex');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [optionsSubTab, setOptionsSubTab] = useState('overview');
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -1150,40 +1151,90 @@ function App() {
   return (
     <div className="app-container">
       {/* Sidebar Navigation (Docusaurus-inspired layout) */}
-      <aside className="app-sidebar">
-        <div className="sidebar-brand">
-          <span className="brand-bolt">⚡</span>
-          <span className="brand-text">WhiteLight</span>
+      <aside className="app-sidebar" style={{ width: sidebarCollapsed ? '78px' : '250px', transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)', padding: sidebarCollapsed ? '24px 8px' : '24px 16px' }}>
+        <div className="sidebar-brand" style={{ justifyContent: sidebarCollapsed ? 'center' : 'space-between', display: 'flex', alignItems: 'center', width: '100%', transition: 'all 0.3s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="brand-bolt" style={{ fontSize: '1.6rem' }}>⚡</span>
+            {!sidebarCollapsed && <span className="brand-text">WhiteLight</span>}
+          </div>
+          <button 
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              backgroundColor: '#1e293b',
+              color: '#94a3b8',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '10px',
+              fontWeight: '900',
+              marginLeft: sidebarCollapsed ? '0px' : '10px',
+              transition: 'all 0.2s',
+              outline: 'none',
+              flexShrink: 0
+            }}
+            className="sidebar-toggle-btn"
+            title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#334155';
+              e.currentTarget.style.color = '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#1e293b';
+              e.currentTarget.style.color = '#94a3b8';
+            }}
+          >
+            {sidebarCollapsed ? "▶" : "◀"}
+          </button>
         </div>
-        <div className="sidebar-status">
-          <span className={`status-dot ${isLocked ? 'dot-locked' : 'dot-active'}`}></span>
-          <span className="status-label">{isLocked ? 'SYSTEM LOCKED' : 'OPERATIONAL'}</span>
+        <div className="sidebar-status" style={{ justifyContent: sidebarCollapsed ? 'center' : 'flex-start', padding: sidebarCollapsed ? '8px 0' : '8px 12px', transition: 'all 0.3s' }}>
+          <span className={`status-dot ${isLocked ? 'dot-locked' : 'dot-active'}`} style={{ flexShrink: 0 }}></span>
+          {!sidebarCollapsed && <span className="status-label">{isLocked ? 'SYSTEM LOCKED' : 'OPERATIONAL'}</span>}
         </div>
 
         <nav className="sidebar-nav">
           <button 
             className={`nav-item ${activeTab === 'whitelight_cortex' ? 'active' : ''}`}
             onClick={() => setActiveTab('whitelight_cortex')}
+            style={{ justifyContent: sidebarCollapsed ? 'center' : 'flex-start', padding: sidebarCollapsed ? '12px 0' : '12px 16px', transition: 'all 0.3s' }}
+            title={sidebarCollapsed ? "Whitelight(Prod)" : ""}
           >
-            <span className="nav-icon">⚡🧠</span> Whitelight(Prod)
+            <span className="nav-icon" style={{ fontSize: '1.25rem', marginRight: sidebarCollapsed ? '0' : '8px', flexShrink: 0 }}>⚡🧠</span> 
+            {!sidebarCollapsed && <span className="whitespace-nowrap">Whitelight(Prod)</span>}
           </button>
           <button 
             className={`nav-item ${activeTab === 'options' ? 'active' : ''}`}
             onClick={() => { setActiveTab('options'); setOptionsSubTab('overview'); }}
+            style={{ justifyContent: sidebarCollapsed ? 'center' : 'flex-start', padding: sidebarCollapsed ? '12px 0' : '12px 16px', transition: 'all 0.3s' }}
+            title={sidebarCollapsed ? "Options" : ""}
           >
-            <span className="nav-icon">📊</span> Options
+            <span className="nav-icon" style={{ fontSize: '1.25rem', marginRight: sidebarCollapsed ? '0' : '8px', flexShrink: 0 }}>📊</span> 
+            {!sidebarCollapsed && <span className="whitespace-nowrap">Options</span>}
           </button>
           <button 
             className={`nav-item ${activeTab === 'options_trading' ? 'active' : ''}`}
             onClick={() => setActiveTab('options_trading')}
+            style={{ justifyContent: sidebarCollapsed ? 'center' : 'flex-start', padding: sidebarCollapsed ? '12px 0' : '12px 16px', transition: 'all 0.3s' }}
+            title={sidebarCollapsed ? "Options Trading" : ""}
           >
-            <span className="nav-icon">⚡</span> Options Trading
+            <span className="nav-icon" style={{ fontSize: '1.25rem', marginRight: sidebarCollapsed ? '0' : '8px', flexShrink: 0 }}>⚡</span> 
+            {!sidebarCollapsed && <span className="whitespace-nowrap">Options Trading</span>}
           </button>
         </nav>
 
-        <div className="sidebar-footer">
-          <p>Local-First Desktop Portal</p>
-          <p className="footer-ver">V2.0.0 (API Connected)</p>
+        <div className="sidebar-footer" style={{ textAlign: sidebarCollapsed ? 'center' : 'left', transition: 'all 0.3s' }}>
+          {sidebarCollapsed ? (
+            <span style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>v2.0</span>
+          ) : (
+            <>
+              <p>Local-First Desktop Portal</p>
+              <p className="footer-ver">V2.0.0 (API Connected)</p>
+            </>
+          )}
         </div>
       </aside>
 

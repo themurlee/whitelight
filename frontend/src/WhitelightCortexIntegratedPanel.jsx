@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
@@ -274,11 +274,20 @@ export default function WhitelightCortexIntegratedPanel({
   const [maxCallsPerDay, setMaxCallsPerDay] = useState(500);
   const [cooldownSecs, setCooldownSecs] = useState(18);
 
-  // Active profit/invalidation notification toasts
-  const [activeToasts, setActiveToasts] = useState([]);
+  // Stacked Toast Alert system
+  const [toasts, setToasts] = useState([]);
+  const [selectedToastDetails, setSelectedToastDetails] = useState(null);
+  const processedAlertIds = useRef(new Set());
 
-  // Scheduled Expiration Side Toast Alert Popup
-  const [expirationAlert, setExpirationAlert] = useState(null);
+  const addToast = (title, message, level = "info", type = "INFO", details = null) => {
+    const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const newToast = { id, title, message, level, type, details, timestamp: new Date().toLocaleTimeString() };
+    setToasts((prev) => [...prev, newToast]);
+    // Auto-dismiss after 15 seconds
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 15000);
+  };
 
   // Robinhood options UI states
   const [rhAction, setRhAction] = useState("buy");
@@ -514,8 +523,11 @@ export default function WhitelightCortexIntegratedPanel({
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
+          const freshAlerts = data.filter(alert => !processedAlertIds.current.has(alert.id));
+          if (freshAlerts.length === 0) return;
+
           setAuditEvents((prev) => {
-            const newEvents = data.map((alert) => {
+            const newEvents = freshAlerts.map((alert) => {
               const isCond = alert.type === "profit_bracket" || alert.type === "pending_reminder";
               const isCancel = alert.type === "orders_cancelled";
               return {
@@ -536,20 +548,33 @@ export default function WhitelightCortexIntegratedPanel({
             return [...newEvents, ...prev];
           });
 
-          // Set the latest alert as a popup toast
-          const latestAlert = data[data.length - 1];
-          const isCond = latestAlert.type === "profit_bracket" || latestAlert.type === "pending_reminder";
-          const isCancel = latestAlert.type === "orders_cancelled";
-          setExpirationAlert({
-            title: latestAlert.type === "profit_bracket" 
+          // Stack new alert toasts
+          freshAlerts.forEach((alert) => {
+            processedAlertIds.current.add(alert.id);
+            const isCond = alert.type === "profit_bracket" || alert.type === "pending_reminder";
+            const isCancel = alert.type === "orders_cancelled";
+            const title = alert.type === "profit_bracket" 
               ? `Order Executed` 
-              : latestAlert.type === "stop_loss"
+              : alert.type === "stop_loss"
               ? `Risk Exit Triggered`
-              : latestAlert.type === "pending_reminder"
+              : alert.type === "pending_reminder"
               ? `3 PM Active Orders Alert`
-              : `EOD Orders Cancelled`,
-            level: isCond ? "success" : isCancel ? "warning" : "danger",
-            notes: latestAlert.message || "System action executed."
+              : `EOD Orders Cancelled`;
+
+            addToast(
+              title,
+              alert.message || "System action executed.",
+              isCond ? "success" : isCancel ? "warning" : "danger",
+              alert.type,
+              {
+                ticker: alert.underlying || alert.symbol || "SYM",
+                action: alert.type === "stop_loss" ? "STOP_LOSS" : "EXECUTE",
+                proposer_reasoning: alert.message || "System order executed successfully.",
+                validator_notes: alert.type === "stop_loss" ? "Trailing stop loss breach triggered auto-close." : "Conditional order parameters met.",
+                timestamp: new Date(alert.timestamp).toLocaleString(),
+                signals: null
+              }
+            );
           });
         }
       }
@@ -599,7 +624,32 @@ export default function WhitelightCortexIntegratedPanel({
         for (const tk of Object.keys(data.results)) {
           const item = data.results[tk];
           const shouldAutoExecute = autoTradeTickers[tk];
-          if (shouldAutoExecute && item.success && item.dual_agent_result?.execution_ready) {
+          
+          if (item.success && item.dual_agent_result) {
+            const isReady = item.dual_agent_result.execution_ready;
+            const proposerReasoning = item.dual_agent_result.proposal?.reasoning || item.dual_agent_result.validation?.reasoning || "Technical metrics analysis.";
+            const validatorNotes = item.dual_agent_result.validation?.validation_notes || "Audited against Wall Street rules.";
+
+            if (shouldAutoExecute) {
+              addToast(
+                isReady ? `Auto-Trade Approved: ${tk}` : `Auto-Trade Rejected: ${tk}`,
+                isReady 
+                  ? `System approved option trade for ${tk}. Execution triggered.` 
+                  : `Risk manager rejected ${tk} proposal: ${proposerReasoning.substring(0, 80)}...`,
+                isReady ? "success" : "danger",
+                isReady ? "PROPOSAL_VALIDATED" : "RISK_GATE_REFUSAL",
+                {
+                  ticker: tk,
+                  action: isReady ? "EXECUTE" : "REJECT",
+                  signals: item.signals,
+                  proposer_reasoning: proposerReasoning,
+                  validator_notes: validatorNotes,
+                  timestamp: new Date().toLocaleTimeString()
+                }
+              );
+            }
+
+            if (shouldAutoExecute && isReady) {
               try {
                 const chainRes = await fetch(`${API_BASE}/options/chain?ticker=${tk}&timeframe=${timeframe}`);
                 const chainData = await chainRes.json();
@@ -624,6 +674,7 @@ export default function WhitelightCortexIntegratedPanel({
             }
           }
         }
+      }
     } catch (e) {
       console.error("Watchlist scan error:", e);
     } finally {
@@ -734,14 +785,6 @@ export default function WhitelightCortexIntegratedPanel({
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (expirationAlert) {
-      const timer = setTimeout(() => {
-        setExpirationAlert(null);
-      }, 30000); // Auto-dismiss after 30 seconds
-      return () => clearTimeout(timer);
-    }
-  }, [expirationAlert]);
 
   useEffect(() => {
     if (!autoScanEnabled) return;
@@ -958,6 +1001,25 @@ export default function WhitelightCortexIntegratedPanel({
           validator: "AI Risk Desk Agent"
         }, ...prev]);
 
+        // Stack a new toast with audit details
+        const proposerReasoning = data.dual_agent_result?.validation?.reasoning || data.dual_agent_result?.validation?.validation_notes || data.dual_agent_result?.validation_notes || data.dual_agent_result?.proposal?.reasoning || "Intraday signals show neutral or conflicting trend.";
+        const validatorNotes = data.dual_agent_result?.validation?.validation_notes || data.dual_agent_result?.validation_notes || "Audited against Wall Street Trader Rules.";
+
+        addToast(
+          isReady ? `Proposal Approved: ${activeTicker}` : `Risk Desk Rejection: ${activeTicker}`,
+          isReady ? `Proposal for ${activeTicker} option trade was authorized by Risk Desk.` : `Audit failed for ${activeTicker}: Proposer recommended NO_TRADE or Validator rejected.`,
+          isReady ? "success" : "danger",
+          isReady ? "PROPOSAL_VALIDATED" : "RISK_GATE_REFUSAL",
+          {
+            ticker: activeTicker,
+            action: isReady ? "EXECUTE" : "REJECT",
+            signals: data.signals,
+            proposer_reasoning: proposerReasoning,
+            validator_notes: validatorNotes,
+            timestamp: new Date().toLocaleTimeString()
+          }
+        );
+
         if (shouldAutoExecute && isReady && chain.length > 0) {
           const best = selectBestContract(chain, currentPrice, data.dual_agent_result);
           if (best) {
@@ -973,13 +1035,26 @@ export default function WhitelightCortexIntegratedPanel({
   };
 
   const triggerTestAlert = (timeLabel) => {
-    setExpirationAlert({
-      timeLabel: `${timeLabel} Alert`,
-      ticker: activeTicker,
-      strike: chain[0]?.strike || 230.0,
-      type: chain[0]?.type || "CALL",
-      daysLeft: getDaysToExpiry(chain[0]?.expiration)
-    });
+    addToast(
+      `Test Alert [${timeLabel}]`,
+      `This is a simulated ${timeLabel} risk alert for ${activeTicker} option contracts.`,
+      "warning",
+      "TEST_ALERT",
+      {
+        ticker: activeTicker,
+        action: "TEST_AUDIT",
+        proposer_reasoning: `Simulated proposer reasoning for ${timeLabel} test alert.`,
+        validator_notes: `Simulated validator warning for ${timeLabel} test alert.`,
+        timestamp: new Date().toLocaleTimeString(),
+        signals: {
+          current_close: currentPrice || 230.0,
+          vwap: (currentPrice ? currentPrice * 1.002 : 230.5),
+          rsi_7: 62.5,
+          macd_6_13_5: { histogram: 0.12 },
+          intraday_bias: "BULLISH"
+        }
+      }
+    );
   };
 
   const biasColor = useMemo(() => {
@@ -1054,38 +1129,132 @@ export default function WhitelightCortexIntegratedPanel({
   return (
     <div className="p-4 space-y-6 text-slate-100 font-sans relative" style={{ background: "#0b0e11", minHeight: "100vh", marginRight: selectedContracts.length > 0 ? "420px" : "0px", transition: "margin-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
       
-      {/* Side Toast Alert Notification (Auto-dismisses in 30s) */}
-      {expirationAlert && (
-        <div className={`fixed top-6 right-6 z-50 max-w-sm bg-slate-900 rounded-2xl p-4 shadow-2xl backdrop-blur font-mono animate-bounce space-y-2 border ${
-          expirationAlert.level === "success"
-            ? "border-emerald-500/60"
-            : expirationAlert.level === "warning"
-            ? "border-amber-500/60"
-            : "border-rose-500/60"
-        }`}>
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <span className={`text-[11px] font-bold flex items-center gap-1.5 ${
-              expirationAlert.level === "success" 
-                ? "text-emerald-400" 
-                : expirationAlert.level === "warning"
-                ? "text-amber-400"
-                : "text-rose-400"
-            }`}>
-              <span>{expirationAlert.level === "success" ? "⚡" : "⚠️"}</span> {expirationAlert.title || `Expiration Alert [${expirationAlert.timeLabel}]`}
-            </span>
-            <button
-              onClick={() => setExpirationAlert(null)}
-              className="text-xs text-slate-400 hover:text-white font-bold cursor-pointer"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="text-xs text-slate-200 font-semibold leading-relaxed">
-            {expirationAlert.notes || expirationAlert.message || (
-              <>
-                This <span className="text-amber-400 font-bold">{expirationAlert.ticker} ${expirationAlert.strike} {expirationAlert.type}</span> contract is going to expire in <span className="text-rose-400 font-bold">{expirationAlert.daysLeft} days</span>!
-              </>
+      {/* Stacked Toast Alerts Container (Top Right Pinned) */}
+      <div className="fixed top-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full">
+        {toasts.map((t) => (
+          <div 
+            key={t.id}
+            onClick={() => {
+              if (t.details) {
+                setSelectedToastDetails(t);
+              }
+            }}
+            className={`cursor-pointer rounded-2xl p-4 shadow-2xl border transition-all hover:scale-[1.02] active:scale-[0.98] ${
+              t.level === "success"
+                ? "border-emerald-500/60 bg-slate-900/95"
+                : t.level === "warning"
+                ? "border-amber-500/60 bg-slate-900/95"
+                : "border-rose-500/60 bg-slate-900/95"
+            }`}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className={`text-xs font-black flex items-center gap-1.5 ${
+                t.level === "success" 
+                  ? "text-emerald-400" 
+                  : t.level === "warning"
+                  ? "text-amber-400"
+                  : "text-rose-400"
+              }`}>
+                <span>{t.level === "success" ? "⚡" : t.level === "warning" ? "⚠️" : "🛑"}</span> {t.title}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setToasts((prev) => prev.filter((x) => x.id !== t.id));
+                }}
+                className="text-xs text-slate-500 hover:text-white font-bold cursor-pointer w-5 h-5 flex items-center justify-center rounded-full hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="text-xs text-slate-200 mt-2 font-medium leading-relaxed">
+              {t.message}
+            </div>
+            {t.details && (
+              <div className="text-[9px] text-slate-500 mt-2 font-semibold flex items-center justify-between">
+                <span>Timestamp: {t.timestamp}</span>
+                <span className="text-amber-500/80 hover:underline">Click to view details →</span>
+              </div>
             )}
+          </div>
+        ))}
+      </div>
+
+      {/* Selected Toast Explanation Modal */}
+      {selectedToastDetails && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">AI Risk Desk Audit Explanation</span>
+                <h3 className="text-lg font-black text-white mt-1">
+                  {selectedToastDetails.details.ticker} Audit Report ({selectedToastDetails.details.action})
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedToastDetails(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Signals Checklist */}
+            {selectedToastDetails.details.signals && (
+              <div className="space-y-2">
+                <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold">Computed Intraday Signals</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-950 p-3.5 rounded-xl border border-slate-850">
+                  <div className="flex justify-between border-b border-slate-900 pb-1">
+                    <span className="text-slate-500">Current Close:</span>
+                    <span className="text-slate-200 font-bold">${selectedToastDetails.details.signals.current_close}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-900 pb-1">
+                    <span className="text-slate-500">VWAP Value:</span>
+                    <span className="text-slate-200 font-bold">${selectedToastDetails.details.signals.vwap}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-900 pb-1">
+                    <span className="text-slate-500">RSI-7 Indicator:</span>
+                    <span className={`font-bold ${
+                      selectedToastDetails.details.signals.rsi_7 > 70 ? "text-rose-400" : selectedToastDetails.details.signals.rsi_7 < 30 ? "text-emerald-400" : "text-amber-400"
+                    }`}>{selectedToastDetails.details.signals.rsi_7}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-900 pb-1">
+                    <span className="text-slate-500">MACD Histogram:</span>
+                    <span className={`font-bold ${
+                      selectedToastDetails.details.signals.macd_6_13_5?.histogram >= 0 ? "text-emerald-400" : "text-rose-400"
+                    }`}>{selectedToastDetails.details.signals.macd_6_13_5?.histogram}</span>
+                  </div>
+                  <div className="flex justify-between col-span-2 pt-1 border-t border-slate-900 mt-1">
+                    <span className="text-slate-500">Intraday Classification:</span>
+                    <span className="text-amber-400 font-bold">{selectedToastDetails.details.signals.intraday_bias}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Agent reasoning */}
+            <div className="space-y-2">
+              <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold">Proposer Agent Reasoning</h4>
+              <div className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3.5 rounded-xl border border-slate-850">
+                {selectedToastDetails.details.proposer_reasoning}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold">Validator Risk Notes</h4>
+              <div className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3.5 rounded-xl border border-slate-850">
+                {selectedToastDetails.details.validator_notes}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setSelectedToastDetails(null)}
+                className="px-5 py-2.5 rounded-xl bg-slate-850 text-slate-300 hover:text-white transition-all text-xs font-bold"
+              >
+                Dismiss Audit Report
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1568,7 +1737,7 @@ export default function WhitelightCortexIntegratedPanel({
                       <div className="flex items-center gap-2">
                         <span className="font-extrabold text-amber-400 text-sm">{pos.ticker}</span>
                         <span className="text-xs font-bold text-white">${pos.strike} {pos.type}</span>
-                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Exp: {pos.exp}</span>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-extrabold bg-slate-800 text-slate-200">Exp: {pos.exp}</span>
                         {pos.pendingClose && (
                           <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-rose-500/20 border border-rose-500/40 text-rose-400 uppercase tracking-wide animate-pulse">
                             Pending Close

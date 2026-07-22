@@ -1632,21 +1632,18 @@ def position_risk_checker_loop():
                                 client.close_position(symbol)
                                 print(f"[RISK AUDIT] Successfully closed position {symbol} via native close_position API.", flush=True)
                             except Exception as close_err:
-                                if "no available quote" in str(close_err).lower() or "limit" in str(close_err).lower():
-                                    print(f"[RISK AUDIT] Native close failed due to no quote. Falling back to limit sell at $0.01 for {symbol}", flush=True)
-                                    from alpaca.trading.requests import LimitOrderRequest
-                                    from alpaca.trading.enums import OrderSide, TimeInForce
-                                    qty = abs(int(float(pos.qty)))
-                                    order_req = LimitOrderRequest(
-                                        symbol=symbol,
-                                        qty=qty,
-                                        side=OrderSide.SELL,
-                                        limit_price=0.01,
-                                        time_in_force=TimeInForce.DAY
-                                    )
-                                    client.submit_order(order_req)
-                                else:
-                                    raise close_err
+                                print(f"[RISK AUDIT] Native close failed for {symbol}: {close_err}. Falling back to limit sell at $0.01", flush=True)
+                                from alpaca.trading.requests import LimitOrderRequest
+                                from alpaca.trading.enums import OrderSide, TimeInForce
+                                qty = abs(int(float(pos.qty)))
+                                order_req = LimitOrderRequest(
+                                    symbol=symbol,
+                                    qty=qty,
+                                    side=OrderSide.SELL,
+                                    limit_price=0.01,
+                                    time_in_force=TimeInForce.DAY
+                                )
+                                client.submit_order(order_req)
                             
                             alert = {
                                 "id": f"{symbol}_breach_{time.time()}",
