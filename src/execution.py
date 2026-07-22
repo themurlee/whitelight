@@ -353,13 +353,84 @@ class RobinhoodMCPClient:
             from alpaca.trading.enums import OrderSide, TimeInForce, AssetClass
 
             alpaca_side = OrderSide.BUY if side.lower() == "buy" else OrderSide.SELL
-            order_data = MarketOrderRequest(
-                symbol=symbol,
-                qty=quantity,
-                side=alpaca_side,
-                time_in_force=TimeInForce.DAY,
-            )
-            order = self._trading_client.submit_order(order_data)
+            
+            if order_type.lower() == "market":
+                try:
+                    order_data = MarketOrderRequest(
+                        symbol=symbol,
+                        qty=quantity,
+                        side=alpaca_side,
+                        time_in_force=TimeInForce.DAY,
+                    )
+                    order = self._trading_client.submit_order(order_data)
+                except Exception as market_err:
+                    if "no available quote" in str(market_err).lower() or "limit" in str(market_err).lower():
+                        # Try to resolve a limit price from positions or fallback
+                        limit_px = 1.00
+                        try:
+                            # If we have an active position, we can use its current price
+                            pos = self._trading_client.get_open_position(symbol)
+                            if pos and pos.current_price:
+                                limit_px = float(pos.current_price)
+                        except Exception:
+                            pass
+                            
+                        # Or check if we can fetch a quote snapshot from Alpaca options data
+                        try:
+                            from alpaca.data.historical import OptionHistoricalDataClient
+                            from alpaca.data.requests import OptionSnapshotRequest
+                            import src.config as config
+                            
+                            data_client = OptionHistoricalDataClient(config.API_KEY, config.SECRET_KEY)
+                            snap = data_client.get_option_snapshot(OptionSnapshotRequest(symbol=symbol))
+                            if snap and symbol in snap:
+                                snapshot = snap[symbol]
+                                if snapshot.latest_quote:
+                                    bid = float(snapshot.latest_quote.bid_price)
+                                    ask = float(snapshot.latest_quote.ask_price)
+                                    if bid > 0 and ask > 0:
+                                        limit_px = (bid + ask) / 2.0
+                        except Exception:
+                            pass
+                            
+                        # Adjust limit price based on buy/sell to cross the spread
+                        if alpaca_side == OrderSide.BUY:
+                            limit_px = round(limit_px * 1.05, 2)
+                        else:
+                            limit_px = max(0.01, round(limit_px * 0.95, 2))
+                            
+                        print(f"[ALPACA ORDER FALLBACK] Market option order failed due to no quote. Retrying with LIMIT order at ${limit_px} for {symbol}", flush=True)
+                        order_data = LimitOrderRequest(
+                            symbol=symbol,
+                            qty=quantity,
+                            side=alpaca_side,
+                            limit_price=limit_px,
+                            time_in_force=TimeInForce.DAY,
+                            asset_class=AssetClass.US_OPTION
+                        )
+                        order = self._trading_client.submit_order(order_data)
+                    else:
+                        raise market_err
+            else:
+                # Default to manual limit order
+                # Since we don't have limit price parameter here, we fallback to a default or position price if none provided
+                limit_px = 1.00
+                try:
+                    pos = self._trading_client.get_open_position(symbol)
+                    if pos and pos.current_price:
+                        limit_px = float(pos.current_price)
+                except Exception:
+                    pass
+                order_data = LimitOrderRequest(
+                    symbol=symbol,
+                    qty=quantity,
+                    side=alpaca_side,
+                    limit_price=limit_px,
+                    time_in_force=TimeInForce.DAY,
+                    asset_class=AssetClass.US_OPTION
+                )
+                order = self._trading_client.submit_order(order_data)
+
             return {
                 "order_id": str(order.id),
                 "status": "placed",

@@ -283,6 +283,8 @@ export default function WhitelightCortexIntegratedPanel({
   const [contractQty, setContractQty] = useState(1);
   const [orderSide, setOrderSide] = useState("buy");
   const [customLimitPrice, setCustomLimitPrice] = useState("");
+  const [modalTriggerCond, setModalTriggerCond] = useState("CROSSES_ABOVE");
+  const [modalTriggerVal, setModalTriggerVal] = useState("");
 
   // Dual Agent Configuration
   const [proposerProvider, setProposerProvider] = useState("AI Agent Pool");
@@ -366,9 +368,12 @@ export default function WhitelightCortexIntegratedPanel({
             if (chainData.length > 0) {
               const uniqueDates = Array.from(new Set(chainData.map(c => c.expiration))).sort();
               if (uniqueDates.length > 0) {
-                if (!condExpiration || !uniqueDates.includes(condExpiration)) {
-                  setCondExpiration(uniqueDates[0]);
-                }
+                setCondExpiration(prev => {
+                  if (!prev || !uniqueDates.includes(prev)) {
+                    return uniqueDates[0];
+                  }
+                  return prev;
+                });
               } else {
                 setCondExpiration("");
               }
@@ -393,15 +398,18 @@ export default function WhitelightCortexIntegratedPanel({
   // Sync condStrike with available strikes
   useEffect(() => {
     if (condStrikes.length > 0) {
-      const strikeNums = condStrikes.map(Number);
-      const currentNum = parseFloat(condStrike);
-      if (!strikeNums.includes(currentNum)) {
-        // Set to middle strike
-        const midIdx = Math.floor(condStrikes.length / 2);
-        setCondStrike(condStrikes[midIdx].toString());
-      }
+      setCondStrike(prev => {
+        const strikeNums = condStrikes.map(Number);
+        const prevNum = parseFloat(prev);
+        if (!strikeNums.includes(prevNum)) {
+          // Set to middle strike
+          const midIdx = Math.floor(condStrikes.length / 2);
+          return condStrikes[midIdx].toString();
+        }
+        return prev;
+      });
     }
-  }, [condStrikes, condStrike]);
+  }, [condStrikes]);
 
   // Cooldown Timer simulation
   useEffect(() => {
@@ -480,6 +488,56 @@ export default function WhitelightCortexIntegratedPanel({
     }
   };
 
+  const fetchSystemAlerts = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/options/alerts`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setAuditEvents((prev) => {
+            const newEvents = data.map((alert) => {
+              const isCond = alert.type === "profit_bracket" || alert.type === "pending_reminder";
+              const isCancel = alert.type === "orders_cancelled";
+              return {
+                time: new Date(alert.timestamp).toLocaleTimeString(),
+                type: alert.type || "INFO",
+                level: isCond ? "success" : isCancel ? "warning" : "danger",
+                title: alert.type === "profit_bracket" 
+                  ? `CONDITIONAL ORDER TRIGGERED: ${alert.symbol}` 
+                  : alert.type === "stop_loss"
+                  ? `RISK EXITED CONTRACT: ${alert.symbol}`
+                  : alert.type === "pending_reminder"
+                  ? `3 PM REMINDER: PENDING ORDERS`
+                  : `EOD CANCELLATION: ORDERS CANCELLED`,
+                notes: alert.message || "System action executed.",
+                validator: "AI Risk Desk Agent"
+              };
+            });
+            return [...newEvents, ...prev];
+          });
+
+          // Set the latest alert as a popup toast
+          const latestAlert = data[data.length - 1];
+          const isCond = latestAlert.type === "profit_bracket" || latestAlert.type === "pending_reminder";
+          const isCancel = latestAlert.type === "orders_cancelled";
+          setExpirationAlert({
+            title: latestAlert.type === "profit_bracket" 
+              ? `Order Executed` 
+              : latestAlert.type === "stop_loss"
+              ? `Risk Exit Triggered`
+              : latestAlert.type === "pending_reminder"
+              ? `3 PM Active Orders Alert`
+              : `EOD Orders Cancelled`,
+            level: isCond ? "success" : isCancel ? "warning" : "danger",
+            notes: latestAlert.message || "System action executed."
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching system alerts:", e);
+    }
+  };
+
   const fetchOptionsPositions = async () => {
     try {
       const res = await fetch(`${API_BASE}/options/positions`);
@@ -522,14 +580,25 @@ export default function WhitelightCortexIntegratedPanel({
           for (const tk of Object.keys(data.results)) {
             const item = data.results[tk];
             if (item.success && item.dual_agent_result?.execution_ready) {
-              setAuditEvents((prev) => [{
-                time: new Date().toLocaleTimeString(),
-                type: "PROPOSAL_VALIDATED",
-                level: "success",
-                title: `WATCHLIST AUTO-EXECUTE: ${tk}`,
-                notes: `Proposer and Validator authorized trade. Submitted order to Alpaca.`,
-                validator: "AI Risk Desk Agent"
-              }, ...prev]);
+              try {
+                const chainRes = await fetch(`${API_BASE}/options/chain?ticker=${tk}&timeframe=${timeframe}`);
+                const chainData = await chainRes.json();
+                if (chainData.success && chainData.chain && chainData.chain.length > 0) {
+                  const targetContract = chainData.chain[0].symbol;
+                  handleExecuteOrder(targetContract, chainData.chain[0].midpoint, 1, "buy");
+                  
+                  setAuditEvents((prev) => [{
+                    time: new Date().toLocaleTimeString(),
+                    type: "PROPOSAL_VALIDATED",
+                    level: "success",
+                    title: `WATCHLIST AUTO-EXECUTE: ${tk}`,
+                    notes: `Proposer and Validator authorized trade. Executed order for ${targetContract}.`,
+                    validator: "AI Risk Desk Agent"
+                  }, ...prev]);
+                }
+              } catch (execErr) {
+                console.error(`Auto-execution failed for ticker ${tk}:`, execErr);
+              }
             }
           }
         }
@@ -541,21 +610,114 @@ export default function WhitelightCortexIntegratedPanel({
     }
   };
 
+  const auditNewWatchlistTicker = async (tickerSymbol) => {
+    if (!tickerSymbol) return;
+    try {
+      // Append an evaluating state to audit log immediately
+      setAuditEvents((prev) => [{
+        time: new Date().toLocaleTimeString(),
+        type: "WATCHLIST_ADD_EVALUATING",
+        level: "warning",
+        title: `WATCHLIST AUDITING: ${tickerSymbol}`,
+        notes: `Querying candles & option chain Greeks. Running Proposer & Validator risk desks...`,
+        validator: "AI Decider Desk"
+      }, ...prev]);
+
+      const res = await fetch(`${API_BASE}/options/evaluate_dual_agent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticker: tickerSymbol,
+          timeframe: timeframe,
+          proposer_provider: "cortex",
+          proposer_model: "cortex-fast",
+          validator_provider: "cortex",
+          validator_model: "cortex-strict"
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Save scan result
+        setScanResults((prev) => ({
+          ...prev,
+          [tickerSymbol]: data
+        }));
+
+        const isReady = data.dual_agent_result?.execution_ready;
+        const notes = data.dual_agent_result?.validation?.validation_notes || "Audited against 5 Wall St Rules";
+        
+        setAuditEvents((prev) => [{
+          time: new Date().toLocaleTimeString(),
+          type: isReady ? "PROPOSAL_VALIDATED" : "RISK_GATE_REFUSAL",
+          level: isReady ? "success" : "danger",
+          title: isReady 
+            ? `WATCHLIST ADDED - PROPOSAL AUTHORIZED: ${tickerSymbol}` 
+            : `WATCHLIST ADDED - REJECTED BY RISK DESK: ${tickerSymbol}`,
+          notes: notes,
+          validator: "AI Risk Desk Agent"
+        }, ...prev]);
+
+        if (autoExecute && isReady) {
+          // Fetch option chain to execute the trade
+          const chainRes = await fetch(`${API_BASE}/options/chain?ticker=${tickerSymbol}&timeframe=${timeframe}`);
+          const chainData = await chainRes.json();
+          if (chainData.success && chainData.chain && chainData.chain.length > 0) {
+            const targetContract = chainData.chain[0].symbol;
+            handleExecuteOrder(targetContract, chainData.chain[0].midpoint, 1, "buy");
+          }
+        }
+      } else {
+        setAuditEvents((prev) => [{
+          time: new Date().toLocaleTimeString(),
+          type: "RISK_GATE_REFUSAL",
+          level: "danger",
+          title: `WATCHLIST AUDIT FAILED: ${tickerSymbol}`,
+          notes: `Failed to complete dual-agent audit: ${data.error || "Unknown server error"}`,
+          validator: "AI Risk Desk Agent"
+        }, ...prev]);
+      }
+    } catch (e) {
+      console.error("Watchlist ticker audit error:", e);
+      setAuditEvents((prev) => [{
+        time: new Date().toLocaleTimeString(),
+        type: "RISK_GATE_REFUSAL",
+        level: "danger",
+        title: `WATCHLIST AUDIT EXCEPTION: ${tickerSymbol}`,
+        notes: `Network error or exception during audit: ${e.message}`,
+        validator: "AI Risk Desk Agent"
+      }, ...prev]);
+    }
+  };
+
   useEffect(() => {
     fetchIntradayData(activeTicker, timeframe);
+  }, [activeTicker, timeframe]);
+
+  useEffect(() => {
     fetchAccountSummary();
     fetchLocalTrades();
     fetchOptionsPositions();
     fetchConditionalOrders();
+    fetchSystemAlerts();
     
     const interval = setInterval(() => {
       fetchAccountSummary();
       fetchLocalTrades();
       fetchOptionsPositions();
       fetchConditionalOrders();
+      fetchSystemAlerts();
     }, 5000);
     return () => clearInterval(interval);
-  }, [activeTicker, timeframe]);
+  }, []);
+
+  useEffect(() => {
+    if (expirationAlert) {
+      const timer = setTimeout(() => {
+        setExpirationAlert(null);
+      }, 30000); // Auto-dismiss after 30 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [expirationAlert]);
 
   useEffect(() => {
     if (!autoScanEnabled) return;
@@ -571,6 +733,7 @@ export default function WhitelightCortexIntegratedPanel({
   }, [autoScanEnabled, watchlist, timeframe, autoExecute]);
 
   const fetchIntradayData = async (symbol, tf = timeframe) => {
+    if (!symbol || symbol === "null" || symbol === "undefined") return;
     setLoading(true);
     try {
       const [sigRes, chainRes] = await Promise.all([
@@ -593,14 +756,11 @@ export default function WhitelightCortexIntegratedPanel({
           if (uniqueDates.length > 0 && !rhExpiration) {
             setRhExpiration(uniqueDates[0]);
           }
-          const nearest = contracts[0];
-          const daysLeft = getDaysToExpiry(nearest.expiration);
+        } else {
           setExpirationAlert({
-            timeLabel: "9:30 AM Scheduled Alert",
-            ticker: symbol,
-            strike: nearest.strike,
-            type: nearest.type,
-            daysLeft: daysLeft
+            title: "Options Chain Empty",
+            level: "warning",
+            notes: `No active option contracts found for ticker ${symbol} on Alpaca.`
           });
         }
       }
@@ -642,6 +802,37 @@ export default function WhitelightCortexIntegratedPanel({
     setContractQty(1);
     setOrderSide("buy");
     setCustomLimitPrice(contract.midpoint.toString());
+    setModalTriggerCond(contract.type === "CALL" ? "CROSSES_ABOVE" : "CROSSES_BELOW");
+    setModalTriggerVal(currentPrice.toString());
+  };
+
+  const handleArmConditionalOrderFromModal = async () => {
+    if (!selectedContract) return;
+    setSubmittingCond(true);
+    try {
+      const res = await fetch(`${API_BASE}/options/conditional_orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          underlying: activeTicker,
+          option_type: selectedContract.type,
+          strike: parseFloat(selectedContract.strike) || 100,
+          expiration: selectedContract.expiration,
+          timeframe: timeframe,
+          condition: modalTriggerCond,
+          trigger_value: parseFloat(modalTriggerVal) || currentPrice,
+          qty: parseInt(contractQty) || 1
+        })
+      });
+      if (res.ok) {
+        fetchConditionalOrders();
+        setSelectedContract(null);
+      }
+    } catch (err) {
+      console.error("Error arming conditional order from modal:", err);
+    } finally {
+      setSubmittingCond(false);
+    }
   };
 
   const handleExecuteOrder = async (contractSymbol, price = 2.50, qty = 1, side = "buy") => {
@@ -800,23 +991,39 @@ export default function WhitelightCortexIntegratedPanel({
   return (
     <div className="p-4 space-y-6 text-slate-100 font-sans relative" style={{ background: "#0b0e11", minHeight: "100vh" }}>
       
-      {/* Side Toast Expiration Alert (9:30 AM, 1 PM, 3 PM Scheduled Notification) */}
+      {/* Side Toast Alert Notification (Auto-dismisses in 30s) */}
       {expirationAlert && (
-        <div className="fixed top-6 right-6 z-50 max-w-sm bg-slate-900 border border-amber-500/60 rounded-2xl p-4 shadow-2xl backdrop-blur font-mono animate-bounce space-y-2">
+        <div className={`fixed top-6 right-6 z-50 max-w-sm bg-slate-900 rounded-2xl p-4 shadow-2xl backdrop-blur font-mono animate-bounce space-y-2 border ${
+          expirationAlert.level === "success"
+            ? "border-emerald-500/60"
+            : expirationAlert.level === "warning"
+            ? "border-amber-500/60"
+            : "border-rose-500/60"
+        }`}>
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
-              <span>⚠️</span> Expiration Alert [{expirationAlert.timeLabel}]
+            <span className={`text-[11px] font-bold flex items-center gap-1.5 ${
+              expirationAlert.level === "success" 
+                ? "text-emerald-400" 
+                : expirationAlert.level === "warning"
+                ? "text-amber-400"
+                : "text-rose-400"
+            }`}>
+              <span>{expirationAlert.level === "success" ? "⚡" : "⚠️"}</span> {expirationAlert.title || `Expiration Alert [${expirationAlert.timeLabel}]`}
             </span>
             <button
               onClick={() => setExpirationAlert(null)}
-              className="text-xs text-slate-400 hover:text-white font-bold"
+              className="text-xs text-slate-400 hover:text-white font-bold cursor-pointer"
             >
               ✕
             </button>
           </div>
-          <p className="text-xs text-slate-200 font-semibold leading-relaxed">
-            This <span className="text-amber-400 font-bold">{expirationAlert.ticker} ${expirationAlert.strike} {expirationAlert.type}</span> contract is going to expire in <span className="text-rose-400 font-bold">{expirationAlert.daysLeft} days</span>!
-          </p>
+          <div className="text-xs text-slate-200 font-semibold leading-relaxed">
+            {expirationAlert.notes || expirationAlert.message || (
+              <>
+                This <span className="text-amber-400 font-bold">{expirationAlert.ticker} ${expirationAlert.strike} {expirationAlert.type}</span> contract is going to expire in <span className="text-rose-400 font-bold">{expirationAlert.daysLeft} days</span>!
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -1053,8 +1260,10 @@ export default function WhitelightCortexIntegratedPanel({
                     <span className="text-[9px] text-slate-500">Weight = 0.5 + 0.5 * (Step / Total)</span>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer select-none">
-                    <input type="checkbox" checked={ppoRecency} onChange={(e) => setPpoRecency(e.target.checked)} className="sr-only peer" />
-                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                    <input type="checkbox" checked={ppoRecency} onChange={(e) => setPpoRecency(e.target.checked)} className="sr-only" />
+                    <div className={`w-8 h-4.5 rounded-full transition-colors relative ${ppoRecency ? "bg-emerald-500" : "bg-slate-800"}`}>
+                      <div className={`absolute top-[2px] left-[2px] rounded-full h-3.5 w-3.5 transition-all ${ppoRecency ? "translate-x-3.5 bg-slate-950" : "bg-slate-400"}`} />
+                    </div>
                   </label>
                 </div>
 
@@ -1065,8 +1274,10 @@ export default function WhitelightCortexIntegratedPanel({
                     <span className="text-[9px] text-slate-500">Mask buy actions when SPY &lt; VWAP</span>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer select-none">
-                    <input type="checkbox" checked={ppoMasking} onChange={(e) => setPpoMasking(e.target.checked)} className="sr-only peer" />
-                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                    <input type="checkbox" checked={ppoMasking} onChange={(e) => setPpoMasking(e.target.checked)} className="sr-only" />
+                    <div className={`w-8 h-4.5 rounded-full transition-colors relative ${ppoMasking ? "bg-emerald-500" : "bg-slate-800"}`}>
+                      <div className={`absolute top-[2px] left-[2px] rounded-full h-3.5 w-3.5 transition-all ${ppoMasking ? "translate-x-3.5 bg-slate-950" : "bg-slate-400"}`} />
+                    </div>
                   </label>
                 </div>
 
@@ -1077,8 +1288,10 @@ export default function WhitelightCortexIntegratedPanel({
                     <span className="text-[9px] text-slate-500">Normalize PDH/PDL distance by 14-day ATR</span>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer select-none">
-                    <input type="checkbox" checked={ppoAtr} onChange={(e) => setPpoAtr(e.target.checked)} className="sr-only peer" />
-                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                    <input type="checkbox" checked={ppoAtr} onChange={(e) => setPpoAtr(e.target.checked)} className="sr-only" />
+                    <div className={`w-8 h-4.5 rounded-full transition-colors relative ${ppoAtr ? "bg-emerald-500" : "bg-slate-800"}`}>
+                      <div className={`absolute top-[2px] left-[2px] rounded-full h-3.5 w-3.5 transition-all ${ppoAtr ? "translate-x-3.5 bg-slate-950" : "bg-slate-400"}`} />
+                    </div>
                   </label>
                 </div>
 
@@ -1089,8 +1302,10 @@ export default function WhitelightCortexIntegratedPanel({
                     <span className="text-[9px] text-slate-500">Expose SPY price/VWAP as active state feature</span>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer select-none">
-                    <input type="checkbox" checked={ppoBeta} onChange={(e) => setPpoBeta(e.target.checked)} className="sr-only peer" />
-                    <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
+                    <input type="checkbox" checked={ppoBeta} onChange={(e) => setPpoBeta(e.target.checked)} className="sr-only" />
+                    <div className={`w-8 h-4.5 rounded-full transition-colors relative ${ppoBeta ? "bg-emerald-500" : "bg-slate-800"}`}>
+                      <div className={`absolute top-[2px] left-[2px] rounded-full h-3.5 w-3.5 transition-all ${ppoBeta ? "translate-x-3.5 bg-slate-950" : "bg-slate-400"}`} />
+                    </div>
                   </label>
                 </div>
               </div>
@@ -1154,8 +1369,16 @@ export default function WhitelightCortexIntegratedPanel({
 
         <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-1">
           <span className="text-[10px] text-slate-400 uppercase tracking-wider block">📈 Options Active P&L</span>
-          <div className="text-xl font-black text-emerald-400">
-            +${accountSummary?.total_pnl?.toFixed(2) || "254.00"} (+12.4%)
+          <div className={`text-xl font-black ${(accountSummary?.total_pnl || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            {(accountSummary?.total_pnl || 0) >= 0 ? "+" : ""}${accountSummary?.total_pnl?.toFixed(2) || "0.00"}
+            {accountSummary?.equity && accountSummary.equity > 0 ? (
+              <span className="text-xs font-normal ml-1">
+                ({(accountSummary.total_pnl / (accountSummary.equity - accountSummary.total_pnl) * 100) >= 0 ? "+" : ""}
+                {((accountSummary.total_pnl / (accountSummary.equity - accountSummary.total_pnl)) * 100).toFixed(1)}%)
+              </span>
+            ) : (
+              <span className="text-xs font-normal ml-1">(+0.0%)</span>
+            )}
           </div>
         </div>
 
@@ -1339,6 +1562,21 @@ export default function WhitelightCortexIntegratedPanel({
                 </h3>
               </div>
               <div className="flex items-center gap-3">
+                {/* Auto Trade Toggle */}
+                <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-850 text-[10px] font-mono">
+                  <span className="text-slate-400 font-bold uppercase text-[9px]">Auto Trade Leg</span>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={autoExecute}
+                      onChange={(e) => setAutoExecute(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-8 h-4.5 rounded-full transition-colors relative ${autoExecute ? "bg-emerald-500" : "bg-slate-800"}`}>
+                      <div className={`absolute top-[2px] left-[2px] rounded-full h-3.5 w-3.5 transition-all ${autoExecute ? "translate-x-3.5 bg-slate-950" : "bg-slate-400"}`} />
+                    </div>
+                  </label>
+                </div>
                 <button
                   onClick={() => setAutoScanEnabled(!autoScanEnabled)}
                   className={`px-3 py-1 text-[10px] font-bold uppercase rounded-md border transition-all ${
@@ -1376,6 +1614,7 @@ export default function WhitelightCortexIntegratedPanel({
                     setWatchlist([...watchlist, cleaned]);
                     setActiveTicker(cleaned);
                     setNewTicker("");
+                    auditNewWatchlistTicker(cleaned);
                   }
                 }}
                 className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold"
@@ -1499,23 +1738,6 @@ export default function WhitelightCortexIntegratedPanel({
                             </div>
                           )}
 
-                          {/* Auto-Execute Toggle Switch */}
-                          <div className="flex items-center justify-between p-2 rounded bg-slate-950 border border-slate-850 text-[10px]">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-emerald-400">🤖</span>
-                              <span className="text-slate-300 font-bold uppercase">Auto-Execute</span>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer select-none">
-                              <input 
-                                type="checkbox" 
-                                checked={autoExecute}
-                                onChange={(e) => setAutoExecute(e.target.checked)}
-                                className="sr-only peer"
-                              />
-                              <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
-                            </label>
-                          </div>
-
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1594,19 +1816,7 @@ export default function WhitelightCortexIntegratedPanel({
                                 </div>
                               )}
 
-                              {/* Auto-Execute Toggle Switch (Moved to the right end) */}
-                              <div className="flex items-center gap-2 bg-slate-950 px-2 py-1 rounded border border-slate-850 text-[10px]">
-                                <span className="text-slate-300 font-bold uppercase">Auto Trade</span>
-                                <label className="relative inline-flex items-center cursor-pointer select-none">
-                                  <input 
-                                    type="checkbox" 
-                                    checked={autoExecute}
-                                    onChange={(e) => setAutoExecute(e.target.checked)}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-8 h-4.5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-slate-950"></div>
-                                </label>
-                              </div>
+
                             </div>
                           </div>
 
@@ -1888,8 +2098,8 @@ export default function WhitelightCortexIntegratedPanel({
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs font-black text-emerald-400">
-                          +${pos.pnl.toFixed(2)} (+{pos.pnlPct}%)
+                        <span className={`text-xs font-black ${pos.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          {pos.pnl >= 0 ? "+" : ""}${pos.pnl.toFixed(2)} ({pos.pnlPct >= 0 ? "+" : ""}{pos.pnlPct}%)
                         </span>
                       </div>
                     </div>
@@ -2124,23 +2334,29 @@ export default function WhitelightCortexIntegratedPanel({
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-bold">
-              <button
-                onClick={() => setOrderSide("buy")}
-                className={`py-2 rounded-lg uppercase tracking-wider transition-colors ${
-                  orderSide === "buy" ? "bg-emerald-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Buy to Open
-              </button>
-              <button
-                onClick={() => setOrderSide("sell")}
-                className={`py-2 rounded-lg uppercase tracking-wider transition-colors ${
-                  orderSide === "sell" ? "bg-rose-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Sell to Close
-              </button>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-400 font-bold block uppercase text-[9px]">Trigger Condition</label>
+                <select 
+                  value={modalTriggerCond}
+                  onChange={(e) => setModalTriggerCond(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-white font-bold"
+                >
+                  <option value="CROSSES_ABOVE">Crosses Above (📈)</option>
+                  <option value="CROSSES_BELOW">Crosses Below (📉)</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-slate-400 font-bold block uppercase text-[9px]">Stock Price Threshold ($)</label>
+                <input 
+                  type="number"
+                  step="0.01"
+                  value={modalTriggerVal}
+                  onChange={(e) => setModalTriggerVal(e.target.value)}
+                  placeholder="Stock trigger px"
+                  className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-white font-bold"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3 text-center">
@@ -2178,15 +2394,11 @@ export default function WhitelightCortexIntegratedPanel({
             </div>
 
             <button
-              onClick={() => handleExecuteOrder(
-                selectedContract.symbol,
-                parseFloat(customLimitPrice) || selectedContract.midpoint,
-                contractQty,
-                orderSide
-              )}
-              className="w-full py-3.5 text-xs font-black uppercase tracking-wider rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-lg shadow-emerald-500/20"
+              onClick={handleArmConditionalOrderFromModal}
+              disabled={submittingCond}
+              className="w-full py-3.5 text-xs font-black uppercase tracking-wider rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
             >
-              ⚡ Submit Paper Limit Order to Alpaca (${(contractQty * (parseFloat(customLimitPrice) || selectedContract.midpoint) * 100).toFixed(2)})
+              {submittingCond ? "⏳ Scheduling Order..." : `⚡ Arm Conditional Order (${(contractQty * selectedContract.midpoint * 100).toFixed(2)})`}
             </button>
           </div>
         </div>

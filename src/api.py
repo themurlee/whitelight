@@ -30,6 +30,7 @@ from datetime import datetime
 GLOBAL_ALERTS = []
 ALERTS_LOCK = threading.Lock()
 NOTIFIED_POSITIONS = {} # symbol -> set of profit brackets notified
+LAST_3PM_ALERT_DATE = None
 
 # Configure path imports
 sys.path.append(BASE_DIR)
@@ -1529,19 +1530,39 @@ def position_risk_checker_loop():
                     if breached:
                         print(f"[RISK AUDIT] Invalidation breached for {symbol}. Triggering auto-close! Reason: {reason}", flush=True)
                         try:
-                            from alpaca.trading.requests import MarketOrderRequest
+                            from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
                             from alpaca.trading.enums import OrderSide, TimeInForce
                             
                             qty = abs(float(pos.qty))
                             side = OrderSide.SELL if float(pos.qty) > 0 else OrderSide.BUY
                             
-                            order_req = MarketOrderRequest(
-                                symbol=symbol,
-                                qty=qty,
-                                side=side,
-                                time_in_force=TimeInForce.DAY
-                            )
-                            client.submit_order(order_req)
+                            try:
+                                order_req = MarketOrderRequest(
+                                    symbol=symbol,
+                                    qty=qty,
+                                    side=side,
+                                    time_in_force=TimeInForce.DAY
+                                )
+                                client.submit_order(order_req)
+                            except Exception as market_err:
+                                if "no available quote" in str(market_err).lower() or "limit" in str(market_err).lower():
+                                    current_px = float(pos.current_price) if pos.current_price else 1.0
+                                    if side == OrderSide.SELL:
+                                        limit_px = max(0.01, round(current_px * 0.95, 2))
+                                    else:
+                                        limit_px = round(current_px * 1.05, 2)
+                                        
+                                    print(f"[RISK AUDIT] Auto-close market order failed due to no quote. Retrying with LIMIT order at ${limit_px} for {symbol}", flush=True)
+                                    order_req = LimitOrderRequest(
+                                        symbol=symbol,
+                                        qty=qty,
+                                        side=side,
+                                        limit_price=limit_px,
+                                        time_in_force=TimeInForce.DAY
+                                    )
+                                    client.submit_order(order_req)
+                                else:
+                                    raise market_err
                             
                             alert = {
                                 "id": f"{symbol}_breach_{time.time()}",
@@ -1606,24 +1627,40 @@ def position_risk_checker_loop():
                                     if target_exp:
                                         candidates = [c for c in candidates if c["expiration"] == target_exp]
                                         
-                                    candidates.sort(key=lambda x: abs(float(x["strike"]) - target_strike))
+                                    candidates.sort(key=lambda x: (abs(float(x["strike"]) - target_strike), x["expiration"]))
                                     
                                     if candidates:
                                         target_contract = candidates[0]["symbol"]
                                         
                                 if target_contract:
                                     try:
-                                        from alpaca.trading.requests import MarketOrderRequest
+                                        from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
                                         from alpaca.trading.enums import OrderSide, TimeInForce
                                         
                                         qty = int(o.get("qty", 1))
-                                        order_req = MarketOrderRequest(
-                                            symbol=target_contract,
-                                            qty=qty,
-                                            side=OrderSide.BUY,
-                                            time_in_force=TimeInForce.DAY
-                                        )
-                                        client.submit_order(order_req)
+                                        try:
+                                            order_req = MarketOrderRequest(
+                                                symbol=target_contract,
+                                                qty=qty,
+                                                side=OrderSide.BUY,
+                                                time_in_force=TimeInForce.DAY
+                                            )
+                                            client.submit_order(order_req)
+                                        except Exception as market_err:
+                                            if "no available quote" in str(market_err).lower() or "limit" in str(market_err).lower():
+                                                midpoint = float(candidates[0].get("midpoint", 1.0)) if candidates else 1.0
+                                                limit_px = round(midpoint * 1.05, 2)
+                                                print(f"[RISK CHECKER] Market order failed due to no quote. Retrying with LIMIT order at ${limit_px} for {target_contract}", flush=True)
+                                                order_req = LimitOrderRequest(
+                                                    symbol=target_contract,
+                                                    qty=qty,
+                                                    side=OrderSide.BUY,
+                                                    limit_price=limit_px,
+                                                    time_in_force=TimeInForce.DAY
+                                                )
+                                                client.submit_order(order_req)
+                                            else:
+                                                raise market_err
                                         
                                         # Queue alert
                                         alert = {
@@ -1647,9 +1684,57 @@ def position_risk_checker_loop():
                                     
                 if updated:
                     _write_json_file(cond_file, orders)
-                    
         except Exception as cond_err:
             print(f"[RISK CHECKER] Error checking conditional orders: {cond_err}", flush=True)
+                    
+        # Check end of day alerts and cancellations (15:00 and 16:00 local time checks)
+        try:
+            now_local = datetime.now()
+            current_hour = now_local.hour
+            
+            # 3 PM Pending Orders Alert (Run once a day between 15:00 and 15:59)
+            global LAST_3PM_ALERT_DATE
+            if current_hour == 15 and LAST_3PM_ALERT_DATE != now_local.date():
+                cond_file = os.path.join(DATA_DIR, "conditional_orders.json")
+                if os.path.exists(cond_file):
+                    orders = _read_json_file(cond_file, [])
+                    pending_count = sum(1 for o in orders if o.get("status") == "PENDING")
+                    if pending_count > 0:
+                        alert = {
+                            "id": f"pending_alert_3pm_{now_local.strftime('%Y%m%d')}",
+                            "timestamp": now_local.isoformat(),
+                            "type": "pending_reminder",
+                            "symbol": "ALL",
+                            "underlying": "ALL",
+                            "message": f"⚠️ Reminder: You have {pending_count} pending conditional orders still active at 3:00 PM."
+                        }
+                        with ALERTS_LOCK:
+                            GLOBAL_ALERTS.append(alert)
+                        LAST_3PM_ALERT_DATE = now_local.date()
+                        
+            # 4 PM EOD Cancellation (Run when current_hour >= 16 / 4:00 PM)
+            if current_hour >= 16:
+                cond_file = os.path.join(DATA_DIR, "conditional_orders.json")
+                if os.path.exists(cond_file):
+                    orders = _read_json_file(cond_file, [])
+                    pending_orders = [o for o in orders if o.get("status") == "PENDING"]
+                    if len(pending_orders) > 0:
+                        for o in pending_orders:
+                            o["status"] = "CANCELLED"
+                        _write_json_file(cond_file, orders)
+                        
+                        alert = {
+                            "id": f"eod_cancel_{now_local.strftime('%Y%m%d')}",
+                            "timestamp": now_local.isoformat(),
+                            "type": "orders_cancelled",
+                            "symbol": "ALL",
+                            "underlying": "ALL",
+                            "message": f"🛑 Market Closed (4:00 PM): Cancelled {len(pending_orders)} pending conditional orders."
+                        }
+                        with ALERTS_LOCK:
+                            GLOBAL_ALERTS.append(alert)
+        except Exception as eod_err:
+            print(f"[RISK CHECKER] Error in EOD checks: {eod_err}", flush=True)
 
         time.sleep(10)
 

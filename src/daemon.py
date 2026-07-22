@@ -18,7 +18,7 @@ def run_loop():
         try:
             print(f"[{datetime_now()}] Triggering systematic trading cycle...", flush=True)
             # Run pipeline as subprocess
-            subprocess.run(["python3", "src/pipeline.py", "--live"], cwd=BASE_DIR)
+            subprocess.run([sys.executable, "src/pipeline.py", "--live"], cwd=BASE_DIR)
         except Exception as e:
             print(f"[{datetime_now()}] [DAEMON ERROR] Failed to run cycle: {e}", file=sys.stderr, flush=True)
         

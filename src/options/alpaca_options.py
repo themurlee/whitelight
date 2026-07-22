@@ -101,7 +101,7 @@ def get_options_chain(ticker: str = "AAPL", current_price: float = 230.0, timefr
             client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
             today_str = datetime.now().strftime("%Y-%m-%d")
             # Increase limit from 1000 to 10000 to fetch the full option chain expirations and all contract types
-            req = GetOptionContractsRequest(underlying_symbol=[ticker], limit=10000, expiration_date_gte=today_str)
+            req = GetOptionContractsRequest(underlying_symbols=[ticker], limit=10000, expiration_date_gte=today_str)
             res = client.get_option_contracts(req)
 
             if res and res.option_contracts:
@@ -109,6 +109,11 @@ def get_options_chain(ticker: str = "AAPL", current_price: float = 230.0, timefr
                 for c in res.option_contracts:
                     strike = float(c.strike_price)
                     exp_date = str(c.expiration_date)
+                    
+                    # Exclude contracts that have already expired
+                    if exp_date < today_str:
+                        continue
+                        
                     opt_type = "CALL" if "CALL" in str(c.type) else "PUT"
                     
                     # Compute Greeks
