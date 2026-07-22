@@ -303,12 +303,8 @@ export default function WhitelightCortexIntegratedPanel({
   const [showOrdersDropdown, setShowOrdersDropdown] = useState(false);
   const [showStrategyGuide, setShowStrategyGuide] = useState(false);
   const [showPPO, setShowPPO] = useState(false);
-  const [selectedContract, setSelectedContract] = useState(null);
-  const [contractQty, setContractQty] = useState(1);
-  const [orderSide, setOrderSide] = useState("buy");
-  const [customLimitPrice, setCustomLimitPrice] = useState("");
-  const [modalTriggerCond, setModalTriggerCond] = useState("CROSSES_ABOVE");
-  const [modalTriggerVal, setModalTriggerVal] = useState("");
+  const [selectedContracts, setSelectedContracts] = useState([]);
+  const [contractInputs, setContractInputs] = useState({}); // symbol -> { qty, condition, triggerVal }
 
   // Dual Agent Configuration
   const [proposerProvider, setProposerProvider] = useState("AI Agent Pool");
@@ -826,38 +822,58 @@ export default function WhitelightCortexIntegratedPanel({
   };
 
   const handleOpenContractModal = (contract) => {
-    setSelectedContract(contract);
-    setContractQty(1);
-    setOrderSide("buy");
-    setCustomLimitPrice(contract.midpoint.toString());
-    setModalTriggerCond(contract.type === "CALL" ? "CROSSES_ABOVE" : "CROSSES_BELOW");
-    setModalTriggerVal(currentPrice.toString());
+    setSelectedContracts(prev => {
+      const exists = prev.some(x => x.symbol === contract.symbol);
+      let next;
+      if (exists) {
+        next = prev.filter(x => x.symbol !== contract.symbol);
+      } else {
+        next = [...prev, contract];
+      }
+      
+      if (!exists) {
+        setContractInputs(prevInputs => ({
+          ...prevInputs,
+          [contract.symbol]: {
+            qty: 1,
+            condition: contract.type === "CALL" ? "CROSSES_ABOVE" : "CROSSES_BELOW",
+            triggerVal: currentPrice.toString()
+          }
+        }));
+      }
+      return next;
+    });
   };
 
-  const handleArmConditionalOrderFromModal = async () => {
-    if (!selectedContract) return;
+  const handleArmConditionalOrders = async () => {
+    if (selectedContracts.length === 0) return;
     setSubmittingCond(true);
     try {
-      const res = await fetch(`${API_BASE}/options/conditional_orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          underlying: activeTicker,
-          option_type: selectedContract.type,
-          strike: parseFloat(selectedContract.strike) || 100,
-          expiration: selectedContract.expiration,
-          timeframe: timeframe,
-          condition: modalTriggerCond,
-          trigger_value: parseFloat(modalTriggerVal) || currentPrice,
-          qty: parseInt(contractQty) || 1
-        })
-      });
-      if (res.ok) {
-        fetchConditionalOrders();
-        setSelectedContract(null);
+      for (const c of selectedContracts) {
+        const inputs = contractInputs[c.symbol] || {
+          qty: 1,
+          condition: c.type === "CALL" ? "CROSSES_ABOVE" : "CROSSES_BELOW",
+          triggerVal: currentPrice.toString()
+        };
+        await fetch(`${API_BASE}/options/conditional_orders`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            underlying: activeTicker,
+            option_type: c.type,
+            strike: parseFloat(c.strike) || 100,
+            expiration: c.expiration,
+            timeframe: timeframe,
+            condition: inputs.condition,
+            trigger_value: parseFloat(inputs.triggerVal) || currentPrice,
+            qty: parseInt(inputs.qty) || 1
+          })
+        });
       }
+      fetchConditionalOrders();
+      setSelectedContracts([]);
     } catch (err) {
-      console.error("Error arming conditional order from modal:", err);
+      console.error("Error bulk arming conditional orders:", err);
     } finally {
       setSubmittingCond(false);
     }
@@ -1036,7 +1052,7 @@ export default function WhitelightCortexIntegratedPanel({
   const btMetrics = btResult?.metrics || {};
 
   return (
-    <div className="p-4 space-y-6 text-slate-100 font-sans relative" style={{ background: "#0b0e11", minHeight: "100vh", marginRight: selectedContract ? "380px" : "0px", transition: "margin-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+    <div className="p-4 space-y-6 text-slate-100 font-sans relative" style={{ background: "#0b0e11", minHeight: "100vh", marginRight: selectedContracts.length > 0 ? "420px" : "0px", transition: "margin-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
       
       {/* Side Toast Alert Notification (Auto-dismisses in 30s) */}
       {expirationAlert && (
@@ -2062,7 +2078,7 @@ export default function WhitelightCortexIntegratedPanel({
                                         <td className="py-3 px-3 text-slate-300">{(c.greeks?.delta || 0).toFixed(3)}</td>
                                         <td className="py-3 px-3 text-left">
                                            {(() => {
-                                             const isSelected = selectedContract?.symbol === c.symbol;
+                                             const isSelected = selectedContracts.some(x => x.symbol === c.symbol);
                                              return (
                                                <div className={`inline-flex items-center rounded border overflow-hidden font-bold select-none text-[10px] bg-slate-950 transition-all ${
                                                  isSelected 
@@ -2492,7 +2508,7 @@ export default function WhitelightCortexIntegratedPanel({
       </div>
 
       {/* Robinhood Contract Detail Sidebar (Right-to-Left Drawer) */}
-      {selectedContract && (
+      {selectedContracts.length > 0 && (
         <>
           <style>{`
             @keyframes slideInRight {
@@ -2502,103 +2518,138 @@ export default function WhitelightCortexIntegratedPanel({
           `}</style>
           {/* Slide-in Sidebar (Right to Left) */}
           <div 
-            key={selectedContract.symbol}
-            className="fixed top-0 bottom-0 right-0 z-50 w-full max-w-[380px] bg-slate-900 border-l border-slate-800 shadow-2xl p-6 flex flex-col justify-between overflow-y-auto font-sans"
+            className="fixed top-0 bottom-0 right-0 z-50 w-full max-w-[420px] bg-slate-900 border-l border-slate-800 shadow-2xl p-6 flex flex-col justify-between overflow-y-auto font-sans"
             style={{
               animation: "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards"
             }}
           >
-            <div className="space-y-6">
+            <div className="space-y-6 flex-1 overflow-y-auto pr-1">
               <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                 <div>
-                  <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Robinhood Contract Ticket</span>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <h3 className="text-xl font-black text-white">{activeTicker} ${selectedContract.strike} {selectedContract.type}</h3>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
-                      selectedContract.type === "CALL" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                    }`}>
-                      {selectedContract.type}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1">
-                    Expires: {selectedContract.expiration} ({getDaysToExpiry(selectedContract.expiration)} days to expire)
-                  </div>
+                  <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Robinhood Multi-Contract Ticket</span>
+                  <h3 className="text-sm font-black text-white mt-1">
+                    {selectedContracts.length} Selected Leg{selectedContracts.length > 1 ? "s" : ""}
+                  </h3>
                 </div>
                 <button
-                  onClick={() => setSelectedContract(null)}
+                  onClick={() => setSelectedContracts([])}
                   className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs font-mono">
-                <div className="space-y-1">
-                  <label className="text-slate-400 font-bold block uppercase text-[9px]">Trigger Condition</label>
-                  <select 
-                    value={modalTriggerCond}
-                    onChange={(e) => setModalTriggerCond(e.target.value)}
-                    className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-white font-bold"
-                  >
-                    <option value="CROSSES_ABOVE">Crosses Above (📈)</option>
-                    <option value="CROSSES_BELOW">Crosses Below (📉)</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-400 font-bold block uppercase text-[9px]">Stock Price Threshold ($)</label>
-                  <input 
-                    type="number"
-                    step="0.01"
-                    value={modalTriggerVal}
-                    onChange={(e) => setModalTriggerVal(e.target.value)}
-                    placeholder="Stock trigger px"
-                    className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-white font-bold"
-                  />
-                </div>
-              </div>
+              {/* Scrollable list of selected contracts */}
+              <div className="space-y-4">
+                {selectedContracts.map((c) => {
+                  const inputs = contractInputs[c.symbol] || { qty: 1, condition: c.type === "CALL" ? "CROSSES_ABOVE" : "CROSSES_BELOW", triggerVal: currentPrice.toString() };
+                  
+                  const updateInput = (key, val) => {
+                    setContractInputs(prev => ({
+                      ...prev,
+                      [c.symbol]: {
+                        ...prev[c.symbol],
+                        [key]: val
+                      }
+                    }));
+                  };
 
-              <div className="grid grid-cols-3 gap-3 text-center font-mono">
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold">Bid Price</span>
-                  <div className="text-sm font-bold text-slate-200">${selectedContract.bid}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-emerald-500/40 space-y-1">
-                  <span className="text-[10px] text-emerald-400 uppercase font-bold">Midpoint</span>
-                  <div className="text-base font-black text-amber-400">${selectedContract.midpoint}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold">Ask Price</span>
-                  <div className="text-sm font-bold text-slate-200">${selectedContract.ask}</div>
-                </div>
-              </div>
+                  return (
+                    <div key={c.symbol} className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-3.5 relative">
+                      <button 
+                        onClick={() => setSelectedContracts(prev => prev.filter(x => x.symbol !== c.symbol))}
+                        className="absolute top-2.5 right-2.5 text-slate-500 hover:text-rose-400 font-bold text-xs"
+                      >
+                        ✕
+                      </button>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-extrabold text-white text-xs">{activeTicker} ${parseFloat(c.strike).toFixed(2)} {c.type}</span>
+                          <span className={`text-[8px] font-black px-1 py-0.5 rounded ${
+                            c.type === "CALL" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                          }`}>
+                            {c.type}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-semibold">
+                          Expires: {c.expiration} ({getDaysToExpiry(c.expiration)} days to expire)
+                        </div>
+                      </div>
+                      
+                      {/* Trigger inputs */}
+                      <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                        <div className="space-y-1">
+                          <label className="text-slate-500 font-bold block uppercase text-[8px]">Condition</label>
+                          <select 
+                            value={inputs.condition}
+                            onChange={(e) => updateInput("condition", e.target.value)}
+                            className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                          >
+                            <option value="CROSSES_ABOVE">Above (📈)</option>
+                            <option value="CROSSES_BELOW">Below (📉)</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-slate-500 font-bold block uppercase text-[8px]">Threshold ($)</label>
+                          <input 
+                            type="number"
+                            step="0.01"
+                            value={inputs.triggerVal}
+                            onChange={(e) => updateInput("triggerVal", e.target.value)}
+                            className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                          />
+                        </div>
+                      </div>
 
-              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs">
-                <span className="text-slate-300 font-bold uppercase">Number of Contracts:</span>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setContractQty(Math.max(1, contractQty - 1))}
-                    className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 font-bold hover:bg-slate-700"
-                  >
-                    -
-                  </button>
-                  <span className="text-base font-black text-amber-400 w-6 text-center">{contractQty}</span>
-                  <button
-                    onClick={() => setContractQty(contractQty + 1)}
-                    className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 font-bold hover:bg-slate-700"
-                  >
-                    +
-                  </button>
-                </div>
+                      {/* Pricing Info */}
+                      <div className="flex justify-between items-center text-[9px] text-slate-400 font-mono">
+                        <span>Bid: ${parseFloat(c.bid || 0).toFixed(2)}</span>
+                        <span className="text-amber-400 font-bold">Mid: ${parseFloat(c.midpoint || 0).toFixed(2)}</span>
+                        <span>Ask: ${parseFloat(c.ask || 0).toFixed(2)}</span>
+                      </div>
+
+                      {/* Quantity Selector */}
+                      <div className="flex items-center justify-between text-[10px] pt-1">
+                        <span className="text-slate-400 font-bold uppercase">Qty:</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateInput("qty", Math.max(1, inputs.qty - 1))}
+                            className="w-6 h-6 rounded bg-slate-800 text-slate-200 font-bold hover:bg-slate-700"
+                          >
+                            -
+                          </button>
+                          <span className="text-xs font-black text-amber-400 w-4 text-center">{inputs.qty}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateInput("qty", inputs.qty + 1)}
+                            className="w-6 h-6 rounded bg-slate-800 text-slate-200 font-bold hover:bg-slate-700"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
+            {/* Bulk Arm Action */}
             <div className="pt-6 border-t border-slate-800">
               <button
-                onClick={handleArmConditionalOrderFromModal}
+                onClick={handleArmConditionalOrders}
                 disabled={submittingCond}
                 className="w-full py-3.5 text-xs font-black uppercase tracking-wider rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
               >
-                {submittingCond ? "⏳ Scheduling Order..." : `⚡ Arm Conditional Order (${(contractQty * selectedContract.midpoint * 100).toFixed(2)})`}
+                {submittingCond ? "⏳ Scheduling Orders..." : (() => {
+                  let totalVal = 0;
+                  selectedContracts.forEach(c => {
+                    const qty = contractInputs[c.symbol]?.qty || 1;
+                    totalVal += qty * parseFloat(c.midpoint || 0) * 100;
+                  });
+                  return `⚡ Arm ${selectedContracts.length} Conditional Order${selectedContracts.length > 1 ? "s" : ""} ($${totalVal.toFixed(2)})`;
+                })()}
               </button>
             </div>
           </div>
