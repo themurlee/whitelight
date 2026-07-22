@@ -638,11 +638,34 @@ class RiskManager:
         positions_data = self.load_positions()
         active = positions_data.get("active_positions", [])
 
+        # 1. Flatten positions tracked in local json first
         for pos in active:
             symbol = pos["symbol"]
             qty = pos["quantity"]
-            print(f"[LOCKDOWN] Flattening active leg: {symbol} x {qty}")
-            self.client.place_option_order(symbol, qty, side="sell")
+            print(f"[LOCKDOWN] Flattening active local leg: {symbol} x {qty}")
+            is_option = len(symbol) >= 15 and ("C" in symbol[4:] or "P" in symbol[4:])
+            if is_option:
+                self.client.place_option_order(symbol, qty, side="sell")
+            else:
+                self.client.place_equity_order(symbol, qty, side="sell")
+
+        # 2. ALSO query live positions directly from broker and flatten them to prevent any desync gaps
+        if not self.client.dry_run and self.client._trading_client is not None:
+            try:
+                live_positions = self.client._trading_client.get_all_positions()
+                for pos in live_positions:
+                    symbol = pos.symbol
+                    qty = abs(int(float(pos.qty)))
+                    if qty > 0:
+                        side = "sell" if float(pos.qty) > 0 else "buy"
+                        print(f"[LOCKDOWN] Live Flattening Position on Broker: {symbol} x {qty} ({side})", flush=True)
+                        is_option = len(symbol) >= 15 and ("C" in symbol[4:] or "P" in symbol[4:])
+                        if is_option:
+                            self.client.place_option_order(symbol, qty, side=side)
+                        else:
+                            self.client.place_equity_order(symbol, qty, side=side)
+            except Exception as e:
+                print(f"[LOCKDOWN ERROR] Failed to fetch or liquidate live positions from Alpaca: {e}", flush=True)
 
         positions_data["active_positions"] = []
         self.save_positions(positions_data)
