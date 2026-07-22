@@ -608,17 +608,19 @@ export default function WhitelightCortexIntegratedPanel({
                 const chainRes = await fetch(`${API_BASE}/options/chain?ticker=${tk}&timeframe=${timeframe}`);
                 const chainData = await chainRes.json();
                 if (chainData.success && chainData.chain && chainData.chain.length > 0) {
-                  const targetContract = chainData.chain[0].symbol;
-                  handleExecuteOrder(targetContract, chainData.chain[0].midpoint, 1, "buy");
-                  
-                  setAuditEvents((prev) => [{
-                    time: new Date().toLocaleTimeString(),
-                    type: "PROPOSAL_VALIDATED",
-                    level: "success",
-                    title: `WATCHLIST AUTO-EXECUTE: ${tk}`,
-                    notes: `Proposer and Validator authorized trade. Executed order for ${targetContract}.`,
-                    validator: "AI Risk Desk Agent"
-                  }, ...prev]);
+                  const best = selectBestContract(chainData.chain, chainData.current_price, item.dual_agent_result);
+                  if (best) {
+                    handleExecuteOrder(best.symbol, best.midpoint, 1, "buy");
+                    
+                    setAuditEvents((prev) => [{
+                      time: new Date().toLocaleTimeString(),
+                      type: "PROPOSAL_VALIDATED",
+                      level: "success",
+                      title: `WATCHLIST AUTO-EXECUTE: ${tk}`,
+                      notes: `Proposer and Validator authorized trade. Executed order for ${best.symbol}.`,
+                      validator: "AI Risk Desk Agent"
+                    }, ...prev]);
+                  }
                 }
               } catch (execErr) {
                 console.error(`Auto-execution failed for ticker ${tk}:`, execErr);
@@ -686,8 +688,10 @@ export default function WhitelightCortexIntegratedPanel({
           const chainRes = await fetch(`${API_BASE}/options/chain?ticker=${tickerSymbol}&timeframe=${timeframe}`);
           const chainData = await chainRes.json();
           if (chainData.success && chainData.chain && chainData.chain.length > 0) {
-            const targetContract = chainData.chain[0].symbol;
-            handleExecuteOrder(targetContract, chainData.chain[0].midpoint, 1, "buy");
+            const best = selectBestContract(chainData.chain, chainData.current_price, data.dual_agent_result);
+            if (best) {
+              handleExecuteOrder(best.symbol, best.midpoint, 1, "buy");
+            }
           }
         }
       } else {
@@ -859,6 +863,21 @@ export default function WhitelightCortexIntegratedPanel({
     }
   };
 
+  const selectBestContract = (chainList, currentPriceValue, dualAgentResult) => {
+    if (!chainList || chainList.length === 0) return null;
+    const proposal = dualAgentResult?.proposal;
+    if (!proposal) return chainList[0];
+    const reqType = proposal.contract_type || (proposal.action === "BUY_CALL" ? "CALL" : "PUT");
+    let filtered = chainList.filter(c => c.type === reqType);
+    if (filtered.length === 0) filtered = chainList;
+    const sorted = [...filtered].sort((a, b) => {
+      const diffA = Math.abs(a.strike - currentPriceValue);
+      const diffB = Math.abs(b.strike - currentPriceValue);
+      return diffA - diffB;
+    });
+    return sorted[0];
+  };
+
   const handleExecuteOrder = async (contractSymbol, price = 2.50, qty = 1, side = "buy") => {
     try {
       const res = await fetch(`${API_BASE}/options/execute_order`, {
@@ -921,10 +940,11 @@ export default function WhitelightCortexIntegratedPanel({
           validator: "AI Risk Desk Agent"
         }, ...prev]);
 
-        const shouldAutoExecute = autoTradeTickers[activeTicker];
         if (shouldAutoExecute && isReady && chain.length > 0) {
-          const targetContract = chain[0].symbol;
-          handleExecuteOrder(targetContract, chain[0].midpoint, 1, "buy");
+          const best = selectBestContract(chain, currentPrice, data.dual_agent_result);
+          if (best) {
+            handleExecuteOrder(best.symbol, best.midpoint, 1, "buy");
+          }
         }
       }
     } catch (e) {
