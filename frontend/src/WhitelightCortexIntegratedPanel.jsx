@@ -2008,7 +2008,7 @@ export default function WhitelightCortexIntegratedPanel({
                                   <th className="py-2.5 px-3">IV Rank</th>
                                   <th className="py-2.5 px-3">Open Int</th>
                                   <th className="py-2.5 px-3">Delta</th>
-                                  <th className="py-2.5 px-3 text-right">Action</th>
+                                  <th className="py-2.5 px-3 text-left">Action</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-800/30">
@@ -2060,7 +2060,7 @@ export default function WhitelightCortexIntegratedPanel({
                                         </td>
                                         <td className="py-3 px-3 text-slate-400">{(c.open_interest || 0).toLocaleString()}</td>
                                         <td className="py-3 px-3 text-slate-300">{(c.greeks?.delta || 0).toFixed(3)}</td>
-                                        <td className="py-3 px-3 text-right">
+                                        <td className="py-3 px-3 text-left">
                                           <div className="inline-flex items-center rounded border border-orange-500 overflow-hidden font-bold select-none text-[10px] bg-slate-950">
                                             <span className="px-3 py-1.5 text-orange-400 font-extrabold">
                                               ${parseFloat(c.midpoint || 0).toFixed(2)}
@@ -2476,107 +2476,124 @@ export default function WhitelightCortexIntegratedPanel({
             </div>
           </div>
         </div>
-
-
-
-
       </div>
 
-      {/* Robinhood Contract Detail Modal */}
+      {/* Robinhood Contract Detail Sidebar (Left-to-Right Drawer) */}
       {selectedContract && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in font-mono">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden space-y-6 p-6">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div>
-                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Robinhood Contract Ticket</span>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <h3 className="text-xl font-black text-white">{activeTicker} ${selectedContract.strike} {selectedContract.type}</h3>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                    selectedContract.type === "CALL" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                  }`}>
-                    {selectedContract.type}
-                  </span>
+        <>
+          <style>{`
+            @keyframes slideInLeft {
+              from { transform: translateX(-100%); }
+              to { transform: translateX(0); }
+            }
+          `}</style>
+          {/* Backdrop Overlay */}
+          <div 
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-fade-in"
+            onClick={() => setSelectedContract(null)}
+          />
+          {/* Slide-in Sidebar (Left to Right) */}
+          <div 
+            className="fixed top-0 bottom-0 left-0 z-50 w-full max-w-md bg-slate-900 border-r border-slate-800 shadow-2xl p-6 flex flex-col justify-between overflow-y-auto font-sans"
+            style={{
+              animation: "slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards"
+            }}
+          >
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                  <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Robinhood Contract Ticket</span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <h3 className="text-xl font-black text-white">{activeTicker} ${selectedContract.strike} {selectedContract.type}</h3>
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
+                      selectedContract.type === "CALL" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                    }`}>
+                      {selectedContract.type}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    Expires: {selectedContract.expiration} ({getDaysToExpiry(selectedContract.expiration)} days to expire)
+                  </div>
                 </div>
-                <div className="text-xs text-slate-400 mt-1">
-                  Expires: {selectedContract.expiration} ({getDaysToExpiry(selectedContract.expiration)} days to expire)
+                <button
+                  onClick={() => setSelectedContract(null)}
+                  className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-bold block uppercase text-[9px]">Trigger Condition</label>
+                  <select 
+                    value={modalTriggerCond}
+                    onChange={(e) => setModalTriggerCond(e.target.value)}
+                    className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-white font-bold"
+                  >
+                    <option value="CROSSES_ABOVE">Crosses Above (📈)</option>
+                    <option value="CROSSES_BELOW">Crosses Below (📉)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-bold block uppercase text-[9px]">Stock Price Threshold ($)</label>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    value={modalTriggerVal}
+                    onChange={(e) => setModalTriggerVal(e.target.value)}
+                    placeholder="Stock trigger px"
+                    className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-white font-bold"
+                  />
                 </div>
               </div>
+
+              <div className="grid grid-cols-3 gap-3 text-center font-mono">
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold">Bid Price</span>
+                  <div className="text-sm font-bold text-slate-200">${selectedContract.bid}</div>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950 border border-emerald-500/40 space-y-1">
+                  <span className="text-[10px] text-emerald-400 uppercase font-bold">Midpoint</span>
+                  <div className="text-base font-black text-amber-400">${selectedContract.midpoint}</div>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold">Ask Price</span>
+                  <div className="text-sm font-bold text-slate-200">${selectedContract.ask}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                <span className="text-slate-300 font-bold uppercase">Number of Contracts:</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setContractQty(Math.max(1, contractQty - 1))}
+                    className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 font-bold hover:bg-slate-700"
+                  >
+                    -
+                  </button>
+                  <span className="text-base font-black text-amber-400 w-6 text-center">{contractQty}</span>
+                  <button
+                    onClick={() => setContractQty(contractQty + 1)}
+                    className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 font-bold hover:bg-slate-700"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-slate-800">
               <button
-                onClick={() => setSelectedContract(null)}
-                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold"
+                onClick={handleArmConditionalOrderFromModal}
+                disabled={submittingCond}
+                className="w-full py-3.5 text-xs font-black uppercase tracking-wider rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
               >
-                ✕
+                {submittingCond ? "⏳ Scheduling Order..." : `⚡ Arm Conditional Order (${(contractQty * selectedContract.midpoint * 100).toFixed(2)})`}
               </button>
             </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="space-y-1">
-                <label className="text-slate-400 font-bold block uppercase text-[9px]">Trigger Condition</label>
-                <select 
-                  value={modalTriggerCond}
-                  onChange={(e) => setModalTriggerCond(e.target.value)}
-                  className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-white font-bold"
-                >
-                  <option value="CROSSES_ABOVE">Crosses Above (📈)</option>
-                  <option value="CROSSES_BELOW">Crosses Below (📉)</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-slate-400 font-bold block uppercase text-[9px]">Stock Price Threshold ($)</label>
-                <input 
-                  type="number"
-                  step="0.01"
-                  value={modalTriggerVal}
-                  onChange={(e) => setModalTriggerVal(e.target.value)}
-                  placeholder="Stock trigger px"
-                  className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-white font-bold"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Bid Price</span>
-                <div className="text-sm font-bold text-slate-200">${selectedContract.bid}</div>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-950 border border-emerald-500/40 space-y-1">
-                <span className="text-[10px] text-emerald-400 uppercase font-bold">Midpoint (Limit)</span>
-                <div className="text-base font-black text-amber-400">${selectedContract.midpoint}</div>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Ask Price</span>
-                <div className="text-sm font-bold text-slate-200">${selectedContract.ask}</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs">
-              <span className="text-slate-300 font-bold uppercase">Number of Contracts:</span>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setContractQty(Math.max(1, contractQty - 1))}
-                  className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 font-bold hover:bg-slate-700"
-                >
-                  -
-                </button>
-                <span className="text-base font-black text-amber-400 w-6 text-center">{contractQty}</span>
-                <button
-                  onClick={() => setContractQty(contractQty + 1)}
-                  className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 font-bold hover:bg-slate-700"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={handleArmConditionalOrderFromModal}
-              disabled={submittingCond}
-              className="w-full py-3.5 text-xs font-black uppercase tracking-wider rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-            >
-              {submittingCond ? "⏳ Scheduling Order..." : `⚡ Arm Conditional Order (${(contractQty * selectedContract.midpoint * 100).toFixed(2)})`}
-            </button>
           </div>
-        </div>
+        </>
       )}
 
     </div>
