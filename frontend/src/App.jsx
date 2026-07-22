@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import WhiteLightPanel from './WhiteLightPanel';
 import AlpacaPanel from './AlpacaPanel';
@@ -10,8 +10,38 @@ const API_BASE = 'http://127.0.0.1:8000/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('whitelight_cortex');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [optionsSubTab, setOptionsSubTab] = useState('overview');
+
+  const collapseTimerRef = useRef(null);
+  const isHoveringSidebar = useRef(false);
+
+  const startCollapseTimer = () => {
+    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    collapseTimerRef.current = setTimeout(() => {
+      if (!isHoveringSidebar.current) {
+        setSidebarCollapsed(true);
+      }
+    }, 60000);
+  };
+
+  const clearCollapseTimer = () => {
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!sidebarCollapsed) {
+      if (!isHoveringSidebar.current) {
+        startCollapseTimer();
+      }
+    } else {
+      clearCollapseTimer();
+    }
+    return () => clearCollapseTimer();
+  }, [sidebarCollapsed]);
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [filterType, setFilterType] = useState('month');
@@ -1151,7 +1181,20 @@ function App() {
   return (
     <div className="app-container">
       {/* Sidebar Navigation (Docusaurus-inspired layout) */}
-      <aside className="app-sidebar" style={{ width: sidebarCollapsed ? '78px' : '250px', transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)', padding: sidebarCollapsed ? '24px 8px' : '24px 16px' }}>
+      <aside 
+        className="app-sidebar" 
+        style={{ width: sidebarCollapsed ? '78px' : '250px', transition: 'width 0.6s cubic-bezier(0.25, 1, 0.5, 1)', padding: sidebarCollapsed ? '24px 8px' : '24px 16px' }}
+        onMouseEnter={() => {
+          isHoveringSidebar.current = true;
+          clearCollapseTimer();
+        }}
+        onMouseLeave={() => {
+          isHoveringSidebar.current = false;
+          if (!sidebarCollapsed) {
+            startCollapseTimer();
+          }
+        }}
+      >
         <div className="sidebar-brand" style={{ justifyContent: sidebarCollapsed ? 'center' : 'space-between', display: 'flex', alignItems: 'center', width: '100%', transition: 'all 0.3s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span className="brand-bolt" style={{ fontSize: '1.6rem' }}>⚡</span>
