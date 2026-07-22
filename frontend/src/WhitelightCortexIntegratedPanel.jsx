@@ -182,6 +182,7 @@ export default function WhitelightCortexIntegratedPanel({
   const [executedOrders, setExecutedOrders] = useState([]);
   const [accountSummary, setAccountSummary] = useState(null);
   const [localTrades, setLocalTrades] = useState([]);
+  const [showPositionsDropdown, setShowPositionsDropdown] = useState(false);
   
   const [watchlist, setWatchlist] = useState(() => {
     try {
@@ -1382,8 +1383,8 @@ export default function WhitelightCortexIntegratedPanel({
         </div>
       )}
 
-      {/* Top 4 KPI Metric Cards (Clickable 4th Card) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
+      {/* Top 5 KPI Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 font-mono">
         <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-1">
           <span className="text-[10px] text-slate-400 uppercase tracking-wider block">💳 Paper Buying Power</span>
           <div className="text-xl font-black text-amber-400">
@@ -1413,7 +1414,32 @@ export default function WhitelightCortexIntegratedPanel({
           </div>
         </div>
 
-        {/* Clickable 4th KPI Card for Executed Orders Console */}
+        {/* Clickable 4th KPI Card for Active Positions & Trailing Stop Manager */}
+        <div
+          onClick={() => setShowPositionsDropdown(!showPositionsDropdown)}
+          className={`p-4 rounded-xl border transition-all cursor-pointer group select-none space-y-1 ${
+            showPositionsDropdown
+              ? "border-amber-400 bg-amber-400/10 shadow-lg shadow-amber-500/10"
+              : "border-slate-800 bg-slate-900/40 hover:border-amber-400/60 hover:bg-slate-900/80"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider block group-hover:text-amber-400">
+              🎫 Active Positions
+            </span>
+            <span className="text-xs font-bold text-amber-400">
+              {showPositionsDropdown ? "▲" : "▼"}
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <div className="text-xl font-black text-white group-hover:text-amber-300">
+              {positions.length + (parentPositions.active_positions?.length || 0)} Assets
+            </div>
+            <span className="text-[10px] font-bold uppercase text-amber-400/80">Click to View ▸</span>
+          </div>
+        </div>
+
+        {/* Clickable 5th KPI Card for Executed Orders Console */}
         <div
           onClick={() => setShowOrdersDropdown(!showOrdersDropdown)}
           className={`p-4 rounded-xl border transition-all cursor-pointer group select-none space-y-1 ${
@@ -1438,6 +1464,96 @@ export default function WhitelightCortexIntegratedPanel({
           </div>
         </div>
       </div>
+
+      {/* Interactive Inline Active Positions & HWM Trailing Stop Manager Dropdown */}
+      {showPositionsDropdown && (
+        <div className="p-5 rounded-xl border border-amber-500/40 bg-slate-900/90 backdrop-blur space-y-4 font-mono text-xs shadow-2xl animate-fade-in mb-6">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-400 text-base">🎫</span>
+              <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
+                Active Positions & High-Water Mark Trailing Stop Manager
+              </h3>
+            </div>
+            <button
+              onClick={() => setShowPositionsDropdown(false)}
+              className="text-xs text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded font-bold"
+            >
+              Close ▲
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column: Stocks Positions */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider border-b border-slate-800 pb-1.5 flex justify-between">
+                <span>📈 Stock Positions</span>
+                <span className="text-[10px] text-slate-500">{parentPositions.active_positions?.length || 0} Assets</span>
+              </h4>
+              <div className="overflow-y-auto max-h-[300px] space-y-2 pr-1 text-xs">
+                {parentPositions.active_positions?.map((pos, idx) => (
+                  <div key={idx} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-800 flex justify-between items-center gap-3 hover:border-slate-700 transition-colors">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-emerald-400 text-sm">{pos.symbol}</span>
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Qty: {pos.qty}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                        <span>Cost: <strong>${pos.avg_entry_price?.toFixed(2)}</strong></span>
+                        <span>Current: <strong>${pos.current_price?.toFixed(2)}</strong></span>
+                        <span>Value: <strong>${pos.market_value?.toFixed(2)}</strong></span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-xs font-black ${pos.unrealized_pl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {pos.unrealized_pl >= 0 ? "+" : ""}${pos.unrealized_pl?.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {(!parentPositions.active_positions || parentPositions.active_positions.length === 0) && (
+                  <div className="text-center py-12 text-slate-600">No active stock positions.</div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column: Options Positions */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider border-b border-slate-800 pb-1.5 flex justify-between">
+                <span>🎫 Options Positions</span>
+                <span className="text-[10px] text-slate-500">{positions.length} Contracts</span>
+              </h4>
+              <div className="overflow-y-auto max-h-[300px] space-y-2 pr-1 text-xs">
+                {positions.map((pos, idx) => (
+                  <div key={idx} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-800 flex justify-between items-center gap-3 hover:border-slate-700 transition-colors">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-amber-400 text-sm">{pos.ticker}</span>
+                        <span className="text-xs font-bold text-white">${pos.strike} {pos.type}</span>
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Exp: {pos.exp}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                        <span>Entry: <strong>${pos.entryPrice}</strong></span>
+                        <span>Current: <strong className="text-amber-300">${pos.currentPrice}</strong></span>
+                        <span>Peak: <strong className="text-emerald-400">${pos.highWaterMark}</strong></span>
+                        <span>Stop: <strong className="text-rose-400">${pos.trailingStop}</strong></span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-xs font-black ${pos.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {pos.pnl >= 0 ? "+" : ""}${pos.pnl.toFixed(2)} ({pos.pnlPct >= 0 ? "+" : ""}{pos.pnlPct}%)
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {positions.length === 0 && (
+                  <div className="text-center py-12 text-slate-600">No active options contracts.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Interactive Inline Executed Options Orders Console Dropdown */}
       {showOrdersDropdown && (
@@ -1915,6 +2031,198 @@ export default function WhitelightCortexIntegratedPanel({
           </div>
         </div>
 
+        {/* Full-Width Conditional Trigger Options Order Builder */}
+        <div className="lg:col-span-12 font-mono">
+          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+              <span className="text-amber-400 text-base">🤖</span>
+              <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
+                Conditional Trigger Options Order Builder
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Form column (col-span-5) */}
+              <form onSubmit={handleAddConditionalOrder} className="lg:col-span-5 space-y-3 p-4 rounded-xl border border-slate-800 bg-slate-950/40 text-xs font-mono">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold block uppercase text-[9px]">Underlying Ticker</label>
+                    <select 
+                      value={condTicker}
+                      onChange={(e) => setCondTicker(e.target.value)}
+                      className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                    >
+                      {watchlist.map(tk => <option key={tk} value={tk}>{tk}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold block uppercase text-[9px]">Option Type</label>
+                    <select 
+                      value={condType}
+                      onChange={(e) => setCondType(e.target.value)}
+                      className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                    >
+                      <option value="CALL">CALL</option>
+                      <option value="PUT">PUT</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold block uppercase text-[9px]">Options Timeframe</label>
+                    <select 
+                      value={condTimeframe}
+                      onChange={(e) => setCondTimeframe(e.target.value)}
+                      className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                    >
+                      <option value="WEEKLY">WEEKLY (0-7 DTE)</option>
+                      <option value="MONTHLY">MONTHLY (30-90 DTE)</option>
+                      <option value="SEMI_ANNUAL">SEMI-ANNUAL (180 DTE)</option>
+                      <option value="ANNUAL_LEAP">ANNUAL LEAP (360 DTE)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold block uppercase text-[9px]">Expiration Date</label>
+                    {loadingCondChain ? (
+                      <div className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-slate-500 font-bold animate-pulse">
+                        Loading Expirations...
+                      </div>
+                    ) : (
+                      <select 
+                        value={condExpiration}
+                        onChange={(e) => setCondExpiration(e.target.value)}
+                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                      >
+                        {condExpirations.map(exp => (
+                          <option key={exp} value={exp}>{exp}</option>
+                        ))}
+                        {condExpirations.length === 0 && <option value="">No Expirations Found</option>}
+                      </select>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold block uppercase text-[9px]">Option Strike ($)</label>
+                    {condStrikes.length > 0 ? (
+                      <select 
+                        value={condStrike}
+                        onChange={(e) => setCondStrike(e.target.value)}
+                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                      >
+                        {condStrikes.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    ) : (
+                      <input 
+                        type="number"
+                        step="0.01"
+                        value={condStrike}
+                        onChange={(e) => setCondStrike(e.target.value)}
+                        placeholder="Strike price"
+                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold block uppercase text-[9px]">Quantity (Contracts)</label>
+                    <input 
+                      type="number"
+                      min="1"
+                      value={condQty}
+                      onChange={(e) => setCondQty(e.target.value)}
+                      className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold block uppercase text-[9px]">Trigger Condition</label>
+                    <select 
+                      value={condDirection}
+                      onChange={(e) => setCondDirection(e.target.value)}
+                      className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                    >
+                      <option value="CROSSES_ABOVE">Crosses Above (📈)</option>
+                      <option value="CROSSES_BELOW">Crosses Below (📉)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold block uppercase text-[9px]">Stock Price Threshold ($)</label>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      value={condTriggerVal}
+                      onChange={(e) => setCondTriggerVal(e.target.value)}
+                      placeholder="Stock trigger px"
+                      className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="submit"
+                  disabled={submittingCond}
+                  className="w-full py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-black uppercase tracking-wider transition-colors shadow-md shadow-amber-500/10"
+                >
+                  {submittingCond ? "⏳ Scheduling Order..." : "⚡ Arm Conditional Order"}
+                </button>
+              </form>
+
+              {/* List column (col-span-7) */}
+              <div className="lg:col-span-7 space-y-3 p-4 rounded-xl border border-slate-800 bg-slate-950/40 text-xs font-mono">
+                <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800/60 pb-1 flex justify-between">
+                  <span>Armed Conditional Triggers</span>
+                  <span className="text-amber-400 font-bold">{conditionalOrders.filter(o => o.status === "PENDING").length} Pending</span>
+                </h5>
+
+                <div className="overflow-y-auto max-h-[220px] space-y-2 pr-1">
+                  {conditionalOrders.map((o) => (
+                    <div key={o.id} className={`p-3 rounded-lg border flex justify-between items-center ${
+                      o.status === "EXECUTED" 
+                        ? "bg-slate-900/20 border-slate-800/40 text-slate-500" 
+                        : "bg-slate-900/60 border-slate-800 text-slate-300"
+                    }`}>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-black ${o.option_type === "CALL" ? "text-emerald-400" : "text-rose-400"}`}>
+                            {o.underlying} {o.expiration ? `${o.expiration} ` : ""}{o.strike} {o.option_type}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Qty: {o.qty}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${
+                            o.status === "EXECUTED" ? "bg-slate-800 text-slate-500" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          }`}>
+                            {o.status}
+                          </span>
+                        </div>
+                        <div className="text-[9px] text-slate-400 mt-1">
+                          Trigger when {o.underlying} stock {o.condition === "CROSSES_ABOVE" ? " rises above " : " falls below "} 
+                          <strong className="text-white">${o.trigger_value}</strong>
+                          {o.triggered_at && <span className="text-[8px] text-slate-500 ml-2">At: {new Date(o.triggered_at).toLocaleString()}</span>}
+                        </div>
+                      </div>
+                      {o.status === "PENDING" && (
+                        <button 
+                          onClick={() => handleDeleteConditionalOrder(o.id)}
+                          className="text-slate-500 hover:text-rose-400 font-bold text-xs"
+                          title="Cancel Trigger"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {conditionalOrders.length === 0 && (
+                    <div className="text-center py-12 text-slate-600">No conditional orders scheduled. Use the form to arm new triggers.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Left Column: Event Stream & Systematic Backtest Engine */}
         <div className="lg:col-span-6 space-y-6">
           <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
@@ -2057,280 +2365,7 @@ export default function WhitelightCortexIntegratedPanel({
             </div>
           </div>
         </div>
-        <div className="lg:col-span-12 font-mono">
-          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-amber-400 text-base">📈</span>
-                <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
-                  Active Positions & High-Water Mark Trailing Stop Manager
-                </h3>
-              </div>
-              <span className="text-xs text-slate-400 font-bold">{positions.length} Options + {parentPositions.active_positions?.length || 0} Stocks</span>
-            </div>
 
-            {/* Two-Column Stocks and Options Split Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column: Stocks Positions */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider border-b border-slate-800 pb-1.5 flex justify-between">
-                  <span>📈 Stock Positions</span>
-                  <span className="text-[10px] text-slate-500">{parentPositions.active_positions?.length || 0} Assets</span>
-                </h4>
-                <div className="overflow-y-auto max-h-[350px] space-y-2 pr-1 text-xs">
-                  {parentPositions.active_positions?.map((pos, idx) => (
-                    <div key={idx} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-800 flex justify-between items-center gap-3 hover:border-slate-700 transition-colors">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-emerald-400 text-sm">{pos.symbol}</span>
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Qty: {pos.qty}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                          <span>Cost: <strong>${pos.avg_entry_price?.toFixed(2)}</strong></span>
-                          <span>Current: <strong>${pos.current_price?.toFixed(2)}</strong></span>
-                          <span>Value: <strong>${pos.market_value?.toFixed(2)}</strong></span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-xs font-black ${pos.unrealized_pl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {pos.unrealized_pl >= 0 ? "+" : ""}${pos.unrealized_pl?.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {(!parentPositions.active_positions || parentPositions.active_positions.length === 0) && (
-                    <div className="text-center py-12 text-slate-600">No active stock positions.</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column: Options Positions */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider border-b border-slate-800 pb-1.5 flex justify-between">
-                  <span>🎫 Options Positions</span>
-                  <span className="text-[10px] text-slate-500">{positions.length} Contracts</span>
-                </h4>
-                <div className="overflow-y-auto max-h-[350px] space-y-2 pr-1 text-xs">
-                  {positions.map((pos, idx) => (
-                    <div key={idx} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-800 flex justify-between items-center gap-3 hover:border-slate-700 transition-colors">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-amber-400 text-sm">{pos.ticker}</span>
-                          <span className="text-xs font-bold text-white">${pos.strike} {pos.type}</span>
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Exp: {pos.exp}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                          <span>Entry: <strong>${pos.entryPrice}</strong></span>
-                          <span>Current: <strong className="text-amber-300">${pos.currentPrice}</strong></span>
-                          <span>Peak: <strong className="text-emerald-400">${pos.highWaterMark}</strong></span>
-                          <span>Stop: <strong className="text-rose-400">${pos.trailingStop}</strong></span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-xs font-black ${pos.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {pos.pnl >= 0 ? "+" : ""}${pos.pnl.toFixed(2)} ({pos.pnlPct >= 0 ? "+" : ""}{pos.pnlPct}%)
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {positions.length === 0 && (
-                    <div className="text-center py-12 text-slate-600">No active options contracts.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Conditional Trigger Order Builder Section */}
-            <div className="border-t border-slate-800/80 pt-6 space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-                <span className="text-amber-400 text-base">🤖</span>
-                <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                  Conditional Trigger Options Order Builder
-                </h4>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Form column (col-span-5) */}
-                <form onSubmit={handleAddConditionalOrder} className="lg:col-span-5 space-y-3 p-4 rounded-xl border border-slate-800 bg-slate-950/40 text-xs font-mono">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Underlying Ticker</label>
-                      <select 
-                        value={condTicker}
-                        onChange={(e) => setCondTicker(e.target.value)}
-                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
-                      >
-                        {watchlist.map(tk => <option key={tk} value={tk}>{tk}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Option Type</label>
-                      <select 
-                        value={condType}
-                        onChange={(e) => setCondType(e.target.value)}
-                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
-                      >
-                        <option value="CALL">CALL</option>
-                        <option value="PUT">PUT</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Options Timeframe</label>
-                      <select 
-                        value={condTimeframe}
-                        onChange={(e) => setCondTimeframe(e.target.value)}
-                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
-                      >
-                        <option value="WEEKLY">WEEKLY (0-7 DTE)</option>
-                        <option value="MONTHLY">MONTHLY (30-90 DTE)</option>
-                        <option value="SEMI_ANNUAL">SEMI-ANNUAL (180 DTE)</option>
-                        <option value="ANNUAL_LEAP">ANNUAL LEAP (360 DTE)</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Expiration Date</label>
-                      {loadingCondChain ? (
-                        <div className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-slate-500 font-bold animate-pulse">
-                          Loading Expirations...
-                        </div>
-                      ) : (
-                        <select 
-                          value={condExpiration}
-                          onChange={(e) => setCondExpiration(e.target.value)}
-                          className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
-                        >
-                          {condExpirations.map(exp => (
-                            <option key={exp} value={exp}>{exp}</option>
-                          ))}
-                          {condExpirations.length === 0 && <option value="">No Expirations Found</option>}
-                        </select>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Option Strike ($)</label>
-                      {condStrikes.length > 0 ? (
-                        <select 
-                          value={condStrike}
-                          onChange={(e) => setCondStrike(e.target.value)}
-                          className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
-                        >
-                          {condStrikes.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      ) : (
-                        <input 
-                          type="number"
-                          step="0.01"
-                          value={condStrike}
-                          onChange={(e) => setCondStrike(e.target.value)}
-                          placeholder="Strike price"
-                          className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
-                        />
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Quantity (Contracts)</label>
-                      <input 
-                        type="number"
-                        min="1"
-                        value={condQty}
-                        onChange={(e) => setCondQty(e.target.value)}
-                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Trigger Condition</label>
-                      <select 
-                        value={condDirection}
-                        onChange={(e) => setCondDirection(e.target.value)}
-                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
-                      >
-                        <option value="CROSSES_ABOVE">Crosses Above (📈)</option>
-                        <option value="CROSSES_BELOW">Crosses Below (📉)</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-slate-400 font-bold block uppercase text-[9px]">Stock Price Threshold ($)</label>
-                      <input 
-                        type="number"
-                        step="0.01"
-                        value={condTriggerVal}
-                        onChange={(e) => setCondTriggerVal(e.target.value)}
-                        placeholder="Stock trigger px"
-                        className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-white font-bold"
-                      />
-                    </div>
-                  </div>
-
-                  <button 
-                    type="submit"
-                    disabled={submittingCond}
-                    className="w-full py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-black uppercase tracking-wider transition-colors shadow-md shadow-amber-500/10"
-                  >
-                    {submittingCond ? "⏳ Scheduling Order..." : "⚡ Arm Conditional Order"}
-                  </button>
-                </form>
-
-                {/* List column (col-span-7) */}
-                <div className="lg:col-span-7 space-y-3 p-4 rounded-xl border border-slate-800 bg-slate-950/40 text-xs font-mono">
-                  <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800/60 pb-1 flex justify-between">
-                    <span>Armed Conditional Triggers</span>
-                    <span className="text-amber-400 font-bold">{conditionalOrders.filter(o => o.status === "PENDING").length} Pending</span>
-                  </h5>
-
-                  <div className="overflow-y-auto max-h-[220px] space-y-2 pr-1">
-                    {conditionalOrders.map((o) => (
-                      <div key={o.id} className={`p-3 rounded-lg border flex justify-between items-center ${
-                        o.status === "EXECUTED" 
-                          ? "bg-slate-900/20 border-slate-800/40 text-slate-500" 
-                          : "bg-slate-900/60 border-slate-800 text-slate-300"
-                      }`}>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className={`font-black ${o.option_type === "CALL" ? "text-emerald-400" : "text-rose-400"}`}>
-                              {o.underlying} {o.expiration ? `${o.expiration} ` : ""}{o.strike} {o.option_type}
-                            </span>
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-800 text-slate-400">Qty: {o.qty}</span>
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${
-                              o.status === "EXECUTED" ? "bg-slate-800 text-slate-500" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                            }`}>
-                              {o.status}
-                            </span>
-                          </div>
-                          <div className="text-[9px] text-slate-400 mt-1">
-                            Trigger when {o.underlying} stock {o.condition === "CROSSES_ABOVE" ? " rises above " : " falls below "} 
-                            <strong className="text-white">${o.trigger_value}</strong>
-                            {o.triggered_at && <span className="text-[8px] text-slate-500 ml-2">At: {new Date(o.triggered_at).toLocaleString()}</span>}
-                          </div>
-                        </div>
-                        {o.status === "PENDING" && (
-                          <button 
-                            onClick={() => handleDeleteConditionalOrder(o.id)}
-                            className="text-slate-500 hover:text-rose-400 font-bold text-xs"
-                            title="Cancel Trigger"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    {conditionalOrders.length === 0 && (
-                      <div className="text-center py-12 text-slate-600">No conditional orders scheduled. Use the form to arm new triggers.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
 
 
