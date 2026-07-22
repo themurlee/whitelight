@@ -280,7 +280,7 @@ class APIServerHandler(BaseHTTPRequestHandler):
                             except Exception:
                                 pass
                         
-                        if symbol not in hwm_data:
+                        if symbol not in hwm_data or hwm_data[symbol].get("hwm", 0.0) <= 0.0 or hwm_data[symbol].get("stop", 0.0) <= 0.0:
                             initial_hwm = max(avg_entry_price, current_price)
                             hwm_data[symbol] = {
                                 "hwm": initial_hwm,
@@ -1473,6 +1473,16 @@ def position_risk_checker_loop():
                 else:
                     stock_positions[symbol] = pos
 
+            pending_sell_symbols = set()
+            try:
+                from alpaca.trading.requests import GetOrdersRequest
+                from alpaca.trading.enums import QueryOrderStatus, OrderSide
+                req = GetOrdersRequest(status=QueryOrderStatus.OPEN)
+                open_orders = client.get_orders(req)
+                pending_sell_symbols = {o.symbol for o in open_orders if o.side == OrderSide.SELL}
+            except Exception as o_err:
+                print(f"[RISK CHECKER] Failed to fetch open orders: {o_err}", flush=True)
+
             hwm_file = os.path.join(DATA_DIR, "positions_hwm.json")
             hwm_data = {}
             if os.path.exists(hwm_file):
@@ -1485,6 +1495,8 @@ def position_risk_checker_loop():
 
             for pos in option_positions:
                 symbol = pos.symbol
+                if symbol in pending_sell_symbols:
+                    continue
                 # Parse underlying symbol from option symbol
                 underlying_symbol = ""
                 for char in symbol:
@@ -1497,7 +1509,7 @@ def position_risk_checker_loop():
                 avg_entry_price = float(pos.avg_entry_price) if pos.avg_entry_price is not None else 0.0
                 
                 # Manage HWM and Trailing Stop (30%)
-                if symbol not in hwm_data:
+                if symbol not in hwm_data or hwm_data[symbol].get("hwm", 0.0) <= 0.0 or hwm_data[symbol].get("stop", 0.0) <= 0.0:
                     initial_hwm = max(avg_entry_price, current_price)
                     hwm_data[symbol] = {
                         "hwm": initial_hwm,
@@ -1515,39 +1527,25 @@ def position_risk_checker_loop():
                     reason = f"Option price (${current_price}) breached 30% trailing stop (${stop_val})"
                     print(f"[RISK AUDIT] Trailing stop breached for {symbol}. Triggering auto-close! Reason: {reason}", flush=True)
                     try:
-                        from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
-                        from alpaca.trading.enums import OrderSide, TimeInForce
-                        
-                        qty = abs(float(pos.qty))
-                        side = OrderSide.SELL if float(pos.qty) > 0 else OrderSide.BUY
-                        
                         try:
-                            order_req = MarketOrderRequest(
-                                symbol=symbol,
-                                qty=qty,
-                                side=side,
-                                time_in_force=TimeInForce.DAY
-                            )
-                            client.submit_order(order_req)
-                        except Exception as market_err:
-                            if "no available quote" in str(market_err).lower() or "limit" in str(market_err).lower():
-                                current_px = current_price if current_price else 1.0
-                                if side == OrderSide.SELL:
-                                    limit_px = max(0.01, round(current_px * 0.95, 2))
-                                else:
-                                    limit_px = round(current_px * 1.05, 2)
-                                    
-                                print(f"[RISK AUDIT] Auto-close market order failed due to no quote. Retrying with LIMIT order at ${limit_px} for {symbol}", flush=True)
+                            client.close_position(symbol)
+                            print(f"[RISK AUDIT] Successfully closed position {symbol} via native close_position API.", flush=True)
+                        except Exception as close_err:
+                            if "no available quote" in str(close_err).lower() or "limit" in str(close_err).lower():
+                                print(f"[RISK AUDIT] Native close failed due to no quote. Falling back to limit sell at $0.01 for {symbol}", flush=True)
+                                from alpaca.trading.requests import LimitOrderRequest
+                                from alpaca.trading.enums import OrderSide, TimeInForce
+                                qty = abs(int(float(pos.qty)))
                                 order_req = LimitOrderRequest(
                                     symbol=symbol,
                                     qty=qty,
-                                    side=side,
-                                    limit_price=limit_px,
+                                    side=OrderSide.SELL,
+                                    limit_price=0.01,
                                     time_in_force=TimeInForce.DAY
                                 )
                                 client.submit_order(order_req)
                             else:
-                                raise market_err
+                                raise close_err
                         
                         alert = {
                             "id": f"{symbol}_trailing_stop_{time.time()}",
@@ -1619,39 +1617,25 @@ def position_risk_checker_loop():
                     if breached:
                         print(f"[RISK AUDIT] Invalidation breached for {symbol}. Triggering auto-close! Reason: {reason}", flush=True)
                         try:
-                            from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
-                            from alpaca.trading.enums import OrderSide, TimeInForce
-                            
-                            qty = abs(float(pos.qty))
-                            side = OrderSide.SELL if float(pos.qty) > 0 else OrderSide.BUY
-                            
                             try:
-                                order_req = MarketOrderRequest(
-                                    symbol=symbol,
-                                    qty=qty,
-                                    side=side,
-                                    time_in_force=TimeInForce.DAY
-                                )
-                                client.submit_order(order_req)
-                            except Exception as market_err:
-                                if "no available quote" in str(market_err).lower() or "limit" in str(market_err).lower():
-                                    current_px = float(pos.current_price) if pos.current_price else 1.0
-                                    if side == OrderSide.SELL:
-                                        limit_px = max(0.01, round(current_px * 0.95, 2))
-                                    else:
-                                        limit_px = round(current_px * 1.05, 2)
-                                        
-                                    print(f"[RISK AUDIT] Auto-close market order failed due to no quote. Retrying with LIMIT order at ${limit_px} for {symbol}", flush=True)
+                                client.close_position(symbol)
+                                print(f"[RISK AUDIT] Successfully closed position {symbol} via native close_position API.", flush=True)
+                            except Exception as close_err:
+                                if "no available quote" in str(close_err).lower() or "limit" in str(close_err).lower():
+                                    print(f"[RISK AUDIT] Native close failed due to no quote. Falling back to limit sell at $0.01 for {symbol}", flush=True)
+                                    from alpaca.trading.requests import LimitOrderRequest
+                                    from alpaca.trading.enums import OrderSide, TimeInForce
+                                    qty = abs(int(float(pos.qty)))
                                     order_req = LimitOrderRequest(
                                         symbol=symbol,
                                         qty=qty,
-                                        side=side,
-                                        limit_price=limit_px,
+                                        side=OrderSide.SELL,
+                                        limit_price=0.01,
                                         time_in_force=TimeInForce.DAY
                                     )
                                     client.submit_order(order_req)
                                 else:
-                                    raise market_err
+                                    raise close_err
                             
                             alert = {
                                 "id": f"{symbol}_breach_{time.time()}",
