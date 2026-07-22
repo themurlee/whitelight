@@ -280,10 +280,21 @@ class APIServerHandler(BaseHTTPRequestHandler):
                             except Exception:
                                 pass
                         
-                        if symbol not in hwm_data or current_price > hwm_data[symbol]["hwm"]:
+                        if symbol not in hwm_data:
+                            initial_hwm = max(avg_entry_price, current_price)
+                            hwm_data[symbol] = {
+                                "hwm": initial_hwm,
+                                "stop": initial_hwm * 0.7  # 30% Trailing Stop
+                            }
+                            try:
+                                with open(hwm_file, "w") as hf:
+                                    json.dump(hwm_data, hf)
+                            except Exception:
+                                pass
+                        elif current_price > hwm_data[symbol]["hwm"]:
                             hwm_data[symbol] = {
                                 "hwm": current_price,
-                                "stop": current_price * 0.8
+                                "stop": current_price * 0.7  # 30% Trailing Stop
                             }
                             try:
                                 with open(hwm_file, "w") as hf:
@@ -1462,6 +1473,16 @@ def position_risk_checker_loop():
                 else:
                     stock_positions[symbol] = pos
 
+            hwm_file = os.path.join(DATA_DIR, "positions_hwm.json")
+            hwm_data = {}
+            if os.path.exists(hwm_file):
+                try:
+                    with open(hwm_file, "r") as hf:
+                        hwm_data = json.load(hf)
+                except Exception:
+                    pass
+            hwm_updated = False
+
             for pos in option_positions:
                 symbol = pos.symbol
                 # Parse underlying symbol from option symbol
@@ -1472,9 +1493,77 @@ def position_risk_checker_loop():
                     else:
                         break
                 
-                current_price = float(pos.current_price)
-                avg_entry_price = float(pos.avg_entry_price)
+                current_price = float(pos.current_price) if pos.current_price is not None else 0.0
+                avg_entry_price = float(pos.avg_entry_price) if pos.avg_entry_price is not None else 0.0
                 
+                # Manage HWM and Trailing Stop (30%)
+                if symbol not in hwm_data:
+                    initial_hwm = max(avg_entry_price, current_price)
+                    hwm_data[symbol] = {
+                        "hwm": initial_hwm,
+                        "stop": initial_hwm * 0.7  # 30% Trailing Stop
+                    }
+                    hwm_updated = True
+                elif current_price > hwm_data[symbol]["hwm"]:
+                    hwm_data[symbol]["hwm"] = current_price
+                    hwm_data[symbol]["stop"] = current_price * 0.7  # 30% Trailing Stop
+                    hwm_updated = True
+                
+                # Check trailing stop breach
+                stop_val = hwm_data[symbol]["stop"]
+                if current_price <= stop_val:
+                    reason = f"Option price (${current_price}) breached 30% trailing stop (${stop_val})"
+                    print(f"[RISK AUDIT] Trailing stop breached for {symbol}. Triggering auto-close! Reason: {reason}", flush=True)
+                    try:
+                        from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
+                        from alpaca.trading.enums import OrderSide, TimeInForce
+                        
+                        qty = abs(float(pos.qty))
+                        side = OrderSide.SELL if float(pos.qty) > 0 else OrderSide.BUY
+                        
+                        try:
+                            order_req = MarketOrderRequest(
+                                symbol=symbol,
+                                qty=qty,
+                                side=side,
+                                time_in_force=TimeInForce.DAY
+                            )
+                            client.submit_order(order_req)
+                        except Exception as market_err:
+                            if "no available quote" in str(market_err).lower() or "limit" in str(market_err).lower():
+                                current_px = current_price if current_price else 1.0
+                                if side == OrderSide.SELL:
+                                    limit_px = max(0.01, round(current_px * 0.95, 2))
+                                else:
+                                    limit_px = round(current_px * 1.05, 2)
+                                    
+                                print(f"[RISK AUDIT] Auto-close market order failed due to no quote. Retrying with LIMIT order at ${limit_px} for {symbol}", flush=True)
+                                order_req = LimitOrderRequest(
+                                    symbol=symbol,
+                                    qty=qty,
+                                    side=side,
+                                    limit_price=limit_px,
+                                    time_in_force=TimeInForce.DAY
+                                )
+                                client.submit_order(order_req)
+                            else:
+                                raise market_err
+                        
+                        alert = {
+                            "id": f"{symbol}_trailing_stop_{time.time()}",
+                            "timestamp": datetime.now().isoformat(),
+                            "type": "trailing_stop_breach",
+                            "symbol": symbol,
+                            "underlying": underlying_symbol,
+                            "reason": reason,
+                            "message": f"🚨 Auto-Closed option {symbol} due to trailing stop breach: {reason}"
+                        }
+                        with ALERTS_LOCK:
+                            GLOBAL_ALERTS.append(alert)
+                    except Exception as close_err:
+                        print(f"[RISK AUDIT] Failed to auto-close option position {symbol}: {close_err}", flush=True)
+                    continue
+
                 # Calculate profit ratio
                 profit_pct = 0.0
                 if avg_entry_price > 0:
@@ -1577,6 +1666,21 @@ def position_risk_checker_loop():
                                 GLOBAL_ALERTS.append(alert)
                         except Exception as close_err:
                             print(f"[RISK AUDIT] Failed to auto-close position {symbol}: {close_err}", flush=True)
+            
+            # Prune obsolete HWMs and save positions_hwm.json if updated
+            active_symbols = {p.symbol for p in raw_positions}
+            hwm_keys = list(hwm_data.keys())
+            for k in hwm_keys:
+                if k not in active_symbols:
+                    del hwm_data[k]
+                    hwm_updated = True
+            
+            if hwm_updated:
+                try:
+                    with open(hwm_file, "w") as hf:
+                        json.dump(hwm_data, hf)
+                except Exception:
+                    pass
                             
         except Exception as err:
             print(f"[RISK CHECKER] Error in monitor loop: {err}", flush=True)
