@@ -2061,21 +2061,34 @@ export default function WhitelightCortexIntegratedPanel({
                                         <td className="py-3 px-3 text-slate-400">{(c.open_interest || 0).toLocaleString()}</td>
                                         <td className="py-3 px-3 text-slate-300">{(c.greeks?.delta || 0).toFixed(3)}</td>
                                         <td className="py-3 px-3 text-left">
-                                          <div className="inline-flex items-center rounded border border-orange-500 overflow-hidden font-bold select-none text-[10px] bg-slate-950">
-                                            <span className="px-3 py-1.5 text-orange-400 font-extrabold">
-                                              ${parseFloat(c.midpoint || 0).toFixed(2)}
-                                            </span>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleOpenContractModal(c);
-                                              }}
-                                              className="px-3 py-1.5 text-orange-400 bg-orange-500/10 hover:bg-orange-500 hover:text-slate-950 transition-all font-black border-l border-orange-500/30"
-                                            >
-                                              +
-                                            </button>
-                                          </div>
-                                        </td>
+                                           {(() => {
+                                             const isSelected = selectedContract?.symbol === c.symbol;
+                                             return (
+                                               <div className={`inline-flex items-center rounded border overflow-hidden font-bold select-none text-[10px] bg-slate-950 transition-all ${
+                                                 isSelected 
+                                                   ? "border-emerald-500 text-emerald-400" 
+                                                   : "border-orange-500 text-orange-400"
+                                               }`}>
+                                                 <span className={`px-3 py-1.5 font-extrabold ${isSelected ? "bg-emerald-500/10 text-emerald-400" : "text-orange-400"}`}>
+                                                   ${parseFloat(c.midpoint || 0).toFixed(2)}
+                                                 </span>
+                                                 <button
+                                                   onClick={(e) => {
+                                                     e.stopPropagation();
+                                                     handleOpenContractModal(c);
+                                                   }}
+                                                   className={`px-3 py-1.5 transition-all font-black border-l ${
+                                                     isSelected 
+                                                       ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500 hover:text-slate-950" 
+                                                       : "bg-orange-500/10 text-orange-400 border-orange-500/30 hover:bg-orange-500 hover:text-slate-950"
+                                                   }`}
+                                                 >
+                                                   {isSelected ? "✓" : "+"}
+                                                 </button>
+                                               </div>
+                                             );
+                                           })()}
+                                         </td>
                                       </tr>
                                     );
                                   });
@@ -2489,6 +2502,7 @@ export default function WhitelightCortexIntegratedPanel({
           `}</style>
           {/* Slide-in Sidebar (Right to Left) */}
           <div 
+            key={selectedContract.symbol}
             className="fixed top-0 bottom-0 right-0 z-50 w-full max-w-[380px] bg-slate-900 border-l border-slate-800 shadow-2xl p-6 flex flex-col justify-between overflow-y-auto font-sans"
             style={{
               animation: "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards"
