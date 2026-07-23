@@ -8,6 +8,7 @@ from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 from datetime import datetime, timedelta, timezone
+from alpaca.data.enums import DataFeed
 from src.alpaca_client.retry_decorator import alpaca_retryable
 import logging
 
@@ -28,7 +29,8 @@ def fetch_30day_bars_from_alpaca(ticker: str) -> list:
             symbol_or_symbols=[ticker],
             timeframe=TimeFrame.Day,
             start=start,
-            end=end
+            end=end,
+            feed=DataFeed.IEX
         )
         bars = client.get_stock_bars(req)
         
