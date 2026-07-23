@@ -6,6 +6,18 @@ import OptionsTradingPanel from './OptionsTradingPanel';
 import ShadowCortexPanel from './ShadowCortexPanel';
 import WhitelightCortexIntegratedPanel from './WhitelightCortexIntegratedPanel';
 
+// Automatically bypass ngrok browser warning pages globally for all API requests
+const originalFetch = window.fetch;
+window.fetch = function (url, options = {}) {
+  options.headers = options.headers || {};
+  if (options.headers instanceof Headers) {
+    options.headers.set('ngrok-skip-browser-warning', 'true');
+  } else {
+    options.headers['ngrok-skip-browser-warning'] = 'true';
+  }
+  return originalFetch(url, options);
+};
+
 function App() {
   const [apiBase, setApiBase] = useState(() => {
     return localStorage.getItem("whitelight_api_base") || 'http://127.0.0.1:8000/api';
