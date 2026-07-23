@@ -104,9 +104,24 @@ class ExitRulesEngine:
         if state.get("earnings_announced", False):
             return "earnings_blackout"
             
+        # Rule 4: Macro print blackout
+        if state.get("macro_print", False):
+            return "macro_print_blackout"
+            
         # Rule 5: Vega collapse (IV drop > 20 points)
         if state.get("iv_drop", 0) > 20.0:
             return "vega_collapse"
+            
+        # Rule 6: Gamma risk breach
+        gamma = state.get("gamma", 0.0)
+        price_move = state.get("price_move", 0.0)
+        gamma_threshold = state.get("gamma_threshold", 0.1)
+        if abs(gamma * price_move) > gamma_threshold:
+            return "gamma_risk_breach"
+            
+        # Rule 7: Technical breakdown
+        if state.get("technical_breakdown", False):
+            return "technical_breakdown"
         
         # Rule 8: DTE exit at 14 days
         now = datetime.now(timezone.utc)
@@ -120,6 +135,22 @@ class ExitRulesEngine:
         
         if remaining_dte <= 14:
             return "dte_exit_14d"
+            
+        # Rule 9: Calendar vega roll
+        if state.get("calendar_vega_roll", False):
+            return "calendar_vega_roll"
+            
+        # Rule 10: Correlation breach
+        if state.get("correlation", 0.0) >= 0.8:
+            return "correlation_breach"
+            
+        # Rule 11: Margin pressure
+        if state.get("margin_pct", 1.0) < 0.2:
+            return "margin_pressure"
+            
+        # Rule 12: Voluntary exit
+        if state.get("voluntary_exit", False):
+            return "voluntary_exit"
         
         # Rule 13: Max loss circuit
         if state.get("pnl", 0) <= -position.capital_at_risk:
@@ -130,5 +161,7 @@ class ExitRulesEngine:
     def _urgency_level(self, rule: str) -> str:
         """Urgency: CRITICAL, HIGH, MEDIUM, LOW."""
         critical = ["max_loss_circuit", "earnings_blackout", "macro_print_blackout"]
-        high = ["vega_collapse", "gamma_risk_breach"]
-        return "CRITICAL" if rule in critical else "HIGH" if rule in high else "MEDIUM"
+        high = ["vega_collapse", "gamma_risk_breach", "correlation_breach", "margin_pressure"]
+        medium = ["technical_breakdown", "calendar_vega_roll"]
+        low = ["profit_target_25pct", "theta_decay_50pct", "dte_exit_14d", "voluntary_exit"]
+        return "CRITICAL" if rule in critical else "HIGH" if rule in high else "MEDIUM" if rule in medium else "LOW"

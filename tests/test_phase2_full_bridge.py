@@ -158,6 +158,42 @@ class TestExitRulesEngine:
         assert len(exits) == 1
         assert exits[0]["rule_fired"] == "max_loss_circuit"
 
+    def test_exit_rules_fires_on_new_rules(self):
+        """Verify the 7 newly added exit rules trigger and map correctly."""
+        engine = ExitRulesEngine()
+        
+        pos = Position(
+            entry_id="test_new_rules",
+            symbol="IWM",
+            combo=[],
+            entry_price=1.50,
+            entry_timestamp=datetime.now(timezone.utc),
+            entry_greeks={"dte": 30},
+            capital_at_risk=150.0
+        )
+        engine.register_position(pos)
+        
+        # Test macro print
+        assert engine.check_exits({"test_new_rules": {"macro_print": True}})[0]["rule_fired"] == "macro_print_blackout"
+        
+        # Test gamma risk breach
+        assert engine.check_exits({"test_new_rules": {"gamma": 0.05, "price_move": 3.0, "gamma_threshold": 0.1}})[0]["rule_fired"] == "gamma_risk_breach"
+        
+        # Test technical breakdown
+        assert engine.check_exits({"test_new_rules": {"technical_breakdown": True}})[0]["rule_fired"] == "technical_breakdown"
+        
+        # Test calendar vega roll
+        assert engine.check_exits({"test_new_rules": {"calendar_vega_roll": True}})[0]["rule_fired"] == "calendar_vega_roll"
+        
+        # Test correlation breach
+        assert engine.check_exits({"test_new_rules": {"correlation": 0.85}})[0]["rule_fired"] == "correlation_breach"
+        
+        # Test margin pressure
+        assert engine.check_exits({"test_new_rules": {"margin_pct": 0.15}})[0]["rule_fired"] == "margin_pressure"
+        
+        # Test voluntary exit
+        assert engine.check_exits({"test_new_rules": {"voluntary_exit": True}})[0]["rule_fired"] == "voluntary_exit"
+
 class TestPhase2Coordinator:
     @patch("src.phase2_coordinator.AlpacaTradierAdapter")
     @patch("src.phase2_coordinator.execute_signal_with_slippage_control")
