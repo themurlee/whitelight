@@ -1,0 +1,16 @@
+[Unit]
+Description=WhiteLight Systematic Trading Bot Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=nekanyab
+WorkingDirectory=/Users/nekanyab/murlee/whitelight
+ExecStart=/Users/nekanyab/murlee/whitelight/.venv/bin/python src/daemon.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
