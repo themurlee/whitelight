@@ -14,6 +14,7 @@ from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
 from src.storage.atomic_writer import AtomicJSONWriter
 from src.alpaca_client.retry_decorator import alpaca_retryable
 from src.alpaca_client.rate_limit_handler import wait_for_order_fill
+from src.execution.limit_order_wrapper import execute_signal_with_slippage_control
 
 @alpaca_retryable(max_retries=5, base_delay=1.0)
 def _get_open_position_with_retry(client, ticker):
@@ -123,21 +124,10 @@ def execute_signal():
                 
             log_to_journal(f"Risk Check Passed: Allocating {qty} shares of {ticker} (Value: ${qty * close_price:.2f} <= Max allocation: ${max_allocation:.2f})", "INFO")
             
-            # Submit Buy Order
-            order_data = MarketOrderRequest(
-                symbol=ticker,
-                qty=qty,
-                side=OrderSide.BUY,
-                time_in_force=TimeInForce.GTC
-            )
-            order = _submit_order_with_retry(trading_client, order_data)
-            log_to_journal(f"BUY Order Submitted successfully: ID={order.id}, Qty={qty}, Status={order.status}. Waiting for fill...", "INFO")
-            
             try:
-                filled_order = wait_for_order_fill(trading_client, order.id)
-                log_to_journal(f"BUY Order Filled successfully: ID={filled_order.id}, Status={filled_order.status}", "INFO")
+                execute_signal_with_slippage_control(trading_client, ticker, close_price, qty, "BUY")
             except Exception as fe:
-                log_to_journal(f"BUY Order fill confirmation error: {fe}", "WARNING")
+                log_to_journal(f"BUY Order execution failed: {fe}", "ERROR")
 
         elif action == "SELL":
             if position is None:
@@ -147,21 +137,10 @@ def execute_signal():
             qty_to_sell = int(position.qty)
             log_to_journal(f"Risk Check: Liquidating position of {qty_to_sell} shares of {ticker}.", "INFO")
             
-            # Submit Sell Order
-            order_data = MarketOrderRequest(
-                symbol=ticker,
-                qty=qty_to_sell,
-                side=OrderSide.SELL,
-                time_in_force=TimeInForce.GTC
-            )
-            order = _submit_order_with_retry(trading_client, order_data)
-            log_to_journal(f"SELL Order Submitted successfully: ID={order.id}, Qty={qty_to_sell}, Status={order.status}. Waiting for fill...", "INFO")
-            
             try:
-                filled_order = wait_for_order_fill(trading_client, order.id)
-                log_to_journal(f"SELL Order Filled successfully: ID={filled_order.id}, Status={filled_order.status}", "INFO")
+                execute_signal_with_slippage_control(trading_client, ticker, close_price, qty_to_sell, "SELL")
             except Exception as fe:
-                log_to_journal(f"SELL Order fill confirmation error: {fe}", "WARNING")
+                log_to_journal(f"SELL Order execution failed: {fe}", "ERROR")
 
     except Exception as e:
         log_to_journal(f"Execution failed: {e}", "ERROR")

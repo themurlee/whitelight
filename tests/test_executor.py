@@ -35,9 +35,11 @@ class TestExecutionEngine(unittest.TestCase):
         config.JOURNAL_DIR = self.original_journal_dir
         config.TRADE_LOG_PATH = self.original_trade_log
 
+    @patch("src.execution.limit_order_wrapper.get_current_bid_ask")
     @patch("src.executor.TradingClient")
-    def test_execute_signal_buy_success(self, mock_trading_client_class):
+    def test_execute_signal_buy_success(self, mock_trading_client_class, mock_get_bid_ask):
         # Arrange
+        mock_get_bid_ask.return_value = (99.95, 100.05)
         mock_client = MagicMock()
         mock_trading_client_class.return_value = mock_client
         

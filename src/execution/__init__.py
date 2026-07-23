@@ -797,3 +797,7 @@ def submit_manual_order(
 
     print(f"[MANUAL ORDER] {side.upper()} {qty}x {symbol} ({order_type}) -> status: {order_res.get('status')}")
     return order_res
+
+# Export elements from submodules to keep package namespace backwards compatible
+from src.execution.slippage_validator import SlippageConfig, get_current_bid_ask, validate_slippage
+from src.execution.limit_order_wrapper import execute_signal_with_slippage_control
