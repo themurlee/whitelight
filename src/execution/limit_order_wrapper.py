@@ -1,7 +1,7 @@
 import time
 import logging
-from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest
-from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest, TakeProfitRequest, StopLossRequest
+from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass
 from src.execution.slippage_validator import SlippageConfig, get_current_bid_ask, validate_slippage
 from src.alpaca_client.rate_limit_handler import wait_for_order_fill
 from src.alpaca_client.retry_decorator import alpaca_retryable
@@ -46,13 +46,27 @@ def execute_signal_with_slippage_control(
         
     # 5. Submit Limit order
     if slippage_config.use_limit_orders:
-        order_data = LimitOrderRequest(
-            symbol=ticker,
-            qty=qty,
-            limit_price=limit_price,
-            side=order_side,
-            time_in_force=TimeInForce.DAY
-        )
+        if order_side == OrderSide.BUY:
+            take_profit = TakeProfitRequest(limit_price=round(limit_price * 1.05, 2))
+            stop_loss = StopLossRequest(stop_price=round(limit_price * 0.98, 2))
+            order_data = LimitOrderRequest(
+                symbol=ticker,
+                qty=qty,
+                limit_price=limit_price,
+                side=order_side,
+                time_in_force=TimeInForce.DAY,
+                order_class=OrderClass.BRACKET,
+                take_profit=take_profit,
+                stop_loss=stop_loss
+            )
+        else:
+            order_data = LimitOrderRequest(
+                symbol=ticker,
+                qty=qty,
+                limit_price=limit_price,
+                side=order_side,
+                time_in_force=TimeInForce.DAY
+            )
         order = _submit_limit_order_with_retry(trading_client, order_data)
         logger.info(f"Submitted limit order for {ticker}: ID={order.id}, Limit Price={limit_price}, Qty={qty}")
         
@@ -92,12 +106,25 @@ def execute_signal_with_slippage_control(
         
         # Fallback to Market order
         logger.info(f"Submitting fallback market order for {ticker}, Qty={qty}")
-        mkt_order_data = MarketOrderRequest(
-            symbol=ticker,
-            qty=qty,
-            side=order_side,
-            time_in_force=TimeInForce.GTC
-        )
+        if order_side == OrderSide.BUY:
+            take_profit = TakeProfitRequest(limit_price=round(ask * 1.05, 2))
+            stop_loss = StopLossRequest(stop_price=round(ask * 0.98, 2))
+            mkt_order_data = MarketOrderRequest(
+                symbol=ticker,
+                qty=qty,
+                side=order_side,
+                time_in_force=TimeInForce.GTC,
+                order_class=OrderClass.BRACKET,
+                take_profit=take_profit,
+                stop_loss=stop_loss
+            )
+        else:
+            mkt_order_data = MarketOrderRequest(
+                symbol=ticker,
+                qty=qty,
+                side=order_side,
+                time_in_force=TimeInForce.GTC
+            )
         mkt_order = _submit_market_order_with_retry(trading_client, mkt_order_data)
         try:
             wait_for_order_fill(trading_client, mkt_order.id, timeout_sec=60.0, poll_interval_sec=1.0)
@@ -107,12 +134,25 @@ def execute_signal_with_slippage_control(
             logger.error(f"Fallback market order failed to fill: {me}")
             raise me
     else:
-        mkt_order_data = MarketOrderRequest(
-            symbol=ticker,
-            qty=qty,
-            side=order_side,
-            time_in_force=TimeInForce.GTC
-        )
+        if order_side == OrderSide.BUY:
+            take_profit = TakeProfitRequest(limit_price=round(ask * 1.05, 2))
+            stop_loss = StopLossRequest(stop_price=round(ask * 0.98, 2))
+            mkt_order_data = MarketOrderRequest(
+                symbol=ticker,
+                qty=qty,
+                side=order_side,
+                time_in_force=TimeInForce.GTC,
+                order_class=OrderClass.BRACKET,
+                take_profit=take_profit,
+                stop_loss=stop_loss
+            )
+        else:
+            mkt_order_data = MarketOrderRequest(
+                symbol=ticker,
+                qty=qty,
+                side=order_side,
+                time_in_force=TimeInForce.GTC
+            )
         mkt_order = _submit_market_order_with_retry(trading_client, mkt_order_data)
         wait_for_order_fill(trading_client, mkt_order.id, timeout_sec=60.0, poll_interval_sec=1.0)
         return True
