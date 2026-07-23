@@ -11,6 +11,7 @@ import src.config as config
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, GetOrdersRequest
 from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
+from src.storage.atomic_writer import AtomicJSONWriter
 
 def log_to_journal(message: str, level: str = "INFO"):
     os.makedirs(config.JOURNAL_DIR, exist_ok=True)
@@ -27,8 +28,10 @@ def execute_signal():
         return
 
     try:
-        with open(signal_log_path, "r") as f:
-            signal_data = json.load(f)
+        signal_data = AtomicJSONWriter(signal_log_path).read()
+        if not signal_data:
+            log_to_journal("signal_log.json is empty.", "WARNING")
+            return
     except Exception as e:
         log_to_journal(f"Failed to read signal_log.json: {e}", "ERROR")
         return

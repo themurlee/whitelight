@@ -13,6 +13,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(BASE_DIR)
 
 import src.config as config
+from src.storage.atomic_writer import AtomicJSONWriter
 
 def log_to_journal(message: str, level: str = "INFO"):
     os.makedirs(config.JOURNAL_DIR, exist_ok=True)
@@ -100,8 +101,7 @@ def fetch_and_save_ohlcv(ticker: str, days_to_fetch: int = 400):
                 "volume": int(row["volume"]),
                 "vwap": float(row["vwap"]) if "vwap" in row else None
             }
-            with open(file_path, "w") as f:
-                f.write(json.dumps(entry) + "\n")
+            AtomicJSONWriter(file_path).write(entry)
             saved_count += 1
 
     log_to_journal(f"Data ingestion complete for {ticker}. Saved {saved_count} daily files.", "INFO")

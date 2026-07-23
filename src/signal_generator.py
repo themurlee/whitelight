@@ -10,6 +10,7 @@ sys.path.append(BASE_DIR)
 
 import src.config as config
 from src.strategy import calculate_macd, calculate_rsi
+from src.storage.atomic_writer import AtomicJSONWriter
 
 def get_signal_for_ticker(ticker: str) -> dict:
     ticker_dir = os.path.join(config.DATA_DIR, ticker)
@@ -18,10 +19,6 @@ def get_signal_for_ticker(ticker: str) -> dict:
 
     # Load all jsonl files
     files = glob.glob(os.path.join(ticker_dir, "*.jsonl"))
-    if not files:
-        return {"error": f"No data files found for ticker {ticker}"}
-
-    # Sort files by filename (date YYYY-MM-DD)
     files.sort()
     
     dates = []
@@ -30,14 +27,12 @@ def get_signal_for_ticker(ticker: str) -> dict:
     
     for fpath in files:
         try:
-            with open(fpath, "r") as f:
-                content = f.read().strip()
-                if not content:
-                    continue
-                data = json.loads(content)
-                dates.append(os.path.basename(fpath).replace(".jsonl", ""))
-                prices.append(float(data["close"]))
-                timestamps.append(data.get("timestamp", ""))
+            data = AtomicJSONWriter(fpath).read()
+            if not data:
+                continue
+            dates.append(os.path.basename(fpath).replace(".jsonl", ""))
+            prices.append(float(data["close"]))
+            timestamps.append(data.get("timestamp", ""))
         except Exception:
             continue
 
@@ -94,8 +89,7 @@ def run_signal_generation(ticker: str):
 
     signal_log_path = os.path.join(config.DATA_DIR, "signal_log.json")
     try:
-        with open(signal_log_path, "w") as f:
-            json.dump(res, f, indent=2)
+        AtomicJSONWriter(signal_log_path).write(res)
         print(f"[SIGNAL GENERATOR] Signal logic complete for {ticker}: {res['action']} (RSI: {res['rsi']}, MACD: {res['macd']})")
     except Exception as e:
         print(f"[SIGNAL GENERATOR ERROR] Failed to save signal_log: {e}")

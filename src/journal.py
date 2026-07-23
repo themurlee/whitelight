@@ -24,24 +24,26 @@ def _ensure_directories():
     os.makedirs(JOURNAL_DIR, exist_ok=True)
 
 
+from src.storage.atomic_writer import AtomicJSONWriter
+
 def _append_json_log(filepath: str, entry: Dict[str, Any]):
     """Safely append an entry to a local JSON list log."""
     _ensure_directories()
     
+    writer = AtomicJSONWriter(filepath)
     data = []
     if os.path.exists(filepath):
         try:
-            with open(filepath, "r") as f:
-                data = json.load(f)
-                if not isinstance(data, list):
-                    data = [data]
+            raw_data = writer.read()
+            if isinstance(raw_data, list):
+                data = raw_data
+            elif raw_data:
+                data = [raw_data]
         except Exception:
             data = []
 
     data.append(entry)
-
-    with open(filepath, "w") as f:
-        json.dump(data, f, indent=2)
+    writer.write(data)
 
 
 def log_trade(action: str, symbol: str, quantity: int, price: float, details: Optional[Dict] = None):
