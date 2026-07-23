@@ -147,6 +147,10 @@ export default function WhitelightCortexIntegratedPanel({
   const [tickerInput, setTickerInput] = useState("AAPL");
   const [tickerSuggestions, setTickerSuggestions] = useState([]);
   const [showTickerSuggestions, setShowTickerSuggestions] = useState(false);
+  const [searchAuditTicker, setSearchAuditTicker] = useState(null);
+  const [searchAuditLoading, setSearchAuditLoading] = useState(false);
+  const [searchAuditResult, setSearchAuditResult] = useState(null);
+  const [showSearchAuditPanel, setShowSearchAuditPanel] = useState(false);
   const [activeTicker, setActiveTicker] = useState("AAPL");
   const [timeframe, setTimeframe] = useState("WEEKLY"); // WEEKLY, MONTHLY, SEMI_ANNUAL, ANNUAL_LEAP
   const [activeProfile, setActiveProfile] = useState("safe_defaults");
@@ -753,6 +757,7 @@ export default function WhitelightCortexIntegratedPanel({
             }
           }
         }
+        return data;
       } else {
         setAuditEvents((prev) => [{
           time: new Date().toLocaleTimeString(),
@@ -762,6 +767,7 @@ export default function WhitelightCortexIntegratedPanel({
           notes: `Failed to complete dual-agent audit: ${data.error || "Unknown server error"}`,
           validator: "AI Risk Desk Agent"
         }, ...prev]);
+        return data;
       }
     } catch (e) {
       console.error("Watchlist ticker audit error:", e);
@@ -773,6 +779,7 @@ export default function WhitelightCortexIntegratedPanel({
         notes: `Network error or exception during audit: ${e.message}`,
         validator: "AI Risk Desk Agent"
       }, ...prev]);
+      return { success: false, error: e.message };
     }
   };
 
@@ -888,15 +895,24 @@ export default function WhitelightCortexIntegratedPanel({
     }
   };
 
-  const runTickerSearch = (rawTicker) => {
+  const runTickerSearch = async (rawTicker) => {
     const symbol = rawTicker.trim().toUpperCase();
     if (!symbol) return;
     setTickerInput(symbol);
     setActiveTicker(symbol);
     setTickerSuggestions([]);
     setShowTickerSuggestions(false);
-    // Full audit engine: run the dual-agent Proposer/Validator risk desk on the searched ticker
-    auditNewWatchlistTicker(symbol);
+
+    // Full audit engine: run the dual-agent Proposer/Validator risk desk on the
+    // searched ticker and surface the verdict inline, right under the search bar,
+    // instead of only logging it into the Audit Events console further down the page.
+    setSearchAuditTicker(symbol);
+    setSearchAuditResult(null);
+    setSearchAuditLoading(true);
+    setShowSearchAuditPanel(true);
+    const data = await auditNewWatchlistTicker(symbol);
+    setSearchAuditLoading(false);
+    setSearchAuditResult(data || { success: false, error: "No response from audit engine" });
   };
 
   const handleSelectTickerSuggestion = (symbol) => {
@@ -1359,6 +1375,59 @@ export default function WhitelightCortexIntegratedPanel({
           >
             Go
           </button>
+
+          {/* Inline Full Audit Engine Results Dropdown - surfaces the Proposer/Validator
+              verdict right under the search bar instead of only logging it far below */}
+          {showSearchAuditPanel && (
+            <div className="absolute top-full right-0 mt-2 w-96 max-h-96 overflow-y-auto rounded-xl border border-amber-500/40 bg-slate-950 shadow-2xl z-40 font-mono">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-800 bg-slate-900/80">
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                  ⚡ Audit Engine: {searchAuditTicker}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowSearchAuditPanel(false)}
+                  className="text-slate-500 hover:text-white text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {searchAuditLoading ? (
+                <div className="px-4 py-4 text-xs text-slate-400 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  Querying candles & option chain Greeks. Running Proposer &amp; Validator risk desks...
+                </div>
+              ) : searchAuditResult?.success ? (
+                <div className="p-4 space-y-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 uppercase tracking-wider">Verdict</span>
+                    <span className={`font-black px-2 py-0.5 rounded ${searchAuditResult.dual_agent_result?.execution_ready ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}`}>
+                      {searchAuditResult.dual_agent_result?.execution_ready ? "EXECUTE / AUTHORIZED" : "REJECT / HOLD"}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-slate-400 uppercase tracking-wider mb-1">Proposer Reasoning</div>
+                    <div className="text-slate-300 leading-relaxed bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                      {searchAuditResult.dual_agent_result?.proposal?.reasoning
+                        || searchAuditResult.dual_agent_result?.validation?.reasoning
+                        || "Technical metrics analysis."}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-400 uppercase tracking-wider mb-1">Validator Risk Notes</div>
+                    <div className="text-slate-300 leading-relaxed bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                      {searchAuditResult.dual_agent_result?.validation?.validation_notes || "Audited against 5 Wall St Rules."}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-4 py-4 text-xs text-rose-400">
+                  Audit failed: {searchAuditResult?.error || "Unknown server error"}
+                </div>
+              )}
+            </div>
+          )}
         </form>
 
         {/* Connection Status & Profile Selector */}
