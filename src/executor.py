@@ -14,7 +14,7 @@ from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
 from src.storage.atomic_writer import AtomicJSONWriter
 from src.alpaca_client.retry_decorator import alpaca_retryable
 from src.alpaca_client.rate_limit_handler import wait_for_order_fill
-from src.execution.limit_order_wrapper import execute_signal_with_slippage_control
+from src.execution.limit_order_wrapper import execute_signal_with_slippage_control, SUBMISSION_LOCK
 from src.risk.circuit_breaker import CircuitBreaker, RiskParams
 from src.risk.position_sizer import get_vix_adjusted_quantity
 from src.state.execution_journal import ExecutionJournal, ExecutionState
@@ -105,150 +105,171 @@ def execute_signal(cycle_id: str = None):
     try:
         trading_client = TradingClient(config.API_KEY, config.SECRET_KEY, paper=True)
         
-        # 1. Query existing position & open orders
-        position = None
+        # Acquire lock to ensure atomic risk checking and order submission
+        SUBMISSION_LOCK.acquire()
+        lock_released = False
         try:
-            position = _get_open_position_with_retry(trading_client, ticker)
-        except Exception:
-            pass
-
-        open_orders = []
-        try:
-            orders_req = GetOrdersRequest(
-                status=QueryOrderStatus.OPEN,
-                symbols=[ticker]
-            )
-            open_orders = _get_orders_with_retry(trading_client, orders_req)
-        except Exception as e:
-            log_to_journal(f"Failed to query open orders for {ticker}: {e}", "WARNING")
-            
-        # Cancel any open orders for this ticker to avoid wash sales or conflict rejections
-        if open_orders:
-            log_to_journal(f"Cancelling {len(open_orders)} existing open orders for {ticker} before executing new action...", "INFO")
-            for o in open_orders:
-                try:
-                    _cancel_order_with_retry(trading_client, o.id)
-                except Exception as ex:
-                    log_to_journal(f"Failed to cancel order {o.id}: {ex}", "WARNING")
-            import time
-            time.sleep(1.5)
-
-        # Query account and open positions for risk gates
-        account = _get_account_with_retry(trading_client)
-        portfolio_value = float(account.portfolio_value)
-        
-        state_file = os.path.join(config.DATA_DIR, "state.json")
-        baseline = portfolio_value
-        state_data = {}
-        if os.path.exists(state_file):
+            # 1. Query existing position & open orders
+            position = None
             try:
-                state_data = AtomicJSONWriter(state_file).read()
-                if isinstance(state_data, dict):
-                    baseline = float(state_data.get("peak_equity", portfolio_value))
+                position = _get_open_position_with_retry(trading_client, ticker)
             except Exception:
                 pass
 
-        # Dynamic HWM peak baseline update
-        if portfolio_value > baseline:
-            log_to_journal(f"New Peak Equity HWM: ${portfolio_value:.2f} (previous baseline: ${baseline:.2f}). Updating state.json.", "INFO")
+            open_orders = []
+            try:
+                orders_req = GetOrdersRequest(
+                    status=QueryOrderStatus.OPEN,
+                    symbols=[ticker]
+                )
+                open_orders = _get_orders_with_retry(trading_client, orders_req)
+            except Exception as e:
+                log_to_journal(f"Failed to query open orders for {ticker}: {e}", "WARNING")
+                
+            # Cancel any open orders for this ticker to avoid wash sales or conflict rejections
+            if open_orders:
+                log_to_journal(f"Cancelling {len(open_orders)} existing open orders for {ticker} before executing new action...", "INFO")
+                for o in open_orders:
+                    try:
+                        _cancel_order_with_retry(trading_client, o.id)
+                    except Exception as ex:
+                        log_to_journal(f"Failed to cancel order {o.id}: {ex}", "WARNING")
+                import time
+                time.sleep(1.5)
+
+            # Query account and open positions for risk gates
+            account = _get_account_with_retry(trading_client)
+            portfolio_value = float(account.portfolio_value)
+            
+            state_file = os.path.join(config.DATA_DIR, "state.json")
             baseline = portfolio_value
-            if not isinstance(state_data, dict):
-                state_data = {}
-            state_data["peak_equity"] = baseline
-            try:
-                AtomicJSONWriter(state_file).write(state_data)
-            except Exception as se:
-                log_to_journal(f"Failed to save peak equity state: {se}", "WARNING")
+            state_data = {}
+            if os.path.exists(state_file):
+                try:
+                    state_data = AtomicJSONWriter(state_file).read()
+                    if isinstance(state_data, dict):
+                        baseline = float(state_data.get("peak_equity", portfolio_value))
+                except Exception:
+                    pass
 
-        cb = CircuitBreaker(baseline_account_value=baseline)
-        
-        open_tickers = []
-        try:
-            positions = trading_client.get_all_positions()
-            open_tickers = [p.symbol for p in positions]
-        except Exception:
-            pass
+            # Dynamic HWM peak baseline update
+            if portfolio_value > baseline:
+                log_to_journal(f"New Peak Equity HWM: ${portfolio_value:.2f} (previous baseline: ${baseline:.2f}). Updating state.json.", "INFO")
+                baseline = portfolio_value
+                if not isinstance(state_data, dict):
+                    state_data = {}
+                state_data["peak_equity"] = baseline
+                try:
+                    AtomicJSONWriter(state_file).write(state_data)
+                except Exception as se:
+                    log_to_journal(f"Failed to save peak equity state: {se}", "WARNING")
 
-        # 2. Risk Management & Execution Logic
-        if action == "BUY":
-            if position is not None:
-                log_to_journal(f"BUY signal received for {ticker}, but position already exists (Qty: {position.qty}). Skipping purchase.", "WARNING")
-                return
-
-            # Risk metric: max position size 5% of portfolio equity
-            max_allocation = portfolio_value * 0.05
-            qty = int(max_allocation // close_price)
-            if qty <= 0:
-                qty = 1
-                
-            # Circuit Breaker validation
-            allowed, cb_reason = cb.can_execute(
-                ticker=ticker,
-                qty=qty,
-                price=close_price,
-                account_value=portfolio_value,
-                open_tickers=open_tickers
-            )
-            if not allowed:
-                log_to_journal(f"Risk Circuit Breaker Refused Execution: {cb_reason}", "ERROR")
-                post_alert(f"⚠️ [whitelight] BUY Order Refused by Risk Framework for {ticker}: {cb_reason}")
-                return
-
-            # VIX Volatility Sizing Adjustment
-            adjusted_qty = get_vix_adjusted_quantity(qty)
-            log_to_journal(f"Original Qty: {qty} | Volatility Adjusted Qty: {adjusted_qty}", "INFO")
+            cb = CircuitBreaker(baseline_account_value=baseline)
             
-            # Send Slack Signal Alert
-            post_alert(f"🟢 [whitelight] BUY Signal for {ticker} (Close: ${close_price}, Qty: {adjusted_qty})")
-
+            open_tickers = []
             try:
-                success = execute_signal_with_slippage_control(trading_client, ticker, close_price, adjusted_qty, "BUY")
-                if success:
-                    post_alert(f"🎯 [whitelight] BUY Order FILLED for {ticker}: Qty={adjusted_qty}, Price=${close_price:.2f}")
-                    if cycle_id:
-                        journal.log_execution(ExecutionState(
-                            cycle_id=cycle_id,
-                            timestamp=datetime.now(timezone.utc),
-                            ticker=ticker,
-                            action="BUY",
-                            qty=adjusted_qty,
-                            order_id=f"order_{uuid.uuid4().hex[:8]}",
-                            status="filled",
-                            fill_price=close_price
-                        ))
-            except Exception as fe:
-                log_to_journal(f"BUY Order execution failed: {fe}", "ERROR")
-                post_alert(f"❌ [whitelight] BUY Execution Failed for {ticker}: {fe}")
+                positions = trading_client.get_all_positions()
+                open_tickers = [p.symbol for p in positions]
+            except Exception:
+                pass
 
-        elif action == "SELL":
-            if position is None:
-                log_to_journal(f"SELL signal received for {ticker}, but no open position exists. Skipping liquidation.", "WARNING")
-                return
+            # 2. Risk Management & Execution Logic
+            if action == "BUY":
+                if position is not None:
+                    log_to_journal(f"BUY signal received for {ticker}, but position already exists (Qty: {position.qty}). Skipping purchase.", "WARNING")
+                    SUBMISSION_LOCK.release()
+                    lock_released = True
+                    return
+
+                # Risk metric: max position size 5% of portfolio equity
+                max_allocation = portfolio_value * 0.05
+                qty = int(max_allocation // close_price)
+                if qty <= 0:
+                    qty = 1
+                    
+                # Circuit Breaker validation
+                allowed, cb_reason = cb.can_execute(
+                    ticker=ticker,
+                    qty=qty,
+                    price=close_price,
+                    account_value=portfolio_value,
+                    open_tickers=open_tickers
+                )
+                if not allowed:
+                    log_to_journal(f"Risk Circuit Breaker Refused Execution: {cb_reason}", "ERROR")
+                    post_alert(f"⚠️ [whitelight] BUY Order Refused by Risk Framework for {ticker}: {cb_reason}")
+                    SUBMISSION_LOCK.release()
+                    lock_released = True
+                    return
+
+                # VIX Volatility Sizing Adjustment
+                adjusted_qty = get_vix_adjusted_quantity(qty)
+                log_to_journal(f"Original Qty: {qty} | Volatility Adjusted Qty: {adjusted_qty}", "INFO")
                 
-            qty_to_sell = int(position.qty)
-            
-            # Send Slack Signal Alert
-            post_alert(f"🔴 [whitelight] SELL Signal for {ticker} (Close: ${close_price}, Qty: {qty_to_sell})")
+                # Send Slack Signal Alert
+                post_alert(f"🟢 [whitelight] BUY Signal for {ticker} (Close: ${close_price}, Qty: {adjusted_qty})")
 
-            try:
-                success = execute_signal_with_slippage_control(trading_client, ticker, close_price, qty_to_sell, "SELL")
-                if success:
-                    post_alert(f"🎯 [whitelight] SELL Order FILLED for {ticker}: Qty={qty_to_sell}, Price=${close_price:.2f}")
-                    if cycle_id:
-                        journal.log_execution(ExecutionState(
-                            cycle_id=cycle_id,
-                            timestamp=datetime.now(timezone.utc),
-                            ticker=ticker,
-                            action="SELL",
-                            qty=qty_to_sell,
-                            order_id=f"order_{uuid.uuid4().hex[:8]}",
-                            status="filled",
-                            fill_price=close_price
-                        ))
-            except Exception as fe:
-                log_to_journal(f"SELL Order execution failed: {fe}", "ERROR")
-                post_alert(f"❌ [whitelight] SELL Execution Failed for {ticker}: {fe}")
+                try:
+                    success = execute_signal_with_slippage_control(
+                        trading_client, ticker, close_price, adjusted_qty, "BUY", submission_lock=SUBMISSION_LOCK
+                    )
+                    lock_released = True
+                    if success:
+                        post_alert(f"🎯 [whitelight] BUY Order FILLED for {ticker}: Qty={adjusted_qty}, Price=${close_price:.2f}")
+                        if cycle_id:
+                            journal.log_execution(ExecutionState(
+                                cycle_id=cycle_id,
+                                timestamp=datetime.now(timezone.utc),
+                                ticker=ticker,
+                                action="BUY",
+                                qty=adjusted_qty,
+                                order_id=f"order_{uuid.uuid4().hex[:8]}",
+                                status="filled",
+                                fill_price=close_price
+                            ))
+                except Exception as fe:
+                    log_to_journal(f"BUY Order execution failed: {fe}", "ERROR")
+                    post_alert(f"❌ [whitelight] BUY Execution Failed for {ticker}: {fe}")
 
+            elif action == "SELL":
+                if position is None:
+                    log_to_journal(f"SELL signal received for {ticker}, but no open position exists. Skipping liquidation.", "WARNING")
+                    SUBMISSION_LOCK.release()
+                    lock_released = True
+                    return
+                    
+                qty_to_sell = int(position.qty)
+                
+                # Send Slack Signal Alert
+                post_alert(f"🔴 [whitelight] SELL Signal for {ticker} (Close: ${close_price}, Qty: {qty_to_sell})")
+
+                try:
+                    success = execute_signal_with_slippage_control(
+                        trading_client, ticker, close_price, qty_to_sell, "SELL", submission_lock=SUBMISSION_LOCK
+                    )
+                    lock_released = True
+                    if success:
+                        post_alert(f"🎯 [whitelight] SELL Order FILLED for {ticker}: Qty={qty_to_sell}, Price=${close_price:.2f}")
+                        if cycle_id:
+                            journal.log_execution(ExecutionState(
+                                cycle_id=cycle_id,
+                                timestamp=datetime.now(timezone.utc),
+                                ticker=ticker,
+                                action="SELL",
+                                qty=qty_to_sell,
+                                order_id=f"order_{uuid.uuid4().hex[:8]}",
+                                status="filled",
+                                fill_price=close_price
+                            ))
+                except Exception as fe:
+                    log_to_journal(f"SELL Order execution failed: {fe}", "ERROR")
+                    post_alert(f"❌ [whitelight] SELL Execution Failed for {ticker}: {fe}")
+        finally:
+            if not lock_released:
+                try:
+                    SUBMISSION_LOCK.release()
+                except RuntimeError:
+                    pass
     except Exception as e:
         log_to_journal(f"Execution failed: {e}", "ERROR")
 
