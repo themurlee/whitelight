@@ -102,6 +102,7 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
   useEffect(() => {
     fetchIntradayData(activeTicker, timeframe);
     fetchAccountSummary();
+    handleRunDualAgent();
 
     const interval = setInterval(() => {
       const now = new Date();
@@ -126,7 +127,7 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
     }, 30000); // check every 30 secs
 
     return () => clearInterval(interval);
-  }, [activeTicker, timeframe]);
+  }, [activeTicker, timeframe, selectedContract]);
 
   const handleTickerSearch = (e) => {
     e.preventDefault();
@@ -142,7 +143,7 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
     setCustomLimitPrice(contract.midpoint.toString());
   };
 
-  const handleExecuteOrder = async (contractSymbol, price = 2.50, qty = 1, side = "buy") => {
+  async function handleExecuteOrder(contractSymbol, price = 2.50, qty = 1, side = "buy") {
     try {
       const res = await fetch(`${API_BASE}/options/execute_order`, {
         method: "POST",
@@ -163,9 +164,9 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
     } catch (e) {
       console.error("Execute paper order error:", e);
     }
-  };
+  }
 
-  const handleRunDualAgent = async () => {
+  async function handleRunDualAgent() {
     setEvaluating(true);
     try {
       const res = await fetch(`${API_BASE}/options/evaluate_dual_agent`, {
@@ -195,7 +196,7 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
     } finally {
       setEvaluating(false);
     }
-  };
+  }
 
   const triggerTestAlert = (timeLabel) => {
     setExpirationAlert({
