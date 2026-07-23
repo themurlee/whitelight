@@ -3,7 +3,7 @@ import logging
 from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest, TakeProfitRequest, StopLossRequest
 from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass
 from src.execution.slippage_validator import SlippageConfig, get_current_bid_ask, validate_slippage
-from src.alpaca_client.rate_limit_handler import wait_for_order_fill
+from src.alpaca_client.rate_limit_handler import wait_for_order_fill_websocket as wait_for_order_fill
 from src.alpaca_client.retry_decorator import alpaca_retryable
 
 import threading
