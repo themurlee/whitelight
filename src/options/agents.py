@@ -6,7 +6,9 @@ from src.options.llm_adapters import LLMFactory
 logger = logging.getLogger(__name__)
 
 PROPOSER_SYSTEM_PROMPT = """You are a Senior Options Desk Proposer Agent.
-Your job is to analyze stock technicals, option Greeks, and DTE horizon (0-7D, 30-90D, 180D, 360D LEAP) to propose high-probability option trades (BUY_CALL, BUY_PUT, or NO_TRADE).
+Your job is to analyze stock technicals, option Greeks, DTE horizon (0-7D, 30-90D, 180D, 360D LEAP) to propose high-probability option trades (BUY_CALL, BUY_PUT, or NO_TRADE).
+
+If a user-selected options contract is provided, prioritize evaluating that specific contract (strike, expiration, midpoint, Greeks) and decide if it is a BUY, or if you recommend NO_TRADE.
 
 RULES:
 - For 0-7D Weeklys: Focus on intraday 5-min VWAP momentum & RSI-7.
@@ -36,6 +38,8 @@ Your job is to strictly enforce these 5 Professional Options Trader Rules:
 5. POSITION SIZING: Max allocation capped at 2% of total account equity.
 6. 0-7D STOP LOSS: Enforce mandatory 25% premium stop-loss on weekly scalps.
 
+Evaluate the specific contract if provided to verify these criteria.
+
 JSON OUTPUT FORMAT:
 {
   "approved": true | false,
@@ -50,16 +54,18 @@ class ProposerAgent:
     def __init__(self, provider: str = "gemini", model_name: str = "gemini-2.5-flash"):
         self.adapter = LLMFactory.get_adapter(provider=provider, model_name=model_name)
 
-    def propose(self, ticker: str, signals: Dict[str, Any], timeframe: str = "WEEKLY") -> Dict[str, Any]:
-        user_prompt = f"Ticker: {ticker}\nTimeframe Bucket: {timeframe}\nSignals & Data:\n{json.dumps(signals, indent=2)}"
+    def propose(self, ticker: str, signals: Dict[str, Any], timeframe: str = "WEEKLY", selected_contract: Dict[str, Any] = None) -> Dict[str, Any]:
+        contract_str = json.dumps(selected_contract, indent=2) if selected_contract else "None selected"
+        user_prompt = f"Ticker: {ticker}\nTimeframe Bucket: {timeframe}\nSelected Option Contract:\n{contract_str}\n\nSignals & Data:\n{json.dumps(signals, indent=2)}"
         return self.adapter.generate_json(PROPOSER_SYSTEM_PROMPT, user_prompt)
 
 class ValidatorAgent:
     def __init__(self, provider: str = "gemini", model_name: str = "gemini-2.5-flash"):
         self.adapter = LLMFactory.get_adapter(provider=provider, model_name=model_name)
 
-    def validate(self, ticker: str, signals: Dict[str, Any], proposal: Dict[str, Any]) -> Dict[str, Any]:
-        user_prompt = f"Ticker: {ticker}\nSignals & Data:\n{json.dumps(signals, indent=2)}\n\nProposal:\n{json.dumps(proposal, indent=2)}"
+    def validate(self, ticker: str, signals: Dict[str, Any], proposal: Dict[str, Any], selected_contract: Dict[str, Any] = None) -> Dict[str, Any]:
+        contract_str = json.dumps(selected_contract, indent=2) if selected_contract else "None selected"
+        user_prompt = f"Ticker: {ticker}\nSelected Option Contract:\n{contract_str}\n\nSignals & Data:\n{json.dumps(signals, indent=2)}\n\nProposal:\n{json.dumps(proposal, indent=2)}"
         return self.adapter.generate_json(VALIDATOR_SYSTEM_PROMPT, user_prompt)
 
 class DualAgentPipeline:
@@ -73,8 +79,8 @@ class DualAgentPipeline:
         self.proposer = ProposerAgent(provider=proposer_provider, model_name=proposer_model)
         self.validator = ValidatorAgent(provider=validator_provider, model_name=validator_model)
 
-    def run(self, ticker: str, signals: Dict[str, Any], timeframe: str = "WEEKLY") -> Dict[str, Any]:
-        proposal = self.proposer.propose(ticker, signals, timeframe)
+    def run(self, ticker: str, signals: Dict[str, Any], timeframe: str = "WEEKLY", selected_contract: Dict[str, Any] = None) -> Dict[str, Any]:
+        proposal = self.proposer.propose(ticker, signals, timeframe, selected_contract)
 
         if proposal.get("action") == "NO_TRADE":
             return {
@@ -90,7 +96,7 @@ class DualAgentPipeline:
                 "execution_ready": False
             }
 
-        validation = self.validator.validate(ticker, signals, proposal)
+        validation = self.validator.validate(ticker, signals, proposal, selected_contract)
         execution_ready = validation.get("approved", False) and validation.get("final_action") == "EXECUTE"
 
         return {

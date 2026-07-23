@@ -177,7 +177,8 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
           proposer_provider: proposerProvider,
           proposer_model: proposerModel,
           validator_provider: validatorProvider,
-          validator_model: validatorModel
+          validator_model: validatorModel,
+          selected_contract: selectedContract
         })
       });
       const data = await res.json();

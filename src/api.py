@@ -1222,7 +1222,13 @@ class APIServerHandler(BaseHTTPRequestHandler):
                     validator_model=validator_model
                 )
 
-                result = pipeline.run(ticker, signals, timeframe=post_data.get("timeframe", "WEEKLY"))
+                selected_contract = post_data.get("selected_contract")
+                result = pipeline.run(
+                    ticker, 
+                    signals, 
+                    timeframe=post_data.get("timeframe", "WEEKLY"),
+                    selected_contract=selected_contract
+                )
                 self._send_json({
                     "success": True,
                     "ticker": ticker,

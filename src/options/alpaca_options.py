@@ -116,11 +116,18 @@ def get_options_chain(ticker: str = "AAPL", current_price: float = 230.0, timefr
                         
                     opt_type = "CALL" if "CALL" in str(c.type) else "PUT"
                     
-                    # Compute Greeks
+                    # Compute Greeks based on actual DTE
+                    try:
+                        exp_dt = datetime.strptime(exp_date, "%Y-%m-%d")
+                        now_dt = datetime.now()
+                        actual_dte_days = max(1, (exp_dt - now_dt).days)
+                    except Exception:
+                        actual_dte_days = target_dte_days
+                        
                     greeks = calculate_black_scholes_greeks(
                         stock_price=current_price,
                         strike_price=strike,
-                        time_to_maturity_years=max(0.01, target_dte_days / 365.0),
+                        time_to_maturity_years=max(0.01, actual_dte_days / 365.0),
                         option_type=opt_type
                     )
                     
