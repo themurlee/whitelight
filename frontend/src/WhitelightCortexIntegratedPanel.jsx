@@ -145,6 +145,8 @@ export default function WhitelightCortexIntegratedPanel({
   systematicStatus
 }) {
   const [tickerInput, setTickerInput] = useState("AAPL");
+  const [tickerSuggestions, setTickerSuggestions] = useState([]);
+  const [showTickerSuggestions, setShowTickerSuggestions] = useState(false);
   const [activeTicker, setActiveTicker] = useState("AAPL");
   const [timeframe, setTimeframe] = useState("WEEKLY"); // WEEKLY, MONTHLY, SEMI_ANNUAL, ANNUAL_LEAP
   const [activeProfile, setActiveProfile] = useState("safe_defaults");
@@ -867,11 +869,43 @@ export default function WhitelightCortexIntegratedPanel({
     }
   };
 
+  const handleTickerInputChange = async (val) => {
+    const upper = val.toUpperCase();
+    setTickerInput(upper);
+    if (upper.trim().length > 0) {
+      try {
+        const res = await fetch(`${API_BASE}/tickers/search?q=${encodeURIComponent(upper.trim())}`);
+        const data = await res.json();
+        setTickerSuggestions(Array.isArray(data) ? data : []);
+        setShowTickerSuggestions(true);
+      } catch (err) {
+        console.error("Ticker search error:", err);
+        setTickerSuggestions([]);
+      }
+    } else {
+      setTickerSuggestions([]);
+      setShowTickerSuggestions(false);
+    }
+  };
+
+  const runTickerSearch = (rawTicker) => {
+    const symbol = rawTicker.trim().toUpperCase();
+    if (!symbol) return;
+    setTickerInput(symbol);
+    setActiveTicker(symbol);
+    setTickerSuggestions([]);
+    setShowTickerSuggestions(false);
+    // Full audit engine: run the dual-agent Proposer/Validator risk desk on the searched ticker
+    auditNewWatchlistTicker(symbol);
+  };
+
+  const handleSelectTickerSuggestion = (symbol) => {
+    runTickerSearch(symbol);
+  };
+
   const handleTickerSearch = (e) => {
     e.preventDefault();
-    if (tickerInput.trim()) {
-      setActiveTicker(tickerInput.trim().toUpperCase());
-    }
+    runTickerSearch(tickerInput);
   };
 
   const handleOpenContractModal = (contract) => {
@@ -1291,15 +1325,34 @@ export default function WhitelightCortexIntegratedPanel({
         </div>
 
         {/* Universal Ticker Search Form */}
-        <form onSubmit={handleTickerSearch} className="flex items-center gap-2">
+        <form onSubmit={handleTickerSearch} className="flex items-center gap-2 relative">
           <label className="text-xs text-slate-400 uppercase tracking-wider">Search Ticker:</label>
-          <input
-            type="text"
-            value={tickerInput}
-            onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
-            placeholder="e.g. AAPL, NVDA..."
-            className="px-3 py-1.5 text-xs font-semibold uppercase rounded-lg bg-slate-950 border border-slate-700 text-amber-400 focus:outline-none focus:border-amber-400 w-32"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={tickerInput}
+              onChange={(e) => handleTickerInputChange(e.target.value)}
+              onFocus={() => { if (tickerSuggestions.length > 0) setShowTickerSuggestions(true); }}
+              onBlur={() => setTimeout(() => setShowTickerSuggestions(false), 150)}
+              placeholder="e.g. AAPL, NVDA..."
+              autoComplete="off"
+              className="px-3 py-1.5 text-xs font-semibold uppercase rounded-lg bg-slate-950 border border-slate-700 text-amber-400 focus:outline-none focus:border-amber-400 w-32"
+            />
+            {showTickerSuggestions && tickerSuggestions.length > 0 && (
+              <div className="absolute top-full left-0 mt-1 w-56 max-h-64 overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 shadow-2xl z-50">
+                {tickerSuggestions.map((item, idx) => (
+                  <div
+                    key={`${item.symbol}-${idx}`}
+                    onMouseDown={() => handleSelectTickerSuggestion(item.symbol)}
+                    className="px-3 py-1.5 text-xs cursor-pointer hover:bg-slate-800 border-b border-slate-800 last:border-b-0"
+                  >
+                    <span className="font-bold text-amber-400">{item.symbol}</span>
+                    {item.name && <span className="text-slate-400 ml-2">{item.name}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="submit"
             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors"
