@@ -169,30 +169,38 @@ def run_phase2_pipeline(
                 
             # Real execution
             try:
-                filled_legs = []
-                for i, leg in enumerate(contract_result["combo"]):
-                    leg_symbol = leg["contract_id"]
-                    leg_mid = leg["mid"]
-                    leg_qty = 1
-                    leg_side = "BUY" if leg["side"] == "long" else "SELL"
-                    
-                    log(f"Submitting leg order: {leg_side} {leg_qty} {leg_symbol} @ limit {leg_mid:.2f}")
-                    
-                    success = execute_signal_with_slippage_control(
-                        trading_client=adapter.trading_client,
-                        ticker=leg_symbol,
-                        signal_close=leg_mid,
-                        qty=leg_qty,
-                        side=leg_side
-                    )
-                    
-                    if success:
-                        filled_legs.append(leg)
-                    else:
-                        log(f"Leg execution failed for {leg_symbol}. Aborting combo.", "ERROR")
-                        break
-                        
-                if len(filled_legs) == len(contract_result["combo"]):
+                from src.options.combo_orders import ComboLeg, ComboOrderRequest, submit_combo_order, wait_for_combo_fill
+                from alpaca.trading.enums import OrderSide, TimeInForce
+                
+                # 1. Build ComboLeg list
+                combo_legs = []
+                for leg in contract_result["combo"]:
+                    side = OrderSide.BUY if leg["side"] == "long" else OrderSide.SELL
+                    combo_legs.append(ComboLeg(
+                        symbol=leg["contract_id"],
+                        side=side,
+                        ratio=1
+                    ))
+                
+                # 2. Build ComboOrderRequest
+                combo_req = ComboOrderRequest(
+                    symbol_base=symbol,
+                    legs=combo_legs,
+                    qty=1,
+                    order_type="limit",
+                    limit_price=abs(contract_result["total_cost"]),
+                    time_in_force=TimeInForce.DAY
+                )
+                
+                # 3. Submit native MLEG combo order
+                log(f"Submitting native combo order for {symbol} via Alpaca...")
+                combo_res = submit_combo_order(adapter.trading_client, combo_req)
+                
+                # 4. Wait for fills
+                log(f"Waiting for combo order {combo_res['order_id']} to fill...")
+                fill_res = wait_for_combo_fill(adapter.trading_client, combo_res, timeout_sec=300.0)
+                
+                if fill_res.get("final_status") == "all_filled":
                     # Dual-write execution
                     # Capital at risk is approximated as 10% of stock notional or debit width
                     capital_at_risk = cost * 100.0 if cost > 0 else 500.0
@@ -238,12 +246,13 @@ def run_phase2_pipeline(
                     executed_trades.append({
                         "strategy_id": strategy_id,
                         "symbol": symbol,
-                        "status": "EXECUTED",
+                        "status": "FILLED",
                         "greeks": greeks
                     })
+                    log(f"Execution complete and recorded to ledger.")
                     post_alert(f"✅ [whitelight-phase2] Executed {strategy_id} on {symbol} (cost={contract_result['total_cost']:.2f})")
                 else:
-                    log(f"Partial fills occurred. Out of {len(contract_result['combo'])} legs, only {len(filled_legs)} filled.", "ERROR")
+                    log(f"Combo order execution failed. Final status: {fill_res.get('final_status')}", "ERROR")
                     executed_trades.append({
                         "strategy_id": strategy_id,
                         "symbol": symbol,
