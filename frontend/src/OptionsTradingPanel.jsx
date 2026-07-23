@@ -20,6 +20,7 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
   const [tickerInput, setTickerInput] = useState("AAPL");
   const [activeTicker, setActiveTicker] = useState("AAPL");
   const [timeframe, setTimeframe] = useState("WEEKLY"); // WEEKLY, MONTHLY, SEMI_ANNUAL, ANNUAL_LEAP
+  const [tickerSuggestions, setTickerSuggestions] = useState([]);
   
   const [signals, setSignals] = useState(null);
   const [chain, setChain] = useState([]);
@@ -129,10 +130,32 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
     return () => clearInterval(interval);
   }, [activeTicker, timeframe, selectedContract]);
 
+  const handleTickerInputChange = async (val) => {
+    setTickerInput(val.toUpperCase());
+    if (val.trim().length > 0) {
+      try {
+        const res = await fetch(`${API_BASE}/tickers/search?q=${val.trim()}`);
+        const data = await res.json();
+        setTickerSuggestions(data);
+      } catch (err) {
+        console.error("Ticker search error:", err);
+      }
+    } else {
+      setTickerSuggestions([]);
+    }
+  };
+
+  const handleSelectTickerSuggestion = (symbol) => {
+    setTickerInput(symbol);
+    setActiveTicker(symbol);
+    setTickerSuggestions([]);
+  };
+
   const handleTickerSearch = (e) => {
     e.preventDefault();
     if (tickerInput.trim()) {
       setActiveTicker(tickerInput.trim().toUpperCase());
+      setTickerSuggestions([]);
     }
   };
 
@@ -252,15 +275,30 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
         </div>
 
         {/* Custom Universal Ticker Input Form */}
-        <form onSubmit={handleTickerSearch} className="flex items-center gap-2">
+        <form onSubmit={handleTickerSearch} className="flex items-center gap-2 relative z-50">
           <label className="text-xs text-slate-400 uppercase tracking-wider font-mono">Ticker:</label>
-          <input
-            type="text"
-            value={tickerInput}
-            onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
-            placeholder="e.g. AAPL, NVDA, TSLA..."
-            className="px-3 py-1.5 text-xs font-mono font-semibold uppercase rounded-lg bg-slate-950 border border-slate-700 text-amber-400 focus:outline-none focus:border-amber-400 w-32"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={tickerInput}
+              onChange={(e) => handleTickerInputChange(e.target.value)}
+              placeholder="e.g. AAPL, NVDA, TSLA..."
+              className="px-3 py-1.5 text-xs font-mono font-semibold uppercase rounded-lg bg-slate-950 border border-slate-700 text-amber-400 focus:outline-none focus:border-amber-400 w-32"
+            />
+            {tickerSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950 shadow-2xl font-mono text-[10px] z-50 w-56">
+                {tickerSuggestions.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="px-3 py-2 cursor-pointer hover:bg-slate-800 transition-colors text-slate-200 border-b border-slate-900/60"
+                    onClick={() => handleSelectTickerSuggestion(item.symbol)}
+                  >
+                    <span className="font-extrabold text-amber-400">{item.symbol}</span> - {item.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="submit"
             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors"
