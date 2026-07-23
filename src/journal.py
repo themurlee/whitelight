@@ -45,6 +45,18 @@ def _append_json_log(filepath: str, entry: Dict[str, Any]):
             data = []
 
         data.append(entry)
+        
+        # Prune: keep only last 1,000 entries
+        if len(data) > 1000:
+            archived = data[:-1000]
+            archive_path = filepath.replace(".json", f"_archive_{datetime.now().strftime('%Y%m%d')}.json")
+            try:
+                with open(archive_path, "w") as f:
+                    json.dump(archived, f, indent=2)
+            except Exception:
+                pass
+            data = data[-1000:]
+            
         writer.write_locked(data)
 
 
