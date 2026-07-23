@@ -1,15 +1,15 @@
 """
 Alpaca Combo Order Support for Multi-Leg Strategies (PMCC, Iron Condor, etc.)
 
-Submits multiple option legs atomically to prevent execution risk.
+Submits multiple option legs atomically using native Alpaca exchange-level combo orders.
 """
 
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import OrderRequest
-from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest, OptionLegRequest
+from alpaca.trading.enums import OrderSide, OrderClass, TimeInForce, PositionIntent
 from src.alpaca_client.retry_decorator import alpaca_retryable
 
 logger = logging.getLogger("ComboOrders")
@@ -17,52 +17,47 @@ logger = logging.getLogger("ComboOrders")
 @dataclass
 class ComboLeg:
     """Single leg of a combo order."""
-    symbol: str              # e.g., "AAPL260814C00185000"
-    side: OrderSide          # OrderSide.BUY or OrderSide.SELL
-    qty: int                 # Shares / contracts
-    order_type: str = "market"  # "market" or "limit"
-    limit_price: float = None   # Only for limit orders
+    symbol: str                              # e.g., "AAPL260814C00185000"
+    side: OrderSide                          # OrderSide.BUY or OrderSide.SELL
+    ratio: int = 1                           # Quantity ratio for the leg
+    position_intent: Optional[PositionIntent] = None # PositionIntent.BUY_TO_OPEN etc.
 
 class ComboOrderRequest:
-    """Wrapper for Alpaca combo order (multiple legs submitted atomically)."""
+    """Wrapper for native Alpaca multi-leg combo order (submitted atomically)."""
     
-    def __init__(self, symbol_base: str, legs: List[ComboLeg], 
-                 time_in_force: TimeInForce = TimeInForce.DAY):
+    def __init__(
+        self,
+        symbol_base: str,
+        legs: List[ComboLeg],
+        qty: int = 1,
+        order_type: str = "market",
+        limit_price: Optional[float] = None,
+        time_in_force: TimeInForce = TimeInForce.DAY
+    ):
         """
         Args:
             symbol_base: Base symbol for the combo (e.g., "AAPL")
             legs: List of ComboLeg objects
+            qty: Overall strategy quantity (multiplier for leg ratios)
+            order_type: "market" or "limit"
+            limit_price: Net limit price for the combo (required if order_type is limit)
             time_in_force: Order time in force (DAY, GTC, etc.)
         """
         self.symbol_base = symbol_base
         self.legs = legs
+        self.qty = qty
+        self.order_type = order_type
+        self.limit_price = limit_price
         self.time_in_force = time_in_force
         
         # Validate legs
         if not legs or len(legs) < 2:
             raise ValueError("Combo orders require at least 2 legs")
-    
-    def to_alpaca_payload(self) -> dict:
-        """Convert to Alpaca API payload format."""
-        payload = {
-            "orders": []
-        }
-        
-        for leg in self.legs:
-            leg_order = {
-                "symbol": leg.symbol,
-                "qty": leg.qty,
-                "side": leg.side.value,  # "buy" or "sell"
-                "type": leg.order_type,
-                "time_in_force": self.time_in_force.value,
-            }
+        if len(legs) > 4:
+            raise ValueError("Alpaca multi-leg orders support a maximum of 4 legs")
             
-            if leg.order_type == "limit" and leg.limit_price:
-                leg_order["limit_price"] = leg.limit_price
-            
-            payload["orders"].append(leg_order)
-        
-        return payload
+        if order_type == "limit" and limit_price is None:
+            raise ValueError("Limit price must be specified for limit combo orders")
 
 @alpaca_retryable(max_retries=3, base_delay=1.0)
 def submit_combo_order(
@@ -70,9 +65,9 @@ def submit_combo_order(
     combo_request: ComboOrderRequest
 ) -> dict:
     """
-    Submit a multi-leg combo order to Alpaca.
+    Submit a native multi-leg combo order to Alpaca.
     
-    All legs execute atomically: either all fill or all are cancelled.
+    All legs execute atomically: either all fill or none fill at the exchange.
     This eliminates execution risk (e.g., naked short exposure between fills).
     
     Args:
@@ -80,76 +75,67 @@ def submit_combo_order(
         combo_request: ComboOrderRequest with all legs
     
     Returns:
-        Dict with order confirmations for each leg
+        Dict with overall order status and leg metadata
     
     Raises:
-        Exception: If any leg fails validation or submission
+        Exception: If submission fails
     """
-    payload = combo_request.to_alpaca_payload()
-    
-    logger.info(f"Submitting combo order for {combo_request.symbol_base} with {len(combo_request.legs)} legs")
-    logger.debug(f"Payload: {payload}")
+    # 1. Map to OptionLegRequest list
+    leg_requests = []
+    for leg in combo_request.legs:
+        # Default position intent based on side if not specified
+        intent = leg.position_intent
+        if intent is None:
+            intent = PositionIntent.BUY_TO_OPEN if leg.side == OrderSide.BUY else PositionIntent.SELL_TO_OPEN
+            
+        leg_requests.append(OptionLegRequest(
+            symbol=leg.symbol,
+            ratio_qty=leg.ratio,
+            side=leg.side,
+            position_intent=intent
+        ))
+        
+    # 2. Build unified MLEG order request
+    if combo_request.order_type == "limit":
+        order_data = LimitOrderRequest(
+            side=OrderSide.BUY,  # Unified combo side (usually defaults to BUY for structure purchase)
+            order_class=OrderClass.MLEG,
+            time_in_force=combo_request.time_in_force,
+            legs=leg_requests,
+            limit_price=combo_request.limit_price,
+            qty=combo_request.qty
+        )
+    else:
+        order_data = MarketOrderRequest(
+            side=OrderSide.BUY,
+            order_class=OrderClass.MLEG,
+            time_in_force=combo_request.time_in_force,
+            legs=leg_requests,
+            qty=combo_request.qty
+        )
+        
+    logger.info(f"Submitting native MLEG combo order for {combo_request.symbol_base} (qty: {combo_request.qty}) with {len(combo_request.legs)} legs")
     
     try:
+        order = trading_client.submit_order(order_data)
+        logger.info(f"Native MLEG order {order.id} submitted successfully")
+        
         results = {
             "symbol_base": combo_request.symbol_base,
-            "legs": [],
-            "status": "pending"
-        }
-        
-        for i, leg in enumerate(combo_request.legs):
-            try:
-                # Build leg order request payload
-                from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest
-                if leg.order_type == "limit":
-                    order_data = LimitOrderRequest(
-                        symbol=leg.symbol,
-                        qty=leg.qty,
-                        side=leg.side,
-                        limit_price=leg.limit_price,
-                        time_in_force=combo_request.time_in_force
-                    )
-                else:
-                    order_data = MarketOrderRequest(
-                        symbol=leg.symbol,
-                        qty=leg.qty,
-                        side=leg.side,
-                        time_in_force=combo_request.time_in_force
-                    )
-                
-                # Submit leg
-                order = trading_client.submit_order(order_data)
-                
-                results["legs"].append({
+            "order_id": order.id,
+            "status": order.status.value,
+            "legs": [
+                {
                     "symbol": leg.symbol,
                     "order_id": order.id,
-                    "status": "submitted",
-                    "qty": leg.qty
-                })
-                
-                logger.info(f"Leg {i+1}/{len(combo_request.legs)}: {leg.symbol} order {order.id} submitted")
-                
-            except Exception as leg_error:
-                # Partial fill fallback: cancel previous legs
-                logger.error(f"Leg {i+1} submission failed: {leg_error}. Cancelling previous legs.")
-                
-                for submitted_leg in results["legs"]:
-                    try:
-                        trading_client.cancel_order_by_id(submitted_leg["order_id"])
-                        logger.info(f"Cancelled leg {submitted_leg['symbol']} order {submitted_leg['order_id']}")
-                    except Exception as cancel_error:
-                        logger.error(f"Failed to cancel leg {submitted_leg['symbol']}: {cancel_error}")
-                
-                results["status"] = "failed"
-                results["error"] = str(leg_error)
-                raise RuntimeError(f"Combo order failed at leg {i+1}: {leg_error}")
-        
-        results["status"] = "submitted"
-        logger.info(f"Combo order {combo_request.symbol_base} fully submitted ({len(results['legs'])} legs)")
+                    "status": order.status.value,
+                    "qty": leg.ratio * combo_request.qty
+                } for leg in combo_request.legs
+            ]
+        }
         return results
-        
     except Exception as e:
-        logger.error(f"Combo order submission failed: {e}")
+        logger.error(f"Native MLEG order submission failed: {e}")
         raise
 
 def wait_for_combo_fill(
@@ -158,7 +144,7 @@ def wait_for_combo_fill(
     timeout_sec: float = 300.0
 ) -> dict:
     """
-    Poll combo order legs until all filled or timeout.
+    Poll native MLEG order until filled or timeout.
     
     Args:
         trading_client: Alpaca trading client
@@ -171,37 +157,38 @@ def wait_for_combo_fill(
     import time
     
     start_time = time.time()
-    all_filled = False
+    order_id = combo_orders["order_id"]
     
     while time.time() - start_time < timeout_sec:
-        statuses = []
+        try:
+            order = trading_client.get_order_by_id(order_id)
+            status = order.status.value.lower()
+            combo_orders["status"] = status
+            
+            # Map sub-leg statuses if returned by Alpaca
+            if hasattr(order, "legs") and order.legs:
+                for idx, leg_order in enumerate(order.legs):
+                    if idx < len(combo_orders["legs"]):
+                        combo_orders["legs"][idx]["latest_status"] = leg_order.status.value
+            else:
+                for leg in combo_orders["legs"]:
+                    leg["latest_status"] = status
+                    
+            if status == "filled":
+                combo_orders["final_status"] = "all_filled"
+                logger.info(f"Native MLEG order {order_id} fully filled")
+                break
+            elif status in ["cancelled", "canceled", "expired", "rejected"]:
+                combo_orders["final_status"] = "failed"
+                logger.error(f"Native MLEG order {order_id} failed: {status}")
+                break
+        except Exception as e:
+            logger.warning(f"Failed to get order status for {order_id}: {e}")
+            
+        time.sleep(2)
         
-        for leg in combo_orders["legs"]:
-            try:
-                order = trading_client.get_order_by_id(leg["order_id"])
-                statuses.append(order.status.value)
-                leg["latest_status"] = order.status.value
-            except Exception as e:
-                logger.warning(f"Failed to get status for {leg['symbol']}: {e}")
-                statuses.append("unknown")
-        
-        # Check if all filled
-        if all(s in ["filled", "FILLED"] for s in statuses):
-            all_filled = True
-            combo_orders["final_status"] = "all_filled"
-            logger.info(f"Combo order {combo_orders['symbol_base']} fully filled")
-            break
-        
-        # Check for any cancelled/expired
-        if any(s in ["cancelled", "CANCELED", "expired", "EXPIRED", "rejected", "REJECTED"] for s in statuses):
-            combo_orders["final_status"] = "partial_failure"
-            logger.error(f"Combo order {combo_orders['symbol_base']} has failed legs: {statuses}")
-            break
-        
-        time.sleep(2)  # Poll every 2 seconds
-    
-    if not all_filled and combo_orders.get("final_status") is None:
+    if combo_orders.get("final_status") is None:
         combo_orders["final_status"] = "timeout"
-        logger.error(f"Combo order {combo_orders['symbol_base']} timeout after {timeout_sec}s")
-    
+        logger.error(f"Native MLEG order {order_id} timed out after {timeout_sec}s")
+        
     return combo_orders
