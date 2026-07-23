@@ -52,3 +52,35 @@ def calculate_black_scholes_greeks(
         "vega": round(vega, 3),
         "iv_rank": round(iv_rank, 1)
     }
+
+def calculate_greeks(
+    symbol: str,
+    strike: float,
+    expiry: str,
+    option_type: str,
+    current_price: float,
+    iv_rank: float = 35.0
+) -> dict:
+    """
+    Wrapper for calculate_black_scholes_greeks that parses expiry to years.
+    """
+    try:
+        exp_date = datetime.strptime(expiry, "%Y-%m-%d")
+        now = datetime.now()
+        dte_days = max(1, (exp_date - now).days)
+        time_to_maturity = dte_days / 365.0
+    except Exception:
+        # Fallback to 30 DTE
+        time_to_maturity = 30.0 / 365.0
+        
+    # Estimate volatility from iv_rank or default to 0.25
+    vol = 0.15 + (iv_rank / 100.0) * 0.30
+    
+    return calculate_black_scholes_greeks(
+        stock_price=current_price,
+        strike_price=strike,
+        time_to_maturity_years=time_to_maturity,
+        volatility=vol,
+        option_type=option_type
+    )
+
