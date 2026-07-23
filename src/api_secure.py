@@ -295,6 +295,49 @@ async def execute_signal(token: str = Depends(verify_bearer_token)):
         )
 
 
+@app.get("/api/options/audit")
+async def get_options_audit(
+    ticker: Optional[str] = None,
+    underlying: Optional[str] = None,
+    expiry: Optional[str] = None,
+    expiration: Optional[str] = None,
+    token: str = Depends(verify_bearer_token)
+):
+    """Run programmatic options trade audit analysis."""
+    check_rate_limit(token, "/api/options/audit", RATE_LIMIT_READ)
+    tk = ticker or underlying or "AAPL"
+    exp = expiry or expiration or "WEEKLY"
+    try:
+        from src.options.audit_engine import audit_options_trade
+        result = audit_options_trade(tk, exp)
+        return JSONResponse(content=result)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@app.post("/api/options/audit")
+async def post_options_audit(
+    payload: Dict[str, Any],
+    token: str = Depends(verify_bearer_token)
+):
+    """Run programmatic options trade audit analysis via POST payload."""
+    check_rate_limit(token, "/api/options/audit", RATE_LIMIT_READ)
+    tk = payload.get("ticker") or payload.get("underlying") or "AAPL"
+    exp = payload.get("expiry") or payload.get("expiration") or "WEEKLY"
+    try:
+        from src.options.audit_engine import audit_options_trade
+        result = audit_options_trade(tk, exp)
+        return JSONResponse(content=result)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
 @app.get("/api/journal")
 async def get_journal(token: str = Depends(verify_bearer_token)):
     """Get all journal reflection files."""

@@ -460,6 +460,17 @@ class APIServerHandler(BaseHTTPRequestHandler):
             chain = get_options_chain(ticker, price, timeframe)
             self._send_json({"success": True, "ticker": ticker, "timeframe": timeframe, "current_price": price, "chain": chain})
 
+        elif path == "/api/options/audit":
+            query_params = parse_qs(parsed_url.query)
+            ticker = query_params.get("ticker", [query_params.get("underlying", ["AAPL"])[0]])[0].upper()
+            expiry = query_params.get("expiry", [query_params.get("expiration", ["WEEKLY"])[0]])[0]
+            try:
+                from src.options.audit_engine import audit_options_trade
+                result = audit_options_trade(ticker, expiry)
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+
         else:
             self.send_error(404, "API endpoint not found")
 
@@ -476,7 +487,18 @@ class APIServerHandler(BaseHTTPRequestHandler):
             self.send_error(400, "Invalid JSON body")
             return
 
-        if path == "/api/options/conditional_orders":
+        if path == "/api/options/audit":
+            ticker = post_data.get("ticker", post_data.get("underlying", "AAPL")).upper()
+            expiry = post_data.get("expiry", post_data.get("expiration", "WEEKLY"))
+            try:
+                from src.options.audit_engine import audit_options_trade
+                result = audit_options_trade(ticker, expiry)
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+            return
+
+        elif path == "/api/options/conditional_orders":
             cond_file = os.path.join(DATA_DIR, "conditional_orders.json")
             orders = _read_json_file(cond_file, [])
             new_order = {
