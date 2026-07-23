@@ -1,0 +1,19 @@
+{
+  "lockdown_active": false,
+  "drawdown_locked_at": null,
+  "equity_history": [
+    {
+      "timestamp": "2026-07-23T03:04:53.173408Z",
+      "equity": 10000.0
+    },
+    {
+      "timestamp": "2026-07-23T03:04:53.174165Z",
+      "equity": 10000.0
+    },
+    {
+      "timestamp": "2026-07-23T03:04:53.175710Z",
+      "equity": 10000.0
+    }
+  ],
+  "manual_pause": false
+}

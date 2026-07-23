@@ -55,6 +55,7 @@ def run_pipeline(tickers: list[str], dry_run: bool = False, skip_ingest: bool = 
     # Load peak equity baseline for CircuitBreaker
     state_file = os.path.join(config.DATA_DIR, "state.json")
     baseline = account_value
+    state_data = {}
     if os.path.exists(state_file):
         try:
             state_data = AtomicJSONWriter(state_file).read()
@@ -62,10 +63,24 @@ def run_pipeline(tickers: list[str], dry_run: bool = False, skip_ingest: bool = 
                 baseline = float(state_data.get("peak_equity", account_value))
         except Exception:
             pass
+
+    # Dynamic HWM peak baseline update
+    if account_value > baseline:
+        log(f"New Peak Equity HWM: ${account_value:.2f} (previous baseline: ${baseline:.2f}). Updating state.json.")
+        baseline = account_value
+        if not isinstance(state_data, dict):
+            state_data = {}
+        state_data["peak_equity"] = baseline
+        try:
+            AtomicJSONWriter(state_file).write(state_data)
+        except Exception as se:
+            log(f"Failed to save peak equity state: {se}", "WARNING")
             
     cb = CircuitBreaker(baseline_account_value=baseline)
 
-    for ticker in tickers:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def process_ticker(ticker: str) -> tuple[str, dict]:
         log(f"--- [{ticker}] BEGIN ---")
         ticker_result = {"ingest": None, "signal": None, "execution": None}
 
@@ -79,8 +94,7 @@ def run_pipeline(tickers: list[str], dry_run: bool = False, skip_ingest: bool = 
             if not success:
                 log(f"[{ticker}] Ingest failed. Aborting this ticker.", "ERROR")
                 ticker_result["ingest"] = "failed"
-                results[ticker] = ticker_result
-                continue
+                return ticker, ticker_result
             ticker_result["ingest"] = "ok"
             log(f"[{ticker}] Ingest complete.")
 
@@ -90,8 +104,7 @@ def run_pipeline(tickers: list[str], dry_run: bool = False, skip_ingest: bool = 
         if "error" in signal:
             log(f"[{ticker}] Signal generation failed: {signal['error']}", "ERROR")
             ticker_result["signal"] = "failed"
-            results[ticker] = ticker_result
-            continue
+            return ticker, ticker_result
 
         ticker_result["signal"] = signal["action"]
         log(f"[{ticker}] Signal: {signal['action']} | Close: {signal['close']} | RSI: {signal['rsi']} | MACD Hist: {signal['macd_histogram']}")
@@ -124,12 +137,30 @@ def run_pipeline(tickers: list[str], dry_run: bool = False, skip_ingest: bool = 
                 ticker_result["execution"] = f"blocked: {cb_reason}"
             else:
                 log(f"[{ticker}] Step 3/3: Executing signal via Alpaca paper trading...")
-                execute_signal(cycle_id)
-                ticker_result["execution"] = "submitted"
-                log(f"[{ticker}] Execution complete. Check trade_log.md for order details.")
+                try:
+                    # Write target signal log for executor
+                    signal_log_path = os.path.join(config.DATA_DIR, "signal_log.json")
+                    AtomicJSONWriter(signal_log_path).write(signal)
+                    execute_signal(cycle_id)
+                    ticker_result["execution"] = "submitted"
+                    log(f"[{ticker}] Execution complete. Check trade_log.md for order details.")
+                except Exception as ee:
+                    log(f"[{ticker}] Execution failed with exception: {ee}", "ERROR")
+                    ticker_result["execution"] = f"error: {ee}"
 
         log(f"--- [{ticker}] END ---")
-        results[ticker] = ticker_result
+        return ticker, ticker_result
+
+    with ThreadPoolExecutor(max_workers=min(len(tickers), 5)) as pool:
+        futures = {pool.submit(process_ticker, t): t for t in tickers}
+        for fut in as_completed(futures):
+            t = futures[fut]
+            try:
+                t_name, res = fut.result()
+                results[t_name] = res
+            except Exception as e:
+                log(f"Pipeline crashed for {t}: {e}", "ERROR")
+                results[t] = {"ingest": "error", "signal": "error", "execution": f"error: {e}"}
 
     # Step 4: Export P&L Metrics to Prometheus Format
     open_pnl = 0.0

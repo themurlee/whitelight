@@ -26,15 +26,17 @@ def _ensure_directories():
 
 from src.storage.atomic_writer import AtomicJSONWriter
 
+import fcntl
+
 def _append_json_log(filepath: str, entry: Dict[str, Any]):
-    """Safely append an entry to a local JSON list log."""
+    """Safely append an entry to a local JSON list log in a single transaction."""
     _ensure_directories()
     
     writer = AtomicJSONWriter(filepath)
-    data = []
-    if os.path.exists(filepath):
+    with writer.lock(fcntl.LOCK_EX):
+        data = []
         try:
-            raw_data = writer.read()
+            raw_data = writer.read_locked()
             if isinstance(raw_data, list):
                 data = raw_data
             elif raw_data:
@@ -42,8 +44,8 @@ def _append_json_log(filepath: str, entry: Dict[str, Any]):
         except Exception:
             data = []
 
-    data.append(entry)
-    writer.write(data)
+        data.append(entry)
+        writer.write_locked(data)
 
 
 def log_trade(action: str, symbol: str, quantity: int, price: float, details: Optional[Dict] = None):

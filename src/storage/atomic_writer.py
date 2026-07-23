@@ -12,7 +12,11 @@ logger = logging.getLogger("AtomicJSONWriter")
 class AtomicJSONWriter:
     def __init__(self, filepath: str, lock_timeout_sec: float = 5.0):
         self.filepath = filepath
-        self.lockfile = filepath + ".lock"
+        # Isolate lockfiles under a hidden .locks directory
+        dir_name = os.path.dirname(filepath) or "."
+        base_name = os.path.basename(filepath)
+        locks_dir = os.path.join(dir_name, ".locks")
+        self.lockfile = os.path.join(locks_dir, base_name + ".lock")
         self.lock_timeout = lock_timeout_sec
 
     def _acquire_lock(self, lock_type: int) -> int:

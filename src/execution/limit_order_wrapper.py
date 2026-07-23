@@ -65,12 +65,30 @@ def execute_signal_with_slippage_control(
             else:
                 logger.warning(f"Limit order {order.id} finished with status {filled_order.status}. Cancelling and falling back to market order.")
         except TimeoutError:
-            logger.warning(f"Limit order {order.id} did not fill in 5 minutes. Cancelling and falling back to market order.")
+            logger.warning(f"Limit order {order.id} did not fill in 5 minutes. Attempting to cancel...")
             try:
                 _cancel_order_with_retry(trading_client, order.id)
-                time.sleep(2)
             except Exception as ce:
                 logger.error(f"Failed to cancel unfilled limit order {order.id}: {ce}")
+                raise RuntimeError(f"FATAL: Limit order {order.id} cancel request failed: {ce}. Aborting fallback execution.")
+            
+            # Confirmed cancellation verification loop
+            cancelled = False
+            for _ in range(5):
+                try:
+                    updated_order = trading_client.get_order_by_id(order.id)
+                    if updated_order.status.value in ["canceled", "CANCELED"]:
+                        cancelled = True
+                        break
+                    elif updated_order.status.value in ["filled", "FILLED"]:
+                        logger.info(f"Limit order {order.id} filled while attempting cancellation. No fallback needed.")
+                        return True
+                except Exception as ex:
+                    logger.warning(f"Error checking cancellation status for order {order.id}: {ex}")
+                time.sleep(1.0)
+
+            if not cancelled:
+                raise RuntimeError(f"FATAL: Limit order {order.id} cancellation could not be verified. Aborting fallback market order submission.")
         
         # Fallback to Market order
         logger.info(f"Submitting fallback market order for {ticker}, Qty={qty}")

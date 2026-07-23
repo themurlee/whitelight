@@ -40,12 +40,27 @@ def _get_account_with_retry(client):
 def _submit_order_with_retry(client, order_data):
     return client.submit_order(order_data)
 
+import fcntl
+
 def log_to_journal(message: str, level: str = "INFO"):
     os.makedirs(config.JOURNAL_DIR, exist_ok=True)
     timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     log_line = f"[{timestamp}] [{level}] {message}\n"
-    with open(config.TRADE_LOG_PATH, "a") as f:
-        f.write(log_line)
+    
+    lockfile = config.TRADE_LOG_PATH + ".lock"
+    try:
+        fd = os.open(lockfile, os.O_CREAT | os.O_WRONLY, 0o666)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            with open(config.TRADE_LOG_PATH, "a") as f:
+                f.write(log_line)
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
+    except Exception:
+        with open(config.TRADE_LOG_PATH, "a") as f:
+            f.write(log_line)
+            
     print(f"[{level}] {message}")
 
 import uuid
@@ -124,6 +139,7 @@ def execute_signal(cycle_id: str = None):
         
         state_file = os.path.join(config.DATA_DIR, "state.json")
         baseline = portfolio_value
+        state_data = {}
         if os.path.exists(state_file):
             try:
                 state_data = AtomicJSONWriter(state_file).read()
@@ -131,6 +147,19 @@ def execute_signal(cycle_id: str = None):
                     baseline = float(state_data.get("peak_equity", portfolio_value))
             except Exception:
                 pass
+
+        # Dynamic HWM peak baseline update
+        if portfolio_value > baseline:
+            log_to_journal(f"New Peak Equity HWM: ${portfolio_value:.2f} (previous baseline: ${baseline:.2f}). Updating state.json.", "INFO")
+            baseline = portfolio_value
+            if not isinstance(state_data, dict):
+                state_data = {}
+            state_data["peak_equity"] = baseline
+            try:
+                AtomicJSONWriter(state_file).write(state_data)
+            except Exception as se:
+                log_to_journal(f"Failed to save peak equity state: {se}", "WARNING")
+
         cb = CircuitBreaker(baseline_account_value=baseline)
         
         open_tickers = []

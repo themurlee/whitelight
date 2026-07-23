@@ -11,12 +11,16 @@ class SlippageConfig:
     use_limit_orders: bool = True
     limit_order_offset_bps: int = 5  # 5 basis points
 
+_client = None
+
 @alpaca_retryable(max_retries=5, base_delay=1.0)
 def get_current_bid_ask(ticker: str) -> tuple[float, float]:
     """Fetch latest bid and ask price from Alpaca."""
-    client = StockHistoricalDataClient(config.API_KEY, config.SECRET_KEY)
+    global _client
+    if _client is None:
+        _client = StockHistoricalDataClient(config.API_KEY, config.SECRET_KEY)
     req = StockLatestQuoteRequest(symbol_or_symbols=[ticker])
-    res = client.get_stock_latest_quote(req)
+    res = _client.get_stock_latest_quote(req)
     quote = res[ticker]
     bid = float(quote.bid_price)
     ask = float(quote.ask_price)

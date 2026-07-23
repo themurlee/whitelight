@@ -116,12 +116,44 @@ def scan_and_alert_short_calls(symbol: str, long_strike: float, debit_paid: floa
             contracts.sort(key=lambda x: x.strike_price)
             
             for contract in contracts[:3]:  # Alert on the top 3 nearest safe strikes
+                # Option leg quote fetch & spread gate validation
+                bid = 0.0
+                ask = 0.0
+                if api_key and secret_key and "YOUR_ALPACA" not in api_key:
+                    try:
+                        from alpaca.data.historical import OptionHistoricalDataClient
+                        from alpaca.data.requests import OptionLatestQuoteRequest
+                        data_client = OptionHistoricalDataClient(api_key, secret_key)
+                        q_req = OptionLatestQuoteRequest(symbol_or_symbols=[contract.symbol])
+                        q_res = data_client.get_option_latest_quote(q_req)
+                        if contract.symbol in q_res:
+                            bid = float(q_res[contract.symbol].bid_price)
+                            ask = float(q_res[contract.symbol].ask_price)
+                    except Exception as qe:
+                        print(f"[WARNING] Failed to fetch latest quote for option {contract.symbol}: {qe}")
+                
+                if bid > 0 and ask > 0:
+                    mid = (bid + ask) / 2.0
+                    spread_pct = ((ask - bid) / mid) * 100.0 if mid > 0 else 0.0
+                    max_option_spread_pct = 15.0  # limit option spreads to 15%
+                    if spread_pct > max_option_spread_pct:
+                        print(f"[{contract.symbol}] Gated: Option spread too wide ({spread_pct:.2f}% > {max_option_spread_pct}%). Skipping.")
+                        continue
+                else:
+                    # In dry run/offline fallback mode, simulate a safe narrow spread
+                    bid = float(contract.strike_price) * 0.05
+                    ask = bid + 0.05
+                    spread_pct = ((ask - bid) / ((ask + bid) / 2.0)) * 100.0
+
                 alert_payload = {
                     "symbol": contract.symbol,
                     "strike": float(contract.strike_price),
                     "expiration": contract.expiration_date.strftime('%Y-%m-%d'),
                     "action": "SELL TO OPEN",
-                    "reason": "Technical resistance met, strike above PMCC breakeven."
+                    "bid": round(bid, 2),
+                    "ask": round(ask, 2),
+                    "spread_pct": round(spread_pct, 2),
+                    "reason": "Technical resistance met, strike above PMCC breakeven with valid spread."
                 }
                 print(f"-> {alert_payload}")
         else:

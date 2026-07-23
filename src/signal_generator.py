@@ -39,6 +39,31 @@ def get_signal_for_ticker(ticker: str) -> dict:
     if len(prices) < 26: # Minimum required for MACD
         return {"error": f"Insufficient data points ({len(prices)} < 26) to calculate indicators."}
 
+    # Verify business day continuity to protect math consistency
+    parsed_dates = []
+    for d in dates:
+        try:
+            parsed_dates.append(datetime.strptime(d, "%Y-%m-%d").date())
+        except ValueError:
+            pass
+
+    for i in range(1, len(parsed_dates)):
+        d1 = parsed_dates[i-1]
+        d2 = parsed_dates[i]
+        delta = (d2 - d1).days
+        if delta > 1:
+            business_days_missed = 0
+            curr = d1 + datetime.timedelta(days=1) if hasattr(datetime, "timedelta") else d1 + datetime.strptime("1", "1").resolution * 86400
+            # Fallback to direct timedelta
+            import datetime as dt
+            curr = d1 + dt.timedelta(days=1)
+            while curr < d2:
+                if curr.weekday() < 5:
+                    business_days_missed += 1
+                curr += dt.timedelta(days=1)
+            if business_days_missed > 3:
+                return {"error": f"Temporal gap limit exceeded: missed {business_days_missed} business days between {d1} and {d2}."}
+
     # Calculate MACD and RSI
     macd_line, signal_line, histogram = calculate_macd(prices)
     rsi_line = calculate_rsi(prices)

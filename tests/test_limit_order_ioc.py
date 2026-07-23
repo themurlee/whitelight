@@ -38,6 +38,11 @@ def test_limit_order_ioc_timeout_fallback(mock_quote):
     mock_market_order = MagicMock()
     mock_market_order.id = "market-order-456"
     
+    # Mock order get request returning CANCELED status
+    mock_canceled_order = MagicMock()
+    mock_canceled_order.status.value = "canceled"
+    mock_client.get_order_by_id.return_value = mock_canceled_order
+    
     def mock_submit(order_req):
         if hasattr(order_req, "limit_price"):
             return mock_limit_order
