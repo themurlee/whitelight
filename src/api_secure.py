@@ -39,7 +39,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("API_SECURE")
 
 # API Configuration
-API_HOST = os.getenv("API_HOST", "127.0.0.1")
+API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 API_TOKEN = os.getenv("WHITELIGHT_API_TOKEN", "sk-whitelight-dev-token-change-in-prod")
 API_USE_HTTPS = os.getenv("API_USE_HTTPS", "false").lower() == "true"
@@ -212,12 +212,20 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware (restrict to localhost for security)
+# CORS middleware (restrict to localhost and trusted origins for security)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["127.0.0.1", "localhost", "http://localhost:3000"],
+    allow_origins=[
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:5174",
+        "http://localhost:5174",
+        "https://themurlee.github.io"
+    ],
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 

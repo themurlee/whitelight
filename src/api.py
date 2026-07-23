@@ -1878,9 +1878,10 @@ def position_risk_checker_loop():
 
 
 def run_server(port=8000):
-    server_address = ('127.0.0.1', port)
+    host = os.environ.get("HOST", "0.0.0.0")
+    server_address = (host, port)
     httpd = ThreadingHTTPServer(server_address, APIServerHandler)
-    print(f"[API SERVER] Running on http://127.0.0.1:{port}", flush=True)
+    print(f"[API SERVER] Running on http://{host}:{port}", flush=True)
     # Start position risk and profit bracket checker loop
     t = threading.Thread(target=position_risk_checker_loop, daemon=True)
     t.start()

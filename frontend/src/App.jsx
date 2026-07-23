@@ -6,9 +6,12 @@ import OptionsTradingPanel from './OptionsTradingPanel';
 import ShadowCortexPanel from './ShadowCortexPanel';
 import WhitelightCortexIntegratedPanel from './WhitelightCortexIntegratedPanel';
 
-const API_BASE = 'http://127.0.0.1:8000/api';
-
 function App() {
+  const [apiBase, setApiBase] = useState(() => {
+    return localStorage.getItem("whitelight_api_base") || 'http://127.0.0.1:8000/api';
+  });
+  const API_BASE = apiBase;
+
   const [activeTab, setActiveTab] = useState('whitelight_cortex');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [optionsSubTab, setOptionsSubTab] = useState('overview');
@@ -1279,6 +1282,29 @@ function App() {
             <>
               <p>Local-First Desktop Portal</p>
               <p className="footer-ver">V2.0.0 (API Connected)</p>
+              <div style={{ marginTop: '8px', padding: '0 4px' }}>
+                <label style={{ fontSize: '9px', color: '#94a3b8', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>API Base URL:</label>
+                <input
+                  type="text"
+                  value={apiBase}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setApiBase(val);
+                    localStorage.setItem("whitelight_api_base", val);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '4px 8px',
+                    fontSize: '10px',
+                    fontFamily: 'monospace',
+                    backgroundColor: '#0f172a',
+                    border: '1px solid #334155',
+                    borderRadius: '4px',
+                    color: '#00F2FE',
+                    outline: 'none'
+                  }}
+                />
+              </div>
             </>
           )}
         </div>
@@ -1289,19 +1315,71 @@ function App() {
         {backendOffline && (
           <div style={{
             margin: '16px 24px 8px 24px',
-            padding: '12px 18px',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '8px',
-            color: '#ef4444',
-            fontSize: '0.85rem',
-            fontWeight: '600',
+            padding: '16px',
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            borderRadius: '10px',
+            color: '#fca5a5',
+            fontSize: '0.82rem',
+            fontFamily: 'sans-serif',
             display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            fontFamily: 'monospace'
+            flexDirection: 'column',
+            gap: '12px'
           }}>
-            <span>🔴 Backend Connection Failed: Please ensure the Python server is running locally on http://127.0.0.1:8000 (run `python src/api.py` locally).</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f87171', fontWeight: 'bold' }}>
+              <span>🔴</span>
+              <span>Backend Connection Failed</span>
+            </div>
+            <p style={{ margin: 0, lineHeight: '1.4' }}>
+              The frontend is trying to connect to the API server at <code style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px', color: '#67e8f9', fontFamily: 'monospace' }}>{API_BASE}</code>, but it is unreachable.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#94a3b8' }}>Change API URL:</label>
+              <input
+                type="text"
+                value={apiBase}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setApiBase(val);
+                  localStorage.setItem("whitelight_api_base", val);
+                }}
+                placeholder="e.g. http://127.0.0.1:8000/api"
+                style={{
+                  padding: '6px 10px',
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #334155',
+                  borderRadius: '6px',
+                  color: '#67e8f9',
+                  minWidth: '280px',
+                  outline: 'none'
+                }}
+              />
+              <button 
+                onClick={() => fetchData()} 
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                Retry
+              </button>
+            </div>
+            <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', fontSize: '11px', lineHeight: '1.5', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <strong style={{ color: '#ef4444', display: 'block', marginBottom: '6px' }}>Troubleshooting for Cross-Machine & GitHub Pages Deployment:</strong>
+              <ul style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <li><strong>Local Access:</strong> If accessing locally, run <code style={{ color: '#f59e0b', fontFamily: 'monospace' }}>python src/api.py</code> in the terminal.</li>
+                <li><strong>HTTPS/Mixed Content Block:</strong> GitHub Pages uses HTTPS. Browsers block active connections to HTTP. You must serve the frontend locally (e.g. via <code style={{ color: '#f59e0b', fontFamily: 'monospace' }}>npm run dev</code> inside <code style={{ fontFamily: 'monospace' }}>frontend/</code>) or host your backend with an SSL certificate.</li>
+                <li><strong>LAN Access:</strong> If connecting to another computer on your local network, ensure the backend was started binding to 0.0.0.0 (e.g. <code style={{ color: '#f59e0b', fontFamily: 'monospace' }}>HOST=0.0.0.0 python src/api.py</code>).</li>
+              </ul>
+            </div>
           </div>
         )}
 
