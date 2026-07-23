@@ -68,6 +68,13 @@ def get_signal_for_ticker(ticker: str) -> dict:
     macd_line, signal_line, histogram = calculate_macd(prices)
     rsi_line = calculate_rsi(prices)
 
+    # Calculate 200-day SMA
+    if len(prices) >= 200:
+        prices_200 = prices[-200:]
+        sma_200 = sum(prices_200) / 200.0
+    else:
+        sma_200 = sum(prices) / len(prices)
+
     # Latest values
     last_close = prices[-1]
     last_macd = macd_line[-1]
@@ -88,7 +95,11 @@ def get_signal_for_ticker(ticker: str) -> dict:
         if prev_macd <= prev_sig and last_macd > last_sig:
             # RSI filter: verify not overbought
             if last_rsi is not None and last_rsi < 70:
-                action = "BUY"
+                if last_close > sma_200:
+                    action = "BUY"
+                else:
+                    action = "HOLD"  # Reject counter-trend signal
+                    print(f"MACD crossover rejected: price below 200-day SMA (${last_close:.2f} < ${sma_200:.2f})")
         # Bearish Crossover: MACD crosses below signal line
         elif prev_macd >= prev_sig and last_macd < last_sig:
             action = "SELL"
