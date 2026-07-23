@@ -281,5 +281,5 @@ if __name__ == "__main__":
     parser.add_argument("--dry-run", action="store_true", help="Scan and select but skip order execution")
     args = parser.parse_args()
     
-    tickers = [t.upper() for t in args.tickers] if args.tickers else ["SPY"]
+    tickers = [t.upper() for t in args.tickers] if args.tickers else ["SPY", "QQQ", "IWM", "AAPL", "MSFT"]
     run_phase2_pipeline(tickers, dry_run=args.dry_run)

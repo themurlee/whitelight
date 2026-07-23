@@ -24,7 +24,7 @@ from src.alerting.slack_notifier import post_alert
 from src.storage.atomic_writer import AtomicJSONWriter
 
 # --- Default tickers to run if none provided via CLI ---
-DEFAULT_TICKERS = ["SPY"]
+DEFAULT_TICKERS = ["SPY", "QQQ", "IWM", "AAPL", "MSFT"]
 
 def log(msg: str, level: str = "INFO"):
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
