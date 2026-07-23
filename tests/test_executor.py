@@ -57,6 +57,13 @@ class TestExecutionEngine(unittest.TestCase):
         mock_order.status = "accepted"
         mock_client.submit_order.return_value = mock_order
 
+        # Mock get_order_by_id for status polling
+        from alpaca.trading.enums import OrderStatus
+        mock_order_filled = MagicMock()
+        mock_order_filled.id = "mock_order_id"
+        mock_order_filled.status = OrderStatus.FILLED
+        mock_client.get_order_by_id.return_value = mock_order_filled
+
         # Write mock signal log
         signal_log_path = os.path.join(config.DATA_DIR, "signal_log.json")
         with open(signal_log_path, "w") as f:

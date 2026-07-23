@@ -14,6 +14,11 @@ sys.path.append(BASE_DIR)
 
 import src.config as config
 from src.storage.atomic_writer import AtomicJSONWriter
+from src.alpaca_client.retry_decorator import alpaca_retryable
+
+@alpaca_retryable(max_retries=5, base_delay=1.0)
+def _get_bars_with_retry(client, request):
+    return client.get_stock_bars(request)
 
 def log_to_journal(message: str, level: str = "INFO"):
     os.makedirs(config.JOURNAL_DIR, exist_ok=True)
@@ -55,28 +60,19 @@ def fetch_and_save_ohlcv(ticker: str, days_to_fetch: int = 400):
 
     log_to_journal(f"Fetching data for {ticker} from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...", "INFO")
     
-    # Initialize client and fetch with retries
-    retries = 3
-    bars = None
-    for attempt in range(retries):
-        try:
-            client = StockHistoricalDataClient(config.API_KEY, config.SECRET_KEY)
-            request = StockBarsRequest(
-                symbol_or_symbols=[ticker],
-                timeframe=TimeFrame.Day,
-                start=start_date,
-                end=end_date,
-                feed=DataFeed.IEX
-            )
-            bars = client.get_stock_bars(request)
-            break
-        except Exception as e:
-            log_to_journal(f"API attempt {attempt+1} failed: {e}", "WARNING")
-            if attempt < retries - 1:
-                time.sleep(2)
-            else:
-                log_to_journal(f"Failed to fetch data for {ticker} after {retries} retries.", "ERROR")
-                return False
+    client = StockHistoricalDataClient(config.API_KEY, config.SECRET_KEY)
+    request = StockBarsRequest(
+        symbol_or_symbols=[ticker],
+        timeframe=TimeFrame.Day,
+        start=start_date,
+        end=end_date,
+        feed=DataFeed.IEX
+    )
+    try:
+        bars = _get_bars_with_retry(client, request)
+    except Exception as e:
+        log_to_journal(f"Failed to fetch data for {ticker} after retries: {e}", "ERROR")
+        return False
 
     if not bars or bars.df.empty:
         log_to_journal(f"No new bars returned for {ticker} (data may be current).", "INFO")

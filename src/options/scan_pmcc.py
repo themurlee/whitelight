@@ -18,6 +18,11 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(BASE_DIR)
 
 import src.config as config
+from src.alpaca_client.retry_decorator import alpaca_retryable
+
+@alpaca_retryable(max_retries=5, base_delay=1.0)
+def _get_option_contracts_with_retry(client, req):
+    return client.get_option_contracts(req)
 
 def get_minimum_short_strike(long_strike: float, debit_paid: float) -> float:
     """
@@ -100,7 +105,7 @@ def scan_and_alert_short_calls(symbol: str, long_strike: float, debit_paid: floa
             expiration_date_lte=target_exp_end
         )
         
-        response = trade_client.get_option_contracts(req)
+        response = _get_option_contracts_with_retry(trade_client, req)
         contracts = response.option_contracts if response else []
 
         if contracts:

@@ -12,6 +12,28 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, GetOrdersRequest
 from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
 from src.storage.atomic_writer import AtomicJSONWriter
+from src.alpaca_client.retry_decorator import alpaca_retryable
+from src.alpaca_client.rate_limit_handler import wait_for_order_fill
+
+@alpaca_retryable(max_retries=5, base_delay=1.0)
+def _get_open_position_with_retry(client, ticker):
+    return client.get_open_position(ticker)
+
+@alpaca_retryable(max_retries=5, base_delay=1.0)
+def _get_orders_with_retry(client, orders_req):
+    return client.get_orders(orders_req)
+
+@alpaca_retryable(max_retries=5, base_delay=1.0)
+def _cancel_order_with_retry(client, order_id):
+    return client.cancel_order_by_id(order_id)
+
+@alpaca_retryable(max_retries=5, base_delay=1.0)
+def _get_account_with_retry(client):
+    return client.get_account()
+
+@alpaca_retryable(max_retries=5, base_delay=1.0)
+def _submit_order_with_retry(client, order_data):
+    return client.submit_order(order_data)
 
 def log_to_journal(message: str, level: str = "INFO"):
     os.makedirs(config.JOURNAL_DIR, exist_ok=True)
@@ -58,7 +80,7 @@ def execute_signal():
         # 1. Query existing position & open orders
         position = None
         try:
-            position = trading_client.get_open_position(ticker)
+            position = _get_open_position_with_retry(trading_client, ticker)
         except Exception:
             pass
 
@@ -68,7 +90,7 @@ def execute_signal():
                 status=QueryOrderStatus.OPEN,
                 symbols=[ticker]
             )
-            open_orders = trading_client.get_orders(orders_req)
+            open_orders = _get_orders_with_retry(trading_client, orders_req)
         except Exception as e:
             log_to_journal(f"Failed to query open orders for {ticker}: {e}", "WARNING")
             
@@ -77,7 +99,7 @@ def execute_signal():
             log_to_journal(f"Cancelling {len(open_orders)} existing open orders for {ticker} before executing new action...", "INFO")
             for o in open_orders:
                 try:
-                    trading_client.cancel_order_by_id(o.id)
+                    _cancel_order_with_retry(trading_client, o.id)
                 except Exception as ex:
                     log_to_journal(f"Failed to cancel order {o.id}: {ex}", "WARNING")
             import time
@@ -90,7 +112,7 @@ def execute_signal():
                 return
 
             # Risk metric: max position size 5% of portfolio equity
-            account = trading_client.get_account()
+            account = _get_account_with_retry(trading_client)
             portfolio_value = float(account.portfolio_value)
             max_allocation = portfolio_value * 0.05
             
@@ -108,8 +130,14 @@ def execute_signal():
                 side=OrderSide.BUY,
                 time_in_force=TimeInForce.GTC
             )
-            order = trading_client.submit_order(order_data)
-            log_to_journal(f"BUY Order Submitted successfully: ID={order.id}, Qty={qty}, Status={order.status}", "INFO")
+            order = _submit_order_with_retry(trading_client, order_data)
+            log_to_journal(f"BUY Order Submitted successfully: ID={order.id}, Qty={qty}, Status={order.status}. Waiting for fill...", "INFO")
+            
+            try:
+                filled_order = wait_for_order_fill(trading_client, order.id)
+                log_to_journal(f"BUY Order Filled successfully: ID={filled_order.id}, Status={filled_order.status}", "INFO")
+            except Exception as fe:
+                log_to_journal(f"BUY Order fill confirmation error: {fe}", "WARNING")
 
         elif action == "SELL":
             if position is None:
@@ -126,8 +154,14 @@ def execute_signal():
                 side=OrderSide.SELL,
                 time_in_force=TimeInForce.GTC
             )
-            order = trading_client.submit_order(order_data)
-            log_to_journal(f"SELL Order Submitted successfully: ID={order.id}, Qty={qty_to_sell}, Status={order.status}", "INFO")
+            order = _submit_order_with_retry(trading_client, order_data)
+            log_to_journal(f"SELL Order Submitted successfully: ID={order.id}, Qty={qty_to_sell}, Status={order.status}. Waiting for fill...", "INFO")
+            
+            try:
+                filled_order = wait_for_order_fill(trading_client, order.id)
+                log_to_journal(f"SELL Order Filled successfully: ID={filled_order.id}, Status={filled_order.status}", "INFO")
+            except Exception as fe:
+                log_to_journal(f"SELL Order fill confirmation error: {fe}", "WARNING")
 
     except Exception as e:
         log_to_journal(f"Execution failed: {e}", "ERROR")
