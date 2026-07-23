@@ -18,7 +18,8 @@ class GreeksCalculatorBridge:
         combo: List[Dict],  # [{"strike": 450, "type": "call", ...}, ...]
         current_price: float,
         iv_rank: float,
-        dte: int
+        dte: int,
+        valuation_date=None
     ) -> Dict:
         """
         Calculate Greeks for the entire combo (multi-leg position).
@@ -55,7 +56,8 @@ class GreeksCalculatorBridge:
                 expiry=expiry_str,
                 option_type=opt_type,
                 current_price=current_price,
-                iv_rank=iv_rank
+                iv_rank=iv_rank,
+                valuation_date=valuation_date
             )
             
             # Adjust sign if short

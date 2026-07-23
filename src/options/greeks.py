@@ -59,16 +59,34 @@ def calculate_greeks(
     expiry: str,
     option_type: str,
     current_price: float,
-    iv_rank: float = 35.0
+    iv_rank: float = 35.0,
+    valuation_date=None
 ) -> dict:
     """
     Wrapper for calculate_black_scholes_greeks that parses expiry to years.
     """
+    from datetime import timezone
+    
+    if valuation_date is None:
+        valuation_date = datetime.now(timezone.utc)
+    elif isinstance(valuation_date, str):
+        # Support ISO format strings: "2024-01-15T10:30:00Z"
+        valuation_date = datetime.fromisoformat(valuation_date.replace('Z', '+00:00'))
+        
+    if valuation_date.tzinfo is None:
+        valuation_date = valuation_date.replace(tzinfo=timezone.utc)
+
     try:
-        exp_date = datetime.strptime(expiry, "%Y-%m-%d")
-        now = datetime.now()
-        dte_days = max(1, (exp_date - now).days)
-        time_to_maturity = dte_days / 365.0
+        if "T" in expiry:
+            exp_date = datetime.fromisoformat(expiry.replace('Z', '+00:00'))
+        else:
+            exp_date = datetime.strptime(expiry, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            
+        dte_days = (exp_date - valuation_date).days
+        if dte_days < 0:
+            dte_days = max(0.01, dte_days)
+            
+        time_to_maturity = max(0.01, dte_days) / 365.0
     except Exception:
         # Fallback to 30 DTE
         time_to_maturity = 30.0 / 365.0

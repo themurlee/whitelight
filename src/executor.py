@@ -104,20 +104,24 @@ def _compute_mock_greeks(ticker: str, strike: float = None, option_type: str = N
         "iv_rank": 50.0,
     }
 
-def execute_signal(cycle_id: str = None):
-    signal_log_path = os.path.join(config.DATA_DIR, "signal_log.json")
-    if not os.path.exists(signal_log_path):
-        log_to_journal("No signal_log.json found. Skipping execution.", "WARNING")
-        return
+def execute_signal(cycle_id: str = None, signal: dict = None):
+    if signal is not None:
+        signal_data = signal
+        log_to_journal(f"Using in-memory signal (cycle {cycle_id[:8] if cycle_id else 'None'}): {signal_data.get('ticker', 'UNKNOWN')}", "DEBUG")
+    else:
+        signal_log_path = os.path.join(config.DATA_DIR, "signal_log.json")
+        if not os.path.exists(signal_log_path):
+            log_to_journal("No signal_log.json found and no signal provided. Skipping execution.", "WARNING")
+            return
 
-    try:
-        signal_data = AtomicJSONWriter(signal_log_path).read()
+        try:
+            signal_data = AtomicJSONWriter(signal_log_path).read()
+        except Exception as e:
+            log_to_journal(f"Failed to read signal_log.json: {e}", "ERROR")
+            return
         if not signal_data:
             log_to_journal("signal_log.json is empty.", "WARNING")
             return
-    except Exception as e:
-        log_to_journal(f"Failed to read signal_log.json: {e}", "ERROR")
-        return
 
     ticker = signal_data.get("ticker")
     action = signal_data.get("action")

@@ -136,12 +136,9 @@ def run_pipeline(tickers: list[str], dry_run: bool = False, skip_ingest: bool = 
                 log(f"[{ticker}] Execution blocked by Risk Circuit Breaker: {cb_reason}", "WARNING")
                 ticker_result["execution"] = f"blocked: {cb_reason}"
             else:
-                log(f"[{ticker}] Step 3/3: Executing signal via Alpaca paper trading...")
+                log(f"[{ticker}] Step 3/3: Executing signal via Alpaca paper trading with in-memory passing...")
                 try:
-                    # Write target signal log for executor
-                    signal_log_path = os.path.join(config.DATA_DIR, "signal_log.json")
-                    AtomicJSONWriter(signal_log_path).write(signal)
-                    execute_signal(cycle_id)
+                    execute_signal(cycle_id, signal=signal)
                     ticker_result["execution"] = "submitted"
                     log(f"[{ticker}] Execution complete. Check trade_log.md for order details.")
                 except Exception as ee:
