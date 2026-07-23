@@ -114,6 +114,7 @@ function App() {
   const [modalFiles, setModalFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [activePreviewImage, setActivePreviewImage] = useState(null);
+  const [backendOffline, setBackendOffline] = useState(false);
 
   const [wkPnl, setWkPnl] = useState(0);
   const [wkRating, setWkRating] = useState(8);
@@ -237,10 +238,12 @@ function App() {
         setSelectedReview(dataWeekly[0].filename);
         setSelectedReviewContent(dataWeekly[0].content);
       }
-
-      setLoading(false);
+      setBackendOffline(false);
     } catch (e) {
       console.error("Error loading data from local API server: ", e);
+      setBackendOffline(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1283,6 +1286,24 @@ function App() {
 
       {/* Main Content Pane */}
       <main className="app-main">
+        {backendOffline && (
+          <div style={{
+            margin: '16px 24px 8px 24px',
+            padding: '12px 18px',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '8px',
+            color: '#ef4444',
+            fontSize: '0.85rem',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontFamily: 'monospace'
+          }}>
+            <span>🔴 Backend Connection Failed: Please ensure the Python server is running locally on http://127.0.0.1:8000 (run `python src/api.py` locally).</span>
+          </div>
+        )}
 
 
         {/* Global Kinfo-style KPI Rings for Options Tab */}
