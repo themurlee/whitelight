@@ -15,6 +15,7 @@ from src.storage.atomic_writer import AtomicJSONWriter
 from src.alpaca_client.retry_decorator import alpaca_retryable
 from src.alpaca_client.rate_limit_handler import wait_for_order_fill
 from src.execution.limit_order_wrapper import execute_signal_with_slippage_control, SUBMISSION_LOCK
+from src.execution.dual_ledger_writer import DualLedgerWriter
 from src.risk.circuit_breaker import CircuitBreaker, RiskParams
 from src.risk.position_sizer import get_vix_adjusted_quantity
 from src.state.execution_journal import ExecutionJournal, ExecutionState
@@ -64,6 +65,44 @@ def log_to_journal(message: str, level: str = "INFO"):
     print(f"[{level}] {message}")
 
 import uuid
+
+def _compute_mock_greeks(ticker: str, strike: float = None, option_type: str = None) -> dict:
+    """
+    Compute Greeks for the filled order.
+
+    For stocks, return mock Greeks.
+    For options, attempt to calculate Black-Scholes Greeks.
+
+    Args:
+        ticker: Stock/option symbol
+        strike: Strike price (if option)
+        option_type: "call" or "put" (if option)
+
+    Returns:
+        Dict with delta, gamma, vega, theta, iv_rank
+    """
+    try:
+        # If it's an option contract, try to import and use the Greeks calculator
+        if strike is not None and option_type is not None:
+            from src.options.greeks import calculate_greeks
+            return calculate_greeks(
+                symbol=ticker,
+                strike=strike,
+                expiry="2026-08-14",  # Placeholder expiry
+                option_type=option_type,
+                current_price=strike  # Placeholder
+            )
+    except ImportError:
+        pass
+
+    # Fallback: mock Greeks for stock positions
+    return {
+        "delta": 1.0,  # Stock has delta of 1.0
+        "gamma": 0.0,
+        "vega": 0.0,
+        "theta": 0.0,
+        "iv_rank": 50.0,
+    }
 
 def execute_signal(cycle_id: str = None):
     signal_log_path = os.path.join(config.DATA_DIR, "signal_log.json")
@@ -187,13 +226,14 @@ def execute_signal(cycle_id: str = None):
                 if qty <= 0:
                     qty = 1
                     
-                # Circuit Breaker validation
+                # Circuit Breaker validation — refetch account for fresh risk data
                 allowed, cb_reason = cb.can_execute(
                     ticker=ticker,
                     qty=qty,
                     price=close_price,
-                    account_value=portfolio_value,
-                    open_tickers=open_tickers
+                    account_value=None,              # Force refetch
+                    open_tickers=None,               # Force refetch
+                    trading_client=trading_client    # Pass client for refetch
                 )
                 if not allowed:
                     log_to_journal(f"Risk Circuit Breaker Refused Execution: {cb_reason}", "ERROR")
@@ -216,6 +256,38 @@ def execute_signal(cycle_id: str = None):
                     lock_released = True
                     if success:
                         post_alert(f"🎯 [whitelight] BUY Order FILLED for {ticker}: Qty={adjusted_qty}, Price=${close_price:.2f}")
+
+                        # Phase 1: Dual-write to state.json and entries.jsonl
+                        try:
+                            dual_writer = DualLedgerWriter(
+                                state_dir=config.DATA_DIR,
+                                shadow_ledger_dir=config.SHADOW_LEDGER_DIR
+                            )
+
+                            greeks = _compute_mock_greeks(ticker)
+
+                            execution_result = {
+                                "symbol": ticker,
+                                "filled_at": datetime.now(timezone.utc).isoformat() + "Z",
+                                "qty": adjusted_qty,
+                                "side": "BUY",
+                                "option_type": "stock",
+                                "capital_at_risk": close_price * adjusted_qty * 0.1,  # 10% of position value
+                            }
+
+                            dual_writer.write_execution(
+                                execution_result=execution_result,
+                                worst_fill=close_price * 1.002,  # 2bp slippage
+                                base_fill=close_price,
+                                optimistic_fill=close_price * 0.998,
+                                greeks=greeks,
+                                strategy_id="whitelight_primary",
+                                cycle_id=cycle_id or str(uuid.uuid4())
+                            )
+                            log_to_journal(f"Dual-write succeeded for BUY {ticker}", "INFO")
+                        except Exception as dw_error:
+                            log_to_journal(f"Dual-write failed for BUY {ticker}: {dw_error}", "ERROR")
+
                         if cycle_id:
                             journal.log_execution(ExecutionState(
                                 cycle_id=cycle_id,
@@ -250,6 +322,38 @@ def execute_signal(cycle_id: str = None):
                     lock_released = True
                     if success:
                         post_alert(f"🎯 [whitelight] SELL Order FILLED for {ticker}: Qty={qty_to_sell}, Price=${close_price:.2f}")
+
+                        # Phase 1: Dual-write to state.json and entries.jsonl
+                        try:
+                            dual_writer = DualLedgerWriter(
+                                state_dir=config.DATA_DIR,
+                                shadow_ledger_dir=config.SHADOW_LEDGER_DIR
+                            )
+
+                            greeks = _compute_mock_greeks(ticker)
+
+                            execution_result = {
+                                "symbol": ticker,
+                                "filled_at": datetime.now(timezone.utc).isoformat() + "Z",
+                                "qty": qty_to_sell,
+                                "side": "SELL",
+                                "option_type": "stock",
+                                "capital_at_risk": close_price * qty_to_sell * 0.1,  # 10% of position value
+                            }
+
+                            dual_writer.write_execution(
+                                execution_result=execution_result,
+                                worst_fill=close_price * 0.998,  # 2bp slippage (sell at lower bid)
+                                base_fill=close_price,
+                                optimistic_fill=close_price * 1.002,
+                                greeks=greeks,
+                                strategy_id="whitelight_primary",
+                                cycle_id=cycle_id or str(uuid.uuid4())
+                            )
+                            log_to_journal(f"Dual-write succeeded for SELL {ticker}", "INFO")
+                        except Exception as dw_error:
+                            log_to_journal(f"Dual-write failed for SELL {ticker}: {dw_error}", "ERROR")
+
                         if cycle_id:
                             journal.log_execution(ExecutionState(
                                 cycle_id=cycle_id,
