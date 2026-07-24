@@ -150,3 +150,54 @@ def compute_volume_profile(ticker: str, window: str = "1M") -> Dict:
     val = min(included_prices)
 
     return {"poc": round(poc, 2), "vah": round(vah, 2), "val": round(val, 2)}
+
+
+def _manual_levels_path(ticker: str) -> str:
+    levels_dir = os.path.join(config.DATA_DIR, "levels")
+    os.makedirs(levels_dir, exist_ok=True)
+    return os.path.join(levels_dir, f"{ticker.upper()}.json")
+
+
+def get_manual_levels(ticker: str) -> List[Dict]:
+    data = AtomicJSONWriter(_manual_levels_path(ticker)).read()
+    return data.get("levels", []) if data else []
+
+
+def add_manual_level(ticker: str, price: float, label: str) -> List[Dict]:
+    levels = get_manual_levels(ticker)
+    levels.append({"price": float(price), "label": label})
+    AtomicJSONWriter(_manual_levels_path(ticker)).write({"levels": levels})
+    return levels
+
+
+def delete_manual_level(ticker: str, price: float) -> List[Dict]:
+    levels = [l for l in get_manual_levels(ticker) if l["price"] != float(price)]
+    AtomicJSONWriter(_manual_levels_path(ticker)).write({"levels": levels})
+    return levels
+
+
+def get_price_levels(ticker: str, current_price: float, volume_profile_window: str = "1M") -> Dict:
+    """Merge range/pivot + volume profile + manual levels into levels_below/levels_above."""
+    bars = get_daily_bars(ticker, lookback_days=60)
+    range_pivot = compute_range_and_pivot(bars)
+    vp = compute_volume_profile(ticker, window=volume_profile_window)
+    manual = get_manual_levels(ticker)
+
+    all_prices = set()
+    for p in [range_pivot["range_low"], range_pivot["range_high"], range_pivot["pivot"],
+              *range_pivot["resistance"], *range_pivot["support"],
+              vp["poc"], vp["vah"], vp["val"]]:
+        if p and p > 0:
+            all_prices.add(round(float(p), 2))
+    for m in manual:
+        all_prices.add(round(float(m["price"]), 2))
+
+    below = sorted([p for p in all_prices if p < current_price], reverse=True)[:5]
+    above = sorted([p for p in all_prices if p > current_price])[:5]
+
+    return {
+        "ticker": ticker.upper(),
+        "current_price": round(float(current_price), 2),
+        "levels_below": below,
+        "levels_above": above,
+    }
