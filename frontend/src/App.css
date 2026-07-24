@@ -2093,8 +2093,8 @@ body {
   cursor: not-allowed;
 }
 
-/* Mobile Responsive Media Queries */
-@media (max-width: 768px) {
+/* Mobile & Tablet Responsive Media Queries */
+@media (max-width: 1024px) {
   .app-container {
     flex-direction: column;
   }

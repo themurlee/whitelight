@@ -722,8 +722,8 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
                 {chain.length} Liquid Contracts
               </span>
             </div>
-            {/* Desktop Table View (Hidden on Mobile) */}
-            <div className="hidden md:block overflow-x-auto max-h-[500px] overflow-y-auto pr-1">
+            {/* Desktop Table View (Hidden on Mobile & Tablet) */}
+            <div className="hidden lg:block overflow-x-auto max-h-[500px] overflow-y-auto pr-1">
               <table className="w-full font-mono text-xs text-left border-collapse cursor-pointer">
                 <thead className="sticky top-0 bg-slate-900 z-10">
                   <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
@@ -774,8 +774,8 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
               </table>
             </div>
 
-            {/* Mobile Card List View (Hidden on Desktop) */}
-            <div className="block md:hidden space-y-3 max-h-[500px] overflow-y-auto pr-1">
+            {/* Mobile & Tablet Card List View (Hidden on Desktop) */}
+            <div className="block lg:hidden space-y-3 max-h-[500px] overflow-y-auto pr-1">
               {chain.map((c, idx) => (
                 <div
                   key={idx}
