@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics="">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&amp;family=Playfair+Display:wght@600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+@keyframes wl-pulse { 0% { opacity: 1; } 50% { opacity: 0.35; } 100% { opacity: 1; } }
+@keyframes wl-spin { to { transform: rotate(360deg); } }
+@keyframes wl-slideup { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes wl-fadein { from { opacity: 0; } to { opacity: 1; } }
+body { margin: 0; background: #f2ecdc; }
+a { color: #2c4468; }
+a:hover { color: #6b85a8; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+::-webkit-scrollbar { display: none; }
+</style>
+</helmet>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402,874">
+<div style="font-family: 'Outfit', -apple-system, sans-serif; width: 100%; height: 100%; background: radial-gradient(600px circle at 15% -10%, rgba(44,68,104,0.18), transparent 60%), radial-gradient(520px circle at 105% 8%, rgba(122,35,51,0.09), transparent 55%), #f2ecdc; color: #1c2b22; position: relative; overflow-x: hidden; display: flex; flex-direction: column;">
+
+  <div style="position: sticky; top: 0; z-index: 30; background: rgba(244,238,220,0.88); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(30,61,47,0.1); padding-top: 52px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 18px 12px;">
+      <div style="display: flex; align-items: center; gap: 9px;">
+        
+        <span style="font-size: 1.15rem;">⚡</span><span style="font-weight: 700; font-size: 1.2rem; letter-spacing: -0.3px; font-family: 'Playfair Display', serif;">WhiteLight</span>
+      </div>
+      <button onClick="{{ togglePause }}" style="display: flex; align-items: center; gap: 7px; background: rgba(30,61,47,0.06); border: 1px solid {{ statusBorderColor }}; border-radius: 20px; padding: 8px 13px; min-height: 36px; cursor: pointer;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ statusDotColor }}; box-shadow: 0 0 8px {{ statusDotColor }}; animation: {{ statusDotAnim }}; flex-shrink: 0;"></span>
+        <span style="font-size: 0.7rem; font-weight: 700; letter-spacing: 0.4px; color: {{ statusTextColor }};">{{ statusLabel }}</span>
+      </button>
+    </div>
+  </div>
+
+  <div ref="{{ scrollRef }}" onScroll="{{ handleScroll }}" style="width: 100%; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; flex: 1;">
+  <div style="display: flex; width: 300%;">
+
+    <!-- ============ CORTEX TAB ============ -->
+    <div style="width: 33.3333%; flex-shrink: 0; scroll-snap-align: start; padding: 18px 16px 40px; order: 3;">
+
+      <div style="display: flex; gap: 10px; overflow-x: auto; margin: 0 -16px 18px; padding: 0 16px;">
+        <div style="flex: 0 0 132px; background: rgba(255,253,246,0.7); backdrop-filter: blur(10px); border: 1px solid rgba(30,61,47,0.1); border-radius: 14px; padding: 14px;">
+          <div style="color: #7a7161; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Equity</div>
+          <div style="font-size: 1.25rem; font-weight: 800;">{{ equityDisplay }}</div>
+        </div>
+        <div style="flex: 0 0 132px; background: rgba(255,253,246,0.7); backdrop-filter: blur(10px); border: 1px solid rgba(30,61,47,0.1); border-radius: 14px; padding: 14px;">
+          <div style="color: #7a7161; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Total P&amp;L</div>
+          <div style="font-size: 1.25rem; font-weight: 800; color: {{ totalPnlColor }};">{{ totalPnlDisplay }}</div>
+        </div>
+        <div style="flex: 0 0 132px; background: rgba(255,253,246,0.7); backdrop-filter: blur(10px); border: 1px solid rgba(30,61,47,0.1); border-radius: 14px; padding: 14px;">
+          <div style="color: #7a7161; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Win Rate</div>
+          <div style="font-size: 1.25rem; font-weight: 800;">{{ winRateDisplay }}</div>
+        </div>
+        <div style="flex: 0 0 132px; background: rgba(255,253,246,0.7); backdrop-filter: blur(10px); border: 1px solid rgba(30,61,47,0.1); border-radius: 14px; padding: 14px;">
+          <div style="color: #7a7161; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Open Positions</div>
+          <div style="font-size: 1.25rem; font-weight: 800;">{{ positionsCount }}</div>
+        </div>
+      </div>
+
+      <div style="background: rgba(255,253,246,0.6); border: 1px solid rgba(30,61,47,0.06); border-radius: 16px; padding: 18px;">
+        <h2 style="margin: 0 0 3px; font-size: 1.15rem; font-weight: 700; font-family: 'Playfair Display', serif;">Active Positions</h2>
+        <p style="margin: 0 0 16px; color: #7a7161; font-size: 0.78rem;">Live option contracts held</p>
+        <sc-if value="{{ hasPositions }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <sc-for list="{{ positions }}" as="pos" hint-placeholder-count="1">
+              <div onClick="{{ pos.onTap }}" style="background: rgba(255,253,246,0.55); border: 1px solid rgba(30,61,47,0.06); border-radius: 12px; padding: 14px 15px; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span style="font-weight: 700; font-size: 0.98rem;">{{ pos.underlying }}</span>
+                  <span style="font-weight: 700; font-size: 0.85rem; color: {{ pos.typeColor }};">{{ pos.typeLabel }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: #7a7161;">
+                  <span>Strike ${{ pos.strike }}</span>
+                  <span>Exp {{ pos.expiration }}</span>
+                </div>
+                <div style="font-size: 0.7rem; color: #a89f8f; margin-top: 6px;">Acquired {{ pos.acquired }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasNoPositions }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 26px; border: 1px dashed rgba(30,61,47,0.12); border-radius: 12px; text-align: center; color: #7a7161; font-size: 0.85rem;">No open positions.</div>
+        </sc-if>
+      </div><div style="background: rgba(255,253,246,0.6); border: 1px solid rgba(30,61,47,0.06); border-radius: 16px; padding: 18px; margin-bottom: 18px;">
+        
+        
+
+        <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,253,246,0.6); padding: 8px 14px; border-radius: 20px; border: 1px solid rgba(30,61,47,0.08); margin-bottom: 12px;">
+          <button onClick="{{ prevMonth }}" style="background: transparent; border: none; color: #1c2b22; font-weight: 700; cursor: pointer; padding: 6px 10px; font-size: 0.9rem;">‹</button>
+          <span style="font-size: 0.92rem; font-weight: 700;">{{ calendarLabel }}</span>
+          <button onClick="{{ nextMonth }}" style="background: transparent; border: none; color: #1c2b22; font-weight: 700; cursor: pointer; padding: 6px 10px; font-size: 0.9rem;">›</button>
+        </div>
+
+        <div style="display: flex; gap: 14px; margin-bottom: 12px; font-size: 0.75rem;">
+          <span style="color: #7a7161;">Net <strong style="color: {{ monthPnlColor }};">{{ monthPnlDisplay }}</strong></span>
+          <span style="color: #7a7161;">Wins <strong style="color: #3a7d54;">{{ monthWins }}</strong></span>
+          <span style="color: #7a7161;">Losses <strong style="color: #7a2333;">{{ monthLosses }}</strong></span>
+        </div>
+
+        <div style="border: 1px solid rgba(30,61,47,0.08); border-radius: 12px; overflow: hidden; background: rgba(30,61,47,0.05);">
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr); background: rgba(30,61,47,0.08); border-bottom: 1px solid rgba(30,61,47,0.08);">
+            <sc-for list="{{ weekdayLabels }}" as="wd" hint-placeholder-count="7">
+              <div style="text-align: center; padding: 7px 0; font-size: 0.6rem; font-weight: 800; color: #7a7161;">{{ wd }}</div>
+            </sc-for>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr);">
+            <sc-for list="{{ calendarCells }}" as="cell" hint-placeholder-count="35">
+              <div style="border-right: 1px solid rgba(30,61,47,0.05); border-bottom: 1px solid rgba(30,61,47,0.05); padding: 5px; height: 46px; display: flex; flex-direction: column; justify-content: space-between; background: {{ cell.bg }};">
+                <span style="font-size: 0.65rem; font-weight: 700; color: {{ cell.dayColor }};">{{ cell.day }}</span>
+                <span style="font-size: 0.58rem; font-weight: 800; text-align: center; color: {{ cell.pnlColor }};">{{ cell.pnlDisplay }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <!-- ============ SCANNER / DECIDER DESK TAB ============ -->
+    <div style="width: 33.3333%; flex-shrink: 0; scroll-snap-align: start; padding: 18px 16px 40px; order: 1;">
+
+      <sc-if value="{{ deskClosed }}" hint-placeholder-val="{{ true }}">
+        <h2 style="margin: 0 0 3px; font-size: 1.15rem; font-weight: 700; color: #b8933f; font-family: 'Playfair Display', serif;">⬤ Watchlist Scanner &amp; Decider Desk</h2>
+        <p style="margin: 0 0 14px; color: #7a7161; font-size: 0.78rem; line-height: 1.4;">Tap a ticker to open live analytics, the options chain and the chart.</p>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <select value="{{ profile }}" onChange="{{ handleProfileChange }}" style="flex: 1; background: rgba(255,253,246,0.65); border: 1px solid rgba(30,61,47,0.12); border-radius: 8px; color: #1c2b22; padding: 9px 8px; font-family: inherit; font-size: 0.72rem;">
+            <option value="Safe (Paper)">🛡 Safe (Paper)</option>
+            <option value="Live">Live</option>
+          </select>
+          <select value="{{ autoExpiry }}" onChange="{{ handleExpiryProfileChange }}" style="flex: 1; background: rgba(255,253,246,0.65); border: 1px solid rgba(30,61,47,0.12); border-radius: 8px; color: #1c2b22; padding: 9px 8px; font-family: inherit; font-size: 0.72rem;">
+            <option value="Weekly (0-7 DTE)">Weekly (0-7 DTE)</option>
+            <option value="Monthly (30 DTE)">Monthly (30 DTE)</option>
+            <option value="LEAPS (60+ DTE)">LEAPS (60+ DTE)</option>
+          </select>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <button onClick="{{ toggleAutoScan }}" style="flex: 1; background: {{ autoScanBg }}; border: 1px solid rgba(30,61,47,0.14); color: #1c2b22; border-radius: 8px; padding: 10px; font-weight: 700; font-size: 0.72rem; cursor: pointer;">{{ autoScanLabel }}</button>
+          <button onClick="{{ scanWatchlist }}" style="flex: 1; background: #b8933f; border: none; color: #2a2410; border-radius: 8px; padding: 10px; font-weight: 800; font-size: 0.72rem; cursor: pointer;">⚡ Scan Watchlist Now</button>
+        </div>
+
+        <div style="margin-bottom: 6px; color: #7a7161; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.5px;">Add Ticker</div>
+        <div style="display: flex; gap: 8px; margin-bottom: 18px;">
+          <input type="text" value="{{ newTickerInput }}" onChange="{{ handleNewTickerInput }}" placeholder="e.g. TSLA, AMD" style="flex: 1; background: rgba(255,253,246,0.6); border: 1px solid rgba(30,61,47,0.12); border-radius: 8px; color: #1c2b22; padding: 10px 12px; font-family: inherit; font-size: 0.85rem;">
+          <button onClick="{{ addTicker }}" style="background: rgba(44,68,104,0.16); border: 1px solid rgba(44,68,104,0.35); color: #6b85a8; border-radius: 8px; padding: 0 16px; font-weight: 700; font-size: 0.85rem; cursor: pointer;">+ Add</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <sc-for list="{{ watchlist }}" as="w" hint-placeholder-count="3">
+            <div style="background: rgba(255,253,246,0.7); border: 1px solid rgba(30,61,47,0.08); border-radius: 12px; padding: 14px 15px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span onClick="{{ w.onSelect }}" style="font-weight: 800; font-size: 1rem; cursor: pointer;">{{ w.ticker }}</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 0.62rem; color: #7a7161; font-weight: 700; letter-spacing: 0.4px;">AUTO TRADE</span>
+                  <button onClick="{{ w.onToggleAuto }}" style="width: 38px; height: 22px; border-radius: 11px; border: none; cursor: pointer; background: {{ w.autoTrackColor }}; position: relative; padding: 0; flex-shrink: 0;">
+                    <span style="position: absolute; top: 2px; left: {{ w.autoThumbLeft }}; width: 18px; height: 18px; border-radius: 50%; background: white; transition: left 0.2s;"></span>
+                  </button>
+                  <button onClick="{{ w.onRemove }}" style="background: transparent; border: none; color: #a89f8f; font-size: 1rem; cursor: pointer; padding: 0 2px;">×</button>
+                </div>
+              </div>
+              <div onClick="{{ w.onSelect }}" style="border-top: 1px solid rgba(30,61,47,0.08); padding-top: 8px; cursor: pointer;">
+                <sc-if value="{{ w.scanned }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 0.78rem; color: #7a7161;">${{ w.price }} <span style="color: {{ w.changeColor }};">{{ w.changeDisplay }}</span></span>
+                    <span style="padding: 3px 9px; border-radius: 5px; font-weight: 700; font-size: 0.63rem; background: {{ w.bg }}; color: {{ w.color }}; border: 1px solid {{ w.border }};">{{ w.label }}</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ w.unscanned }}" hint-placeholder-val="{{ true }}">
+                  <span style="font-size: 0.78rem; color: #a89f8f; font-style: italic;">No scan data. Click Scan.</span>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ deskOpen }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ closeDesk }}" style="background: transparent; border: none; color: #7a7161; font-weight: 700; font-size: 0.82rem; cursor: pointer; padding: 0; margin-bottom: 14px;">‹ Back to Scanner</button>
+
+        <div style="background: rgba(255,253,246,0.65); border: 1px solid rgba(184,147,63,0.3); border-radius: 14px; padding: 15px; margin-bottom: 14px;">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 7px;">
+              <span style="font-size: 1.3rem; font-weight: 700; font-family: 'Playfair Display', serif;">{{ desk.ticker }}</span>
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #3a7d54; box-shadow: 0 0 6px #3a7d54;"></span>
+              <span style="font-size: 0.6rem; color: #7a7161; font-weight: 700; letter-spacing: 0.4px;">ACTIVE ANALYTICS</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <span style="font-size: 1.7rem; font-weight: 700; font-family: 'Playfair Display', serif;">${{ desk.price }}</span>
+            <span style="padding: 5px 11px; border-radius: 6px; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.4px; background: {{ desk.bg }}; color: {{ desk.color }}; border: 1px solid {{ desk.border }};">{{ desk.label }}</span>
+          </div>
+          <div style="display: flex; gap: 8px; overflow-x: auto; margin-bottom: 14px;">
+            <sc-for list="{{ desk.chips }}" as="c" hint-placeholder-count="4">
+              <div style="flex-shrink: 0; background: rgba(255,253,246,0.65); border: 1px solid rgba(30,61,47,0.1); border-radius: 8px; padding: 6px 10px; text-align: center;">
+                <div style="font-size: 0.58rem; color: #7a7161; text-transform: uppercase; letter-spacing: 0.3px;">{{ c.label }}</div>
+                <div style="font-size: 0.78rem; font-weight: 700; color: {{ c.color }};">{{ c.value }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 7px; background: rgba(30,61,47,0.05); border: 1px solid rgba(30,61,47,0.08); border-radius: 8px; padding: 8px 10px; flex: 1;">
+              <span style="font-size: 0.68rem; color: #7a7161; font-weight: 700;">AUTO TRADE</span>
+              <button onClick="{{ desk.onToggleAuto }}" style="width: 38px; height: 22px; border-radius: 11px; border: none; cursor: pointer; background: {{ desk.autoTrackColor }}; position: relative; padding: 0; flex-shrink: 0;">
+                <span style="position: absolute; top: 2px; left: {{ desk.autoThumbLeft }}; width: 18px; height: 18px; border-radius: 50%; background: white; transition: left 0.2s;"></span>
+              </button>
+            </div>
+            <button onClick="{{ desk.onAudit }}" style="flex: 1.4; background: #b8933f; border: none; color: #2a2410; border-radius: 8px; padding: 10px; font-weight: 800; font-size: 0.75rem; cursor: pointer;">⚡ Audit Option Trade</button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <div style="flex: 1; display: flex; background: rgba(255,253,246,0.6); border-radius: 8px; padding: 3px; border: 1px solid rgba(30,61,47,0.08);">
+            <button onClick="{{ setSide_BUY }}" style="flex: 1; padding: 8px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; cursor: pointer; border: none; background: {{ sideBuyBg }}; color: {{ sideBuyColor }};">Buy</button>
+            <button onClick="{{ setSide_SELL }}" style="flex: 1; padding: 8px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; cursor: pointer; border: none; background: {{ sideSellBg }}; color: {{ sideSellColor }};">Sell</button>
+          </div>
+          <div style="flex: 1; display: flex; background: rgba(255,253,246,0.6); border-radius: 8px; padding: 3px; border: 1px solid rgba(30,61,47,0.08);">
+            <button onClick="{{ setOptType_CALL }}" style="flex: 1; padding: 8px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; cursor: pointer; border: none; background: {{ optCallBg }}; color: {{ optCallColor }};">Call</button>
+            <button onClick="{{ setOptType_PUT }}" style="flex: 1; padding: 8px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; cursor: pointer; border: none; background: {{ optPutBg }}; color: {{ optPutColor }};">Put</button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; overflow-x: auto; margin-bottom: 14px;">
+          <sc-for list="{{ expiryChips }}" as="ex" hint-placeholder-count="3">
+            <button onClick="{{ ex.onSelect }}" style="flex-shrink: 0; padding: 7px 13px; border-radius: 16px; font-size: 0.72rem; font-weight: 700; cursor: pointer; border: 1px solid {{ ex.border }}; background: {{ ex.bg }}; color: {{ ex.color }};">{{ ex.label }}</button>
+          </sc-for>
+        </div>
+
+        <div style="background: rgba(255,253,246,0.6); border: 1px solid rgba(30,61,47,0.06); border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; color: #7a7161; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 10px; padding: 0 2px;">
+            <span>Strike</span><span>Mid / Bid-Ask</span><span>IV · OI · Δ</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <sc-for list="{{ desk.chain }}" as="row" hint-placeholder-count="6">
+              <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,253,246,0.55); border-radius: 10px; padding: 10px 11px;">
+                <div style="flex: 0 0 62px;">
+                  <div style="font-weight: 800; font-size: 0.88rem;">${{ row.strike }}</div>
+                </div>
+                <div style="flex: 1; text-align: center;">
+                  <div style="font-weight: 700; font-size: 0.82rem; color: #b8933f;">${{ row.mid }}</div>
+                  <div style="font-size: 0.65rem; color: #a89f8f;">${{ row.bid }} / ${{ row.ask }}</div>
+                </div>
+                <div style="flex: 1; text-align: center; font-size: 0.63rem; color: #7a7161;">
+                  <span style="color: #3a7d54;">{{ row.ivRank }}</span> · {{ row.oi }} · {{ row.delta }}
+                </div>
+                <button onClick="{{ row.onAdd }}" style="flex-shrink: 0; background: rgba(184,147,63,0.14); border: 1px solid rgba(184,147,63,0.4); color: #b8933f; border-radius: 7px; padding: 6px 10px; font-weight: 800; font-size: 0.75rem; cursor: pointer;">+</button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background: rgba(255,253,246,0.6); border: 1px solid rgba(30,61,47,0.06); border-radius: 14px; padding: 14px;">
+          <div style="color: #b8933f; font-size: 0.78rem; font-weight: 700; margin-bottom: 10px;">📶 Real-Time Candlestick (VWAP + RSI)</div>
+          <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+            <sc-for list="{{ timeframes }}" as="tf" hint-placeholder-count="3">
+              <button onClick="{{ tf.onSelect }}" style="flex-shrink: 0; padding: 5px 11px; border-radius: 6px; font-size: 0.68rem; font-weight: 700; cursor: pointer; border: 1px solid {{ tf.border }}; background: {{ tf.bg }}; color: {{ tf.color }};">{{ tf.label }}</button>
+            </sc-for>
+          </div>
+          <div style="background: rgba(30,61,47,0.05); border-radius: 10px; padding: 8px; margin-bottom: 8px;">
+            {{ candleSvg }}
+          </div>
+          <div style="background: rgba(30,61,47,0.05); border-radius: 10px; padding: 8px;">
+            {{ rsiSvg }}
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- ============ TRADING TAB ============ -->
+    <div style="width: 33.3333%; flex-shrink: 0; scroll-snap-align: start; padding: 18px 16px 40px; order: 2;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px;">
+        <h2 style="margin: 0; font-size: 1.15rem; font-weight: 700; font-family: 'Playfair Display', serif;">Conditional Orders</h2>
+      </div>
+      <p style="margin: 0 0 16px; color: #7a7161; font-size: 0.8rem;">Pending price-triggered entries, routed through the safety gate on fire.</p>
+
+      <button onClick="{{ toggleOrderForm }}" style="width: 100%; background: linear-gradient(135deg, #7a2333, #2c4468); color: white; border: none; padding: 13px; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-bottom: {{ orderFormMarginBottom }}; min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <span>{{ orderFormToggleLabel }}</span>
+        <span style="display: inline-block; transition: transform 0.2s; transform: {{ orderFormChevron }};">⌄</span>
+      </button>
+
+      <sc-if value="{{ showOrderSheet }}" hint-placeholder-val="{{ false }}">
+        <div style="background: rgba(255,253,246,0.7); border: 1px solid rgba(30,61,47,0.1); border-radius: 12px; padding: 16px; margin-bottom: 16px; animation: wl-slideup 0.18s cubic-bezier(0.16,1,0.3,1);">
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 0.76rem; color: #7a7161;">Underlying Ticker</label>
+              <input type="text" value="{{ newOrder.underlying }}" onChange="{{ handleOrderTicker }}" placeholder="e.g. SPY" style="background: rgba(255,253,246,0.9); border: 1px solid rgba(30,61,47,0.12); border-radius: 8px; color: #1c2b22; padding: 10px 13px; font-family: inherit; font-size: 0.88rem;">
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button onClick="{{ setNewOrderType_CALL }}" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; border: 1px solid {{ typeCallBorder }}; background: {{ typeCallBg }}; color: {{ typeCallColor }};">CALL</button>
+              <button onClick="{{ setNewOrderType_PUT }}" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; border: 1px solid {{ typePutBorder }}; background: {{ typePutBg }}; color: {{ typePutColor }};">PUT</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 0.76rem; color: #7a7161;">Expiry Date</label>
+              <select value="{{ newOrder.expiry }}" onChange="{{ handleOrderExpiry }}" style="background: rgba(255,253,246,0.9); border: 1px solid rgba(30,61,47,0.12); border-radius: 8px; color: #1c2b22; padding: 10px 13px; font-family: inherit; font-size: 0.88rem; width: 100%;">
+                <sc-for list="{{ orderExpiryOptions }}" as="exo" hint-placeholder-count="4">
+                  <option value="{{ exo.value }}">{{ exo.label }}</option>
+                </sc-for>
+              </select>
+            </div>
+
+            <div style="background: rgba(30,20,15,0.94); border-radius: 12px; padding: 12px; margin-top: 2px;">
+              <div style="display: flex; justify-content: space-between; color: rgba(255,253,246,0.5); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 10px; padding: 0 2px;">
+                <span style="flex: 0 0 56px;">Strike</span>
+                <span style="flex: 1; text-align: center;">Price / Bid-Ask</span>
+                <span style="flex: 1; text-align: center;">IV · OI · Δ</span>
+                <span style="flex: 0 0 76px; text-align: right;">Action</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 7px; max-height: 340px; overflow-y: auto;">
+                <sc-for list="{{ orderChainRows }}" as="ocr" hint-placeholder-count="8">
+                  <sc-if value="{{ ocr.isMarker }}" hint-placeholder-val="{{ false }}">
+                    <div style="text-align: center; font-weight: 800; font-size: 0.74rem; letter-spacing: 0.3px; color: #b8933f; background: rgba(184,147,63,0.14); border-top: 1px dashed rgba(184,147,63,0.4); border-bottom: 1px dashed rgba(184,147,63,0.4); padding: 6px 0; margin: 2px 0;">{{ ocr.spotLabel }}</div>
+                  </sc-if>
+                  <sc-if value="{{ ocr.isRow }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="flex: 0 0 56px; font-weight: 800; font-size: 0.84rem; color: #f4eedc;">${{ ocr.strike }}</div>
+                    <div style="flex: 1; text-align: center;">
+                      <div style="font-weight: 700; font-size: 0.8rem; color: #d9c67a;">${{ ocr.mid }}</div>
+                      <div style="font-size: 0.62rem; color: rgba(255,253,246,0.45);">${{ ocr.bid }} / ${{ ocr.ask }}</div>
+                    </div>
+                    <div style="flex: 1; text-align: center; font-size: 0.66rem; color: rgba(255,253,246,0.55);">{{ ocr.ivRank }} · {{ ocr.oi }} · {{ ocr.delta }}</div>
+                    <button onClick="{{ ocr.onPick }}" style="flex: 0 0 76px; display: flex; align-items: center; justify-content: space-between; gap: 6px; background: transparent; border: 1px solid {{ ocr.pickBorder }}; color: {{ ocr.pickColor }}; border-radius: 6px; padding: 6px 8px; font-weight: 700; font-size: 0.72rem; cursor: pointer;">
+                      <span>${{ ocr.mid }}</span><span>+</span>
+                    </button>
+                  </div>
+                  </sc-if>
+                </sc-for>
+                <sc-if value="{{ hasNoChainRows }}" hint-placeholder-val="{{ false }}">
+                  <div style="text-align: center; color: rgba(255,253,246,0.4); font-size: 0.78rem; padding: 10px 0;">Enter a ticker to load the chain.</div>
+                </sc-if>
+              </div>
+            </div>
+
+            <sc-if value="{{ hasSelectedOption }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(184,147,63,0.12); border: 1px solid rgba(184,147,63,0.35); border-radius: 8px; padding: 9px 12px;">
+                <span style="font-size: 0.8rem; font-weight: 700; color: #8a6d2c;">{{ selectedOptionLabel }}</span>
+                <span style="font-size: 0.72rem; color: #7a7161;">in bucket ✓</span>
+              </div>
+            </sc-if>
+
+            <div style="display: flex; gap: 10px;">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 0.76rem; color: #7a7161;">Qty</label>
+                <input type="number" value="{{ newOrder.qty }}" onChange="{{ handleOrderQty }}" style="background: rgba(255,253,246,0.9); border: 1px solid rgba(30,61,47,0.12); border-radius: 8px; color: #1c2b22; padding: 10px 13px; font-family: inherit; font-size: 0.88rem; width: 100%;">
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button onClick="{{ setNewOrderCondition_ABOVE }}" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; cursor: pointer; border: 1px solid {{ condAboveBorder }}; background: {{ condAboveBg }}; color: {{ condAboveColor }};">Crosses Above</button>
+              <button onClick="{{ setNewOrderCondition_BELOW }}" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; cursor: pointer; border: 1px solid {{ condBelowBorder }}; background: {{ condBelowBg }}; color: {{ condBelowColor }};">Crosses Below</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 0.76rem; color: #7a7161;">Trigger Price</label>
+              <input type="number" value="{{ newOrder.triggerValue }}" onChange="{{ handleOrderTrigger }}" style="background: rgba(255,253,246,0.9); border: 1px solid rgba(30,61,47,0.12); border-radius: 8px; color: #1c2b22; padding: 10px 13px; font-family: inherit; font-size: 0.88rem;">
+            </div>
+            <button onClick="{{ submitOrder }}" style="background: linear-gradient(135deg, #7a2333, #2c4468); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 0.88rem; cursor: pointer; margin-top: 4px;">Create Order</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasOrders }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <sc-for list="{{ ordersList }}" as="o" hint-placeholder-count="4">
+            <div style="background: rgba(255,253,246,0.5); border: 1px solid rgba(30,61,47,0.06); border-radius: 14px; padding: 15px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 800; font-size: 1rem;">{{ o.underlying }}</span>
+                <span style="padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 0.65rem; background: rgba(122,110,90,0.14); color: #7a7161; border: 1px solid rgba(122,110,90,0.3);">{{ o.status }}</span>
+              </div>
+              <p style="margin: 0 0 10px; font-size: 0.83rem; color: #1c2b22; line-height: 1.4;">{{ o.description }}</p>
+              <div style="display: flex; gap: 14px; font-size: 0.72rem; color: #7a7161; margin-bottom: 12px;">
+                <span>Strike ${{ o.strike }}</span>
+                <span>Qty {{ o.qty }}</span>
+              </div>
+              <button onClick="{{ o.onCancel }}" style="width: 100%; background: transparent; border: 1px solid rgba(122,35,51,0.3); color: #7a2333; border-radius: 8px; padding: 9px; font-weight: 700; font-size: 0.78rem; cursor: pointer;">Cancel Order</button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasNoOrders }}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 34px 20px; border: 1px dashed rgba(30,61,47,0.12); border-radius: 12px; text-align: center; color: #7a7161; font-size: 0.85rem;">No pending conditional orders.</div>
+      </sc-if>
+    </div>
+  </div>
+  </div>
+
+  <div style="position: sticky; bottom: 0; z-index: 40; background: rgba(244,238,220,0.92); backdrop-filter: blur(14px); border-top: 1px solid rgba(30,61,47,0.1); display: flex; padding: 8px 8px 28px;">
+    <button onClick="{{ goToTab_options }}" style="flex: 1; background: transparent; border: none; padding: 8px 4px; cursor: pointer; color: {{ tabColorOptions }}; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+      <span style="font-size: 1.15rem;">📡</span>
+      <span style="font-weight: 700; font-size: 0.66rem;">Scanner</span>
+    </button>
+    <button onClick="{{ goToTab_trading }}" style="flex: 1; background: transparent; border: none; padding: 8px 4px; cursor: pointer; color: {{ tabColorTrading }}; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+      <span style="font-size: 1.15rem;">⚡</span>
+      <span style="font-weight: 700; font-size: 0.66rem;">Trading</span>
+    </button>
+    <button onClick="{{ goToTab_cortex }}" style="flex: 1; background: transparent; border: none; padding: 8px 4px; cursor: pointer; color: {{ tabColorCortex }}; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+      <span style="font-size: 1.15rem;">💠</span>
+      <span style="font-weight: 700; font-size: 0.66rem;">Pulse</span>
+    </button>
+  </div>
+
+  <!-- ============ OVERLAYS ============ -->
+
+  <sc-if value="{{ showLogSheet }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; inset: 0; background: rgba(28,43,34,0.55); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; animation: wl-fadein 0.15s ease-out;">
+      <div style="background: #1e3d2f; border: 1px solid rgba(30,61,47,0.12); border-radius: 20px 20px 0 0; width: 100%; max-width: 460px; padding: 24px; max-height: 85vh; overflow-y: auto; animation: wl-slideup 0.2s cubic-bezier(0.16,1,0.3,1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800;">Log Trade</h3>
+          <button onClick="{{ closeLogSheet }}" style="background: transparent; border: none; color: #7a7161; font-size: 1.5rem; cursor: pointer; line-height: 1;">×</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; gap: 10px;">
+            <button onClick="{{ setNewTradeAction_BUY }}" style="flex: 1; padding: 11px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: 1px solid {{ actionBuyBorder }}; background: {{ actionBuyBg }}; color: {{ actionBuyColor }};">BUY</button>
+            <button onClick="{{ setNewTradeAction_SELL }}" style="flex: 1; padding: 11px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: 1px solid {{ actionSellBorder }}; background: {{ actionSellBg }}; color: {{ actionSellColor }};">SELL</button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 0.78rem; color: #7a7161;">Symbol</label>
+            <input type="text" value="{{ newTrade.symbol }}" onChange="{{ handleTradeSymbol }}" placeholder="e.g. AAPL260814C00185000" style="background: rgba(255,253,246,0.6); border: 1px solid rgba(30,61,47,0.1); border-radius: 8px; color: #1c2b22; padding: 11px 14px; font-family: inherit; font-size: 0.9rem;">
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 0.78rem; color: #7a7161;">Qty</label>
+              <input type="number" value="{{ newTrade.qty }}" onChange="{{ handleTradeQty }}" style="background: rgba(255,253,246,0.6); border: 1px solid rgba(30,61,47,0.1); border-radius: 8px; color: #1c2b22; padding: 11px 14px; font-family: inherit; font-size: 0.9rem; width: 100%;">
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 0.78rem; color: #7a7161;">Price</label>
+              <input type="number" value="{{ newTrade.price }}" onChange="{{ handleTradePrice }}" style="background: rgba(255,253,246,0.6); border: 1px solid rgba(30,61,47,0.1); border-radius: 8px; color: #1c2b22; padding: 11px 14px; font-family: inherit; font-size: 0.9rem; width: 100%;">
+            </div>
+          </div>
+          <sc-if value="{{ isSellAction }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 0.78rem; color: #7a7161;">Realized P&amp;L</label>
+              <input type="number" value="{{ newTrade.pnl }}" onChange="{{ handleTradePnl }}" style="background: rgba(255,253,246,0.6); border: 1px solid rgba(30,61,47,0.1); border-radius: 8px; color: #1c2b22; padding: 11px 14px; font-family: inherit; font-size: 0.9rem;">
+            </div>
+          </sc-if>
+          <button onClick="{{ submitTrade }}" style="background: linear-gradient(135deg, #7a2333, #2c4468); color: white; border: none; padding: 13px; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-top: 6px;">Save Trade</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showAuditSheet }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; inset: 0; background: rgba(28,43,34,0.55); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; animation: wl-fadein 0.15s ease-out;">
+      <div style="background: #1e3d2f; border: 1px solid rgba(184,147,63,0.3); border-radius: 20px 20px 0 0; width: 100%; max-width: 460px; padding: 24px; max-height: 85vh; overflow-y: auto; animation: wl-slideup 0.2s cubic-bezier(0.16,1,0.3,1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #b8933f;">⚡ Audit Option Trade</h3>
+          <button onClick="{{ closeAuditSheet }}" style="background: transparent; border: none; color: #7a7161; font-size: 1.5rem; cursor: pointer; line-height: 1;">×</button>
+        </div>
+        <sc-if value="{{ audit.hint }}" hint-placeholder-val="{{ true }}">
+          <div style="background: rgba(255,253,246,0.6); border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+            <div style="font-weight: 800; font-size: 1rem; margin-bottom: 3px;">{{ audit.symbol }}</div>
+            <div style="font-size: 0.8rem; color: #7a7161;">{{ audit.side }} {{ audit.qty }} {{ audit.optType }} @ ${{ audit.mid }} mid</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.82rem; color: #7a7161;">Liquidity Guard (spread ≤ 10%)</span>
+              <span style="font-size: 0.8rem; font-weight: 800; color: {{ audit.spreadColor }};">{{ audit.spreadResult }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.82rem; color: #7a7161;">IV Rank</span>
+              <span style="font-size: 0.8rem; font-weight: 700;">{{ audit.ivRank }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.82rem; color: #7a7161;">Delta</span>
+              <span style="font-size: 0.8rem; font-weight: 700;">{{ audit.delta }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.82rem; color: #7a7161;">Qty</span>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button onClick="{{ audit.qtyDown }}" style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(30,61,47,0.14); background: rgba(30,61,47,0.08); color: #1c2b22; cursor: pointer; font-weight: 800;">-</button>
+                <span style="font-weight: 700; min-width: 16px; text-align: center;">{{ audit.qty }}</span>
+                <button onClick="{{ audit.qtyUp }}" style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(30,61,47,0.14); background: rgba(30,61,47,0.08); color: #1c2b22; cursor: pointer; font-weight: 800;">+</button>
+              </div>
+            </div>
+          </div>
+          <button onClick="{{ audit.confirm }}" style="width: 100%; background: linear-gradient(135deg, #7a2333, #2c4468); color: white; border: none; padding: 13px; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer;">Confirm &amp; Log Entry</button>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1e3d2f; border: 1px solid rgba(30,61,47,0.14); color: #1c2b22; padding: 12px 20px; border-radius: 30px; font-size: 0.85rem; font-weight: 600; z-index: 1100; box-shadow: 0 10px 30px rgba(30,20,10,0.25); animation: wl-fadein 0.15s ease-out;">{{ toastMessage }}</div>
+  </sc-if>
+
+</div>
+</x-import>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.scrollRef = React.createRef();
+    this.scrollTimeout = null;
+    this.state = {
+      activeTab: 'options',
+      selectedTicker: null,
+      manualPause: false,
+      watchlist: [
+        { ticker: 'AAPL', autoTrade: false, scanned: false },
+        { ticker: 'NVDA', autoTrade: true, scanned: false },
+        { ticker: 'SPY', autoTrade: false, scanned: false }
+      ],
+      newTickerInput: '',
+      autoScanOn: false,
+      profile: 'Safe (Paper)',
+      autoExpiry: 'Weekly (0-7 DTE)',
+      side: 'BUY',
+      optType: 'CALL',
+      expiryIndex: 0,
+      timeframe: '1m',
+      showAuditSheet: false,
+      auditRow: null,
+      calMonth: new Date().getMonth(),
+      calYear: new Date().getFullYear(),
+      trades: [],
+      showLogSheet: false,
+      newTrade: { action: 'BUY', symbol: '', qty: 1, price: 1.0, pnl: 0 },
+      showOrderSheet: false,
+      newOrder: { underlying: '', optionType: 'CALL', strike: 100, price: 0, expiry: '', qty: 1, condition: 'CROSSES_ABOVE', triggerValue: 100 },
+      orders: [
+        { id: 'trigger_1784598405_0', underlying: 'NVDA', optionType: 'CALL', strike: 250.0, condition: 'CROSSES_ABOVE', triggerValue: 195.0, qty: 1, status: 'PENDING' },
+        { id: 'trigger_1784640014_1', underlying: 'MU', optionType: 'CALL', strike: 1000.0, condition: 'CROSSES_ABOVE', triggerValue: 925.0, qty: 1, status: 'PENDING' },
+        { id: 'trigger_1784640040_2', underlying: 'SPY', optionType: 'CALL', strike: 750.0, condition: 'CROSSES_ABOVE', triggerValue: 747.0, qty: 1, status: 'PENDING' },
+        { id: 'trigger_1784640074_3', underlying: 'SNDK', optionType: 'CALL', strike: 1700.0, condition: 'CROSSES_ABOVE', triggerValue: 1533.0, qty: 1, status: 'PENDING' }
+      ],
+      weeklyGoalsChecked: [false, false, false],
+      toastMessage: null
+    };
+  }
+
+  showToastMsg(msg) {
+    this.setState({ toastMessage: msg });
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => this.setState({ toastMessage: null }), 2200);
+  }
+
+  scrollToIndex(i) {
+    requestAnimationFrame(() => {
+      const el = this.scrollRef.current;
+      if (!el) return;
+      const w = el.clientWidth;
+      el.scrollTo({ left: w * i, behavior: 'instant' });
+    });
+  }
+
+  handleScroll() {
+    const el = this.scrollRef.current;
+    if (!el) return;
+    clearTimeout(this.scrollTimeout);
+    this.scrollTimeout = setTimeout(() => {
+      const w = el.clientWidth;
+      const idx = Math.round(el.scrollLeft / w);
+      const tabs = ['options', 'trading', 'cortex'];
+      const tab = tabs[Math.max(0, Math.min(2, idx))];
+      if (tab !== this.state.activeTab) this.setState({ activeTab: tab });
+    }, 80);
+  }
+
+  fmtMoney(v) {
+    const sign = v < 0 ? '-' : '';
+    return `${sign}$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  hashStr(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+
+  makeRng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  basePrice(ticker) {
+    const map = { AAPL: 321.57, NVDA: 187.32, SPY: 630.15, MU: 965.40, SNDK: 1550.20 };
+    if (map[ticker]) return map[ticker];
+    return 50 + (this.hashStr(ticker) % 450);
+  }
+
+  genSeries(ticker, count) {
+    const base = this.basePrice(ticker);
+    const rnd = this.makeRng(this.hashStr(ticker + '-series-' + count));
+    let price = base * 0.985;
+    const candles = [];
+    for (let i = 0; i < count; i++) {
+      const open = price;
+      const change = (rnd() - 0.5) * base * 0.012;
+      const close = open + change;
+      const high = Math.max(open, close) + rnd() * base * 0.003;
+      const low = Math.min(open, close) - rnd() * base * 0.003;
+      candles.push({ open, close, high, low });
+      price = close;
+    }
+    return candles;
+  }
+
+  computeVwapLine(candles) {
+    let cum = 0;
+    return candles.map((c, i) => { cum += (c.high + c.low + c.close) / 3; return cum / (i + 1); });
+  }
+
+  computeRSI(closes, period) {
+    if (closes.length <= period) return [];
+    let gains = 0, losses = 0;
+    for (let i = 1; i <= period; i++) { const d = closes[i] - closes[i - 1]; if (d >= 0) gains += d; else losses -= d; }
+    let avgGain = gains / period, avgLoss = losses / period;
+    const rsis = [];
+    for (let i = period + 1; i < closes.length; i++) {
+      const d = closes[i] - closes[i - 1];
+      const gain = d > 0 ? d : 0, loss = d < 0 ? -d : 0;
+      avgGain = (avgGain * (period - 1) + gain) / period;
+      avgLoss = (avgLoss * (period - 1) + loss) / period;
+      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+      rsis.push(100 - 100 / (1 + rs));
+    }
+    return rsis;
+  }
+
+  computeEMA(values, period) {
+    const k = 2 / (period + 1);
+    let ema = values[0];
+    const arr = [ema];
+    for (let i = 1; i < values.length; i++) { ema = values[i] * k + ema * (1 - k); arr.push(ema); }
+    return arr;
+  }
+
+  computeAnalytics(ticker, count) {
+    const candles = this.genSeries(ticker, count || 40);
+    const closes = candles.map(c => c.close);
+    const vwapLine = this.computeVwapLine(candles);
+    const rsis = this.computeRSI(closes, 14);
+    const emaFast = this.computeEMA(closes, 12), emaSlow = this.computeEMA(closes, 26);
+    const price = closes[closes.length - 1];
+    const vwapLast = vwapLine[vwapLine.length - 1];
+    const rsiLast = rsis.length ? rsis[rsis.length - 1] : 50;
+    const macdLast = emaFast[emaFast.length - 1] - emaSlow[emaSlow.length - 1];
+    const openPct = ((price - candles[0].open) / candles[0].open) * 100;
+    const vwapPct = ((price - vwapLast) / vwapLast) * 100;
+    const isBull = price > vwapLast && rsiLast > 50;
+    const isBear = price < vwapLast && rsiLast < 50;
+    let label, bg, color, border;
+    if (isBull) { label = 'BULLISH'; bg = 'rgba(58,125,84,0.12)'; color = '#3a7d54'; border = 'rgba(58,125,84,0.3)'; }
+    else if (isBear) { label = 'BEARISH'; bg = 'rgba(122,35,51,0.12)'; color = '#7a2333'; border = 'rgba(122,35,51,0.3)'; }
+    else { label = 'NEUTRAL'; bg = 'rgba(122,110,90,0.12)'; color = '#7a7161'; border = 'rgba(122,110,90,0.3)'; }
+    return { candles, closes, vwapLine, rsis, price, vwapLast, rsiLast, macdLast, openPct, vwapPct, label, bg, color, border };
+  }
+
+  generateChain(ticker, spot, optType) {
+    const step = spot > 800 ? 50 : (spot > 300 ? 10 : 5);
+    const rounded = Math.round(spot / step) * step;
+    const strikes = [];
+    for (let i = -2; i <= 3; i++) strikes.push(rounded + i * step);
+    let filtered = optType === 'CALL' ? strikes.filter(s => s >= rounded - step).slice(0, 6) : strikes.filter(s => s <= rounded + step).slice(-6);
+    if (filtered.length < 6) filtered = strikes.slice(0, 6);
+    filtered.sort((a, b) => optType === 'CALL' ? b - a : a - b);
+    return filtered.map(strike => {
+      const rnd = this.makeRng(this.hashStr(ticker + strike + optType));
+      const distRatio = Math.abs(strike - spot) / spot;
+      const mid = Math.max(0.3, +(spot * 0.045 * Math.exp(-distRatio * 6)).toFixed(2));
+      const spread = Math.max(0.05, +(mid * 0.03).toFixed(2));
+      const bid = +(mid - spread / 2).toFixed(2), ask = +(mid + spread / 2).toFixed(2);
+      const ivRank = '+' + Math.round(20 + rnd() * 20) + '%';
+      const oi = Math.round(400 + rnd() * 2000);
+      let delta = optType === 'CALL' ? Math.max(0.05, 0.55 - distRatio * 3) : -Math.max(0.05, 0.55 - distRatio * 3);
+      delta = +delta.toFixed(3);
+      const row = { strike: strike.toFixed(2), mid: mid.toFixed(2), bid: bid.toFixed(2), ask: ask.toFixed(2), ivRank, oi, delta: delta.toFixed(3) };
+      row.onAdd = () => this.openAudit({ ticker, strike: strike.toFixed(2), mid, bid, ask, ivRank, oi, delta: delta.toFixed(3) });
+      return row;
+    });
+  }
+
+  generateFullChain(ticker, spot, optType, dte) {
+    const step = spot > 800 ? 25 : (spot > 300 ? 10 : (spot > 50 ? 2.5 : 0.5));
+    const rounded = Math.round(spot / step) * step;
+    const strikes = [];
+    for (let i = -12; i <= 12; i++) strikes.push(+(rounded + i * step).toFixed(2));
+    strikes.sort((a, b) => b - a);
+    const timeFactor = Math.sqrt(Math.max(dte, 1) / 30);
+    return strikes.map(strike => {
+      const rnd = this.makeRng(this.hashStr(ticker + strike + optType + '_' + dte));
+      const distRatio = Math.abs(strike - spot) / spot;
+      const mid = Math.max(0.05, +(spot * 0.045 * timeFactor * Math.exp(-distRatio * 6)).toFixed(2));
+      const spread = Math.max(0.02, +(mid * 0.03).toFixed(2));
+      const bid = +(mid - spread / 2).toFixed(2), ask = +(mid + spread / 2).toFixed(2);
+      const ivRank = '+' + Math.round(20 + rnd() * 20) + '%';
+      const oi = Math.round(400 + rnd() * 2000);
+      let delta = optType === 'CALL' ? Math.max(0.02, 0.55 - distRatio * 3 / timeFactor) : -Math.max(0.02, 0.55 - distRatio * 3 / timeFactor);
+      delta = +delta.toFixed(3);
+      return { strike: strike.toFixed(2), mid: mid.toFixed(2), bid: bid.toFixed(2), ask: ask.toFixed(2), ivRank, oi, delta: delta.toFixed(3), strikeNum: strike };
+    });
+  }
+
+  openAudit(row) {
+    this.setState({
+      showAuditSheet: true,
+      auditRow: { ...row, qty: 1, ticker: this.state.selectedTicker, side: this.state.side, optType: this.state.optType }
+    });
+  }
+
+  confirmAudit() {
+    const ar = this.state.auditRow;
+    if (!ar) return;
+    const symbol = `${ar.ticker} ${ar.optType} $${Number(ar.strike).toFixed(2)}`;
+    const trade = { action: 'BUY', symbol, qty: ar.qty, price: Number(ar.mid), pnl: 0, ts: Date.now(), monthLabel: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) };
+    this.setState({ trades: [...this.state.trades, trade], showAuditSheet: false, auditRow: null });
+    this.showToastMsg('Trade logged & audited');
+  }
+
+  buildCandleSvg(candles, vwapLine) {
+    const width = 300, height = 110, padding = 6;
+    const highs = candles.map(c => c.high), lows = candles.map(c => c.low);
+    const minY = Math.min(...lows, ...vwapLine), maxY = Math.max(...highs, ...vwapLine);
+    const n = candles.length;
+    const cw = (width - 2 * padding) / n;
+    const scaleY = (v) => height - padding - ((v - minY) / ((maxY - minY) || 1)) * (height - 2 * padding);
+    const bodies = candles.map((c, i) => {
+      const x = padding + i * cw;
+      const up = c.close >= c.open;
+      const color = up ? '#3a7d54' : '#7a2333';
+      const yHigh = scaleY(c.high), yLow = scaleY(c.low);
+      const yOpen = scaleY(c.open), yClose = scaleY(c.close);
+      const bodyTop = Math.min(yOpen, yClose), bodyH = Math.max(1, Math.abs(yClose - yOpen));
+      return React.createElement('g', { key: i },
+        React.createElement('line', { x1: x + cw / 2, y1: yHigh, x2: x + cw / 2, y2: yLow, stroke: color, strokeWidth: 1 }),
+        React.createElement('rect', { x: x + cw * 0.2, y: bodyTop, width: cw * 0.6, height: bodyH, fill: color })
+      );
+    });
+    const vwapPts = vwapLine.map((v, i) => `${padding + i * cw + cw / 2},${scaleY(v)}`).join(' ');
+    return React.createElement('svg', { viewBox: `0 0 ${width} ${height}`, style: { width: '100%', height: 'auto', display: 'block' } },
+      bodies,
+      React.createElement('polyline', { points: vwapPts, fill: 'none', stroke: '#2c4468', strokeWidth: 1.5 })
+    );
+  }
+
+  buildRsiSvg(rsis) {
+    const width = 300, height = 54, padding = 6;
+    if (!rsis.length) return React.createElement('div', { style: { color: '#a89f8f', fontSize: '0.75rem' } }, 'Insufficient data for RSI.');
+    const n = rsis.length;
+    const sma = rsis.map((_, i) => { const st = Math.max(0, i - 8); const slice = rsis.slice(st, i + 1); return slice.reduce((a, b) => a + b, 0) / slice.length; });
+    const scaleY = (v) => height - padding - (v / 100) * (height - 2 * padding);
+    const cw = (width - 2 * padding) / ((n - 1) || 1);
+    const pts = (arr) => arr.map((v, i) => `${padding + i * cw},${scaleY(v)}`).join(' ');
+    return React.createElement('svg', { viewBox: `0 0 ${width} ${height}`, style: { width: '100%', height: 'auto', display: 'block' } },
+      React.createElement('line', { x1: padding, y1: scaleY(50), x2: width - padding, y2: scaleY(50), stroke: 'rgba(30,61,47,0.12)', strokeDasharray: '3 3' }),
+      React.createElement('polyline', { points: pts(rsis), fill: 'none', stroke: '#9c5a6b', strokeWidth: 1.5 }),
+      React.createElement('polyline', { points: pts(sma), fill: 'none', stroke: '#b8933f', strokeWidth: 1.2 })
+    );
+  }
+
+  renderVals() {
+    const s = this.state;
+    const tabs = ['cortex', 'options', 'trading'];
+
+    // ---- Status ----
+    const isPaused = s.manualPause;
+    const statusLabel = isPaused ? 'PAUSED' : 'OPERATIONAL';
+    const statusDotColor = isPaused ? '#b8933f' : '#3a7d54';
+    const statusTextColor = isPaused ? '#b8933f' : '#7a7161';
+    const statusBorderColor = isPaused ? 'rgba(184,147,63,0.35)' : 'rgba(30,61,47,0.12)';
+    const statusDotAnim = 'none';
+
+    // ---- Trades / KPIs ----
+    const closed = s.trades.filter(t => t.action === 'SELL');
+    const wins = closed.filter(t => t.pnl > 0);
+    const losses = closed.filter(t => t.pnl < 0);
+    const totalPnl = closed.reduce((sum, t) => sum + t.pnl, 0);
+    const winRate = closed.length > 0 ? (wins.length / closed.length) * 100 : null;
+    const grossWins = wins.reduce((a, t) => a + t.pnl, 0);
+    const grossLosses = Math.abs(losses.reduce((a, t) => a + t.pnl, 0));
+    const profitFactor = grossLosses > 0 ? grossWins / grossLosses : (grossWins > 0 ? grossWins : null);
+    const avgWin = wins.length > 0 ? grossWins / wins.length : null;
+    const avgLoss = losses.length > 0 ? grossLosses / losses.length : null;
+    const expectancy = closed.length > 0 && winRate !== null ? (winRate / 100) * (avgWin || 0) - ((100 - winRate) / 100) * (avgLoss || 0) : null;
+
+    let equity = 10000;
+    closed.slice().sort((a, b) => a.ts - b.ts).forEach(t => { equity += t.pnl; });
+
+    // ---- Monthly calendar of daily wins/losses ----
+    const pnlByDay = {};
+    closed.forEach(t => {
+      if (!t.ts) return;
+      const d = new Date(t.ts);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      pnlByDay[key] = (pnlByDay[key] || 0) + t.pnl;
+    });
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const calendarLabel = `${monthNames[s.calMonth]} ${s.calYear}`;
+    const firstDow = new Date(s.calYear, s.calMonth, 1).getDay();
+    const daysInMonth = new Date(s.calYear, s.calMonth + 1, 0).getDate();
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === s.calYear && today.getMonth() === s.calMonth;
+    const calendarCells = [];
+    for (let i = 0; i < firstDow; i++) {
+      calendarCells.push({ blank: true, day: '', pnlDisplay: '', bg: 'rgba(30,61,47,0.05)', dayColor: '#a89f8f', pnlColor: '#a89f8f' });
+    }
+    let monthPnl = 0, monthWins = 0, monthLosses = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${s.calYear}-${s.calMonth}-${d}`;
+      const dayPnl = pnlByDay[key];
+      const isToday = isCurrentMonth && today.getDate() === d;
+      let bg = isToday ? 'rgba(44,68,104,0.12)' : 'transparent';
+      let pnlColor = '#a89f8f', pnlDisplay = '—';
+      if (dayPnl !== undefined) {
+        monthPnl += dayPnl;
+        if (dayPnl > 0) { monthWins++; bg = 'rgba(58,125,84,0.08)'; pnlColor = '#3a7d54'; }
+        else if (dayPnl < 0) { monthLosses++; bg = 'rgba(122,35,51,0.08)'; pnlColor = '#7a2333'; }
+        else { bg = 'rgba(30,61,47,0.04)'; pnlColor = '#7a7161'; }
+        pnlDisplay = (dayPnl >= 0 ? '+' : '-') + '$' + Math.abs(dayPnl).toFixed(0);
+      }
+      calendarCells.push({ blank: false, day: String(d), pnlDisplay, bg, dayColor: isToday ? '#6b85a8' : '#7a7161', pnlColor });
+    }
+    const weekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    // ---- Signal matrix (illustrative, per strategy.py decision matrix) ----
+    const rawSignals = [
+      { ticker: 'SPY', emaUp: true, aboveVwap: true },
+      { ticker: 'AAPL', emaUp: true, aboveVwap: false },
+      { ticker: 'NVDA', emaUp: false, aboveVwap: false },
+      { ticker: 'MU', emaUp: true, aboveVwap: true },
+      { ticker: 'SNDK', emaUp: false, aboveVwap: true }
+    ];
+    const signals = rawSignals.map(r => {
+      let label, bg, color, border, detail;
+      if (r.emaUp && r.aboveVwap) {
+        label = 'BULLISH'; bg = 'rgba(58,125,84,0.12)'; color = '#3a7d54'; border = 'rgba(58,125,84,0.3)';
+        detail = 'EMA50 > EMA250 · Price > VWAP';
+      } else if (!r.emaUp && !r.aboveVwap) {
+        label = 'BEARISH'; bg = 'rgba(122,35,51,0.12)'; color = '#7a2333'; border = 'rgba(122,35,51,0.3)';
+        detail = 'EMA50 < EMA250 · Price < VWAP';
+      } else {
+        label = 'NEUTRAL'; bg = 'rgba(122,110,90,0.12)'; color = '#7a7161'; border = 'rgba(122,110,90,0.3)';
+        detail = `EMA50 ${r.emaUp ? '>' : '<'} EMA250 · Price ${r.aboveVwap ? '>' : '<'} VWAP`;
+      }
+      const recommendation = r.emaUp && r.aboveVwap ? 'Acquire Bullish Leg (Call)'
+        : (!r.emaUp && !r.aboveVwap ? 'Acquire Bearish Leg (Put)' : 'Hold — No Entry');
+      return {
+        ticker: r.ticker, label, bg, color, border, detail,
+        emaUp: r.emaUp, aboveVwap: r.aboveVwap, recommendation,
+        emaText: `50 EMA ${r.emaUp ? 'above' : 'below'} 250 EMA`,
+        vwapText: `Price ${r.aboveVwap ? 'above' : 'below'} session VWAP`,
+        onSelect: () => this.setState({ selectedTicker: r.ticker })
+      };
+    });
+
+    // ---- Positions ----
+    const rawPositions = [
+      { symbol: 'AAPL260814C00185000', underlying: 'AAPL', option_type: 'call', strike_price: 185.0, expiration_date: '2026-08-14', acquired_at: '2026-07-22' }
+    ];
+    const positions = rawPositions.map(p => ({
+      underlying: p.underlying,
+      typeLabel: p.option_type.toUpperCase(),
+      typeColor: p.option_type === 'call' ? '#3a7d54' : '#7a2333',
+      strike: p.strike_price.toFixed(2),
+      expiration: p.expiration_date,
+      acquired: p.acquired_at,
+      onTap: () => this.showToastMsg(`${p.symbol} · acquired ${p.acquired_at}`)
+    }));
+
+    // ---- Watchlist ----
+    const watchlist = s.watchlist.map(w => {
+      let scanFields = {};
+      if (w.scanned) {
+        const a = this.computeAnalytics(w.ticker, 40);
+        scanFields = {
+          price: a.price.toFixed(2),
+          changeDisplay: (a.openPct >= 0 ? '+' : '') + a.openPct.toFixed(2) + '%',
+          changeColor: a.openPct >= 0 ? '#3a7d54' : '#7a2333',
+          label: a.label, bg: a.bg, color: a.color, border: a.border
+        };
+      }
+      return {
+        ticker: w.ticker, scanned: w.scanned, unscanned: !w.scanned,
+        autoTrackColor: w.autoTrade ? '#2c4468' : 'rgba(30,61,47,0.14)',
+        autoThumbLeft: w.autoTrade ? '18px' : '2px',
+        onToggleAuto: () => this.setState({ watchlist: s.watchlist.map(x => x.ticker === w.ticker ? { ...x, autoTrade: !x.autoTrade } : x) }),
+        onRemove: () => this.setState({ watchlist: s.watchlist.filter(x => x.ticker !== w.ticker), selectedTicker: s.selectedTicker === w.ticker ? null : s.selectedTicker }),
+        onSelect: () => this.setState({ selectedTicker: w.ticker }),
+        ...scanFields
+      };
+    });
+
+    // ---- Decider Desk (selected ticker detail) ----
+    const countMap = { '1m': 40, '30m': 30, '1h': 20 };
+    let desk = null, candleSvg = null, rsiSvg = null;
+    if (s.selectedTicker) {
+      const a = this.computeAnalytics(s.selectedTicker, countMap[s.timeframe] || 40);
+      const chain = this.generateChain(s.selectedTicker, a.price, s.optType);
+      const wEntry = s.watchlist.find(x => x.ticker === s.selectedTicker);
+      desk = {
+        ticker: s.selectedTicker, price: a.price.toFixed(2), label: a.label, bg: a.bg, color: a.color, border: a.border,
+        chips: [
+          { label: 'Open', value: (a.openPct >= 0 ? '+' : '') + a.openPct.toFixed(2) + '%', color: a.openPct >= 0 ? '#3a7d54' : '#7a2333' },
+          { label: 'VWAP', value: (a.vwapPct >= 0 ? '+' : '') + a.vwapPct.toFixed(2) + '%', color: a.vwapPct >= 0 ? '#3a7d54' : '#7a2333' },
+          { label: 'RSI', value: a.rsiLast.toFixed(2), color: '#9c5a6b' },
+          { label: 'MACD', value: a.macdLast.toFixed(4), color: '#2c4468' }
+        ],
+        autoTrackColor: (wEntry && wEntry.autoTrade) ? '#2c4468' : 'rgba(30,61,47,0.14)',
+        autoThumbLeft: (wEntry && wEntry.autoTrade) ? '18px' : '2px',
+        onToggleAuto: () => { if (!wEntry) return; this.setState({ watchlist: s.watchlist.map(x => x.ticker === s.selectedTicker ? { ...x, autoTrade: !x.autoTrade } : x) }); },
+        chain,
+        onAudit: () => { const mid = chain[Math.min(2, chain.length - 1)]; if (mid) mid.onAdd(); }
+      };
+      candleSvg = this.buildCandleSvg(a.candles, a.vwapLine);
+      rsiSvg = this.buildRsiSvg(a.rsis);
+    }
+
+    const expiryChips = ['0-7 DTE', '30 DTE', '60+ DTE'].map((label, i) => ({
+      label, onSelect: () => this.setState({ expiryIndex: i }),
+      bg: s.expiryIndex === i ? 'rgba(184,147,63,0.14)' : 'rgba(30,61,47,0.05)',
+      border: s.expiryIndex === i ? 'rgba(184,147,63,0.4)' : 'rgba(30,61,47,0.1)',
+      color: s.expiryIndex === i ? '#b8933f' : '#7a7161'
+    }));
+
+    const timeframes = ['1m', '30m', '1h'].map(label => ({
+      label, onSelect: () => this.setState({ timeframe: label }),
+      bg: s.timeframe === label ? 'rgba(44,68,104,0.16)' : 'rgba(30,61,47,0.05)',
+      border: s.timeframe === label ? 'rgba(44,68,104,0.4)' : 'rgba(30,61,47,0.1)',
+      color: s.timeframe === label ? '#6b85a8' : '#7a7161'
+    }));
+
+    const ar = s.auditRow;
+    let audit = { hint: false };
+    if (ar) {
+      const spreadPct = ((ar.ask - ar.bid) / ar.mid) * 100;
+      audit = {
+        hint: true,
+        symbol: `${ar.ticker} ${ar.optType} $${Number(ar.strike).toFixed(2)}`,
+        side: ar.side, qty: ar.qty, optType: ar.optType, mid: Number(ar.mid).toFixed(2),
+        spreadResult: spreadPct <= 10 ? 'PASS' : 'FAIL', spreadColor: spreadPct <= 10 ? '#3a7d54' : '#7a2333',
+        ivRank: ar.ivRank, delta: ar.delta,
+        qtyUp: () => this.setState({ auditRow: { ...s.auditRow, qty: s.auditRow.qty + 1 } }),
+        qtyDown: () => this.setState({ auditRow: { ...s.auditRow, qty: Math.max(1, s.auditRow.qty - 1) } }),
+        confirm: () => this.confirmAudit()
+      };
+    }
+
+    // ---- Order form: expiry + chain ----
+    const orderToday = new Date();
+    const orderExpiryOptions = [];
+    for (let i = 0, added = 0; added < 16; i++) {
+      const d = new Date(orderToday);
+      d.setDate(orderToday.getDate() + 1 + i);
+      if (d.getDay() === 5) {
+        const dte = Math.round((d - orderToday) / 86400000);
+        orderExpiryOptions.push({ value: d.toISOString().slice(0, 10), label: `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} (${dte}d)` });
+        added++;
+      }
+    }
+    const orderUnderlying = s.newOrder.underlying.trim().toUpperCase();
+    let orderChainRows = [];
+    let orderSpot = 0;
+    if (orderUnderlying) {
+      orderSpot = this.computeAnalytics(orderUnderlying, 40).price;
+      const effExpiry = s.newOrder.expiry || (orderExpiryOptions[0] && orderExpiryOptions[0].value);
+      const expiryDte = effExpiry ? Math.round((new Date(effExpiry) - orderToday) / 86400000) : 7;
+      const rawRows = this.generateFullChain(orderUnderlying, orderSpot, s.newOrder.optionType, expiryDte).map(row => {
+        const picked = s.newOrder.strike === Number(row.strike) && s.newOrder.price === Number(row.mid);
+        return {
+          ...row,
+          isMarker: false,
+          isRow: true,
+          pickBorder: picked ? 'rgba(184,147,63,0.7)' : 'rgba(217,198,122,0.35)',
+          pickColor: picked ? '#f4eedc' : '#d9c67a',
+          onPick: () => this.setState({ newOrder: { ...s.newOrder, strike: Number(row.strike), price: Number(row.mid) } })
+        };
+      });
+      const markerIdx = rawRows.findIndex(r => r.strikeNum <= orderSpot);
+      const marker = { isMarker: true, spotLabel: `Current Price · $${orderSpot.toFixed(2)}` };
+      orderChainRows = markerIdx === -1 ? [...rawRows, marker] : [...rawRows.slice(0, markerIdx), marker, ...rawRows.slice(markerIdx)];
+    }
+
+    // ---- Orders list ----
+    const ordersList = s.orders.map(o => ({
+      id: o.id, underlying: o.underlying, status: o.status, strike: o.strike.toFixed(2), qty: o.qty,
+      description: `${o.condition === 'CROSSES_ABOVE' ? 'Crosses above' : 'Crosses below'} $${o.triggerValue.toFixed(2)} → BUY ${o.qty} ${o.optionType} @ $${o.strike.toFixed(2)} strike`,
+      onCancel: () => {
+        this.setState({ orders: this.state.orders.filter(x => x.id !== o.id) });
+        this.showToastMsg(`${o.underlying} order cancelled`);
+      }
+    }));
+
+    // ---- Trades list display ----
+    const tradesList = s.trades.slice().reverse().map(t => ({
+      action: t.action,
+      badgeBg: t.action === 'BUY' ? 'rgba(58,125,84,0.1)' : 'rgba(122,35,51,0.1)',
+      badgeColor: t.action === 'BUY' ? '#3a7d54' : '#7a2333',
+      symbol: t.symbol, qty: t.qty, price: t.price.toFixed(2), strategy: t.action === 'SELL' ? 'Manual' : 'Entry',
+      pnlDisplay: t.action === 'SELL' ? this.fmtMoney(t.pnl) : '—',
+      pnlColor: t.action === 'SELL' ? (t.pnl >= 0 ? '#3a7d54' : '#7a2333') : '#7a7161'
+    }));
+
+    return {
+      statusLabel, statusDotColor, statusTextColor, statusBorderColor, statusDotAnim,
+      scrollRef: this.scrollRef,
+      handleScroll: () => this.handleScroll(),
+      goToTab_cortex: () => { this.setState({ activeTab: 'cortex' }); this.scrollToIndex(2); },
+      goToTab_options: () => { this.setState({ activeTab: 'options' }); this.scrollToIndex(0); },
+      goToTab_trading: () => { this.setState({ activeTab: 'trading' }); this.scrollToIndex(1); },
+      tabColorCortex: s.activeTab === 'cortex' ? '#1c2b22' : '#7a7161',
+      tabColorOptions: s.activeTab === 'options' ? '#1c2b22' : '#7a7161',
+      tabColorTrading: s.activeTab === 'trading' ? '#1c2b22' : '#7a7161',
+      tabBorderCortex: s.activeTab === 'cortex' ? 'transparent' : 'transparent',
+      tabBorderOptions: 'transparent',
+      tabBorderTrading: 'transparent',
+
+      togglePause: () => this.setState({ manualPause: !s.manualPause }),
+      pauseTrackColor: s.manualPause ? '#2c4468' : 'rgba(30,61,47,0.14)',
+      pauseThumbLeft: s.manualPause ? '23px' : '3px',
+
+      equityDisplay: this.fmtMoney(equity),
+      totalPnlDisplay: (totalPnl >= 0 ? '+' : '') + this.fmtMoney(totalPnl),
+      totalPnlColor: totalPnl >= 0 ? '#3a7d54' : '#7a2333',
+      winRateDisplay: winRate === null ? '—' : `${winRate.toFixed(0)}%`,
+      positionsCount: positions.length,
+
+      signals, hasPositions: positions.length > 0, hasNoPositions: positions.length === 0, positions,
+
+      calendarLabel, weekdayLabels, calendarCells,
+      monthPnlDisplay: (monthPnl >= 0 ? '+' : '-') + '$' + Math.abs(monthPnl).toFixed(2),
+      monthPnlColor: monthPnl >= 0 ? '#3a7d54' : '#7a2333',
+      monthWins, monthLosses,
+      prevMonth: () => {
+        let m = s.calMonth - 1, y = s.calYear;
+        if (m < 0) { m = 11; y -= 1; }
+        this.setState({ calMonth: m, calYear: y });
+      },
+      nextMonth: () => {
+        let m = s.calMonth + 1, y = s.calYear;
+        if (m > 11) { m = 0; y += 1; }
+        this.setState({ calMonth: m, calYear: y });
+      },
+
+      deskClosed: !s.selectedTicker, deskOpen: !!s.selectedTicker, desk, candleSvg, rsiSvg,
+      closeDesk: () => this.setState({ selectedTicker: null }),
+
+      watchlist,
+      newTickerInput: s.newTickerInput,
+      handleNewTickerInput: (e) => this.setState({ newTickerInput: e.target.value }),
+      addTicker: () => {
+        const t = s.newTickerInput.trim().toUpperCase();
+        if (!t) return;
+        if (s.watchlist.find(x => x.ticker === t)) { this.showToastMsg('Already in watchlist'); return; }
+        this.setState({ watchlist: [...s.watchlist, { ticker: t, autoTrade: false, scanned: false }], newTickerInput: '' });
+      },
+      profile: s.profile, autoExpiry: s.autoExpiry,
+      handleProfileChange: (e) => this.setState({ profile: e.target.value }),
+      handleExpiryProfileChange: (e) => this.setState({ autoExpiry: e.target.value }),
+      autoScanOn: s.autoScanOn,
+      autoScanLabel: s.autoScanOn ? '⏸ Auto-Scan: ON' : '○ Start Auto-Scan',
+      autoScanBg: s.autoScanOn ? 'rgba(58,125,84,0.15)' : 'rgba(30,61,47,0.06)',
+      toggleAutoScan: () => this.setState({ autoScanOn: !s.autoScanOn }),
+      scanWatchlist: () => { this.setState({ watchlist: s.watchlist.map(x => ({ ...x, scanned: true })) }); this.showToastMsg('Watchlist scanned'); },
+
+      sideBuyBg: s.side === 'BUY' ? '#3a7d54' : 'transparent', sideBuyColor: s.side === 'BUY' ? 'white' : '#7a7161',
+      sideSellBg: s.side === 'SELL' ? '#7a2333' : 'transparent', sideSellColor: s.side === 'SELL' ? 'white' : '#7a7161',
+      setSide_BUY: () => this.setState({ side: 'BUY' }), setSide_SELL: () => this.setState({ side: 'SELL' }),
+      optCallBg: s.optType === 'CALL' ? '#3a7d54' : 'transparent', optCallColor: s.optType === 'CALL' ? 'white' : '#7a7161',
+      optPutBg: s.optType === 'PUT' ? '#7a2333' : 'transparent', optPutColor: s.optType === 'PUT' ? 'white' : '#7a7161',
+      setOptType_CALL: () => this.setState({ optType: 'CALL' }), setOptType_PUT: () => this.setState({ optType: 'PUT' }),
+      expiryChips, timeframes,
+
+      showAuditSheet: s.showAuditSheet, audit,
+      closeAuditSheet: () => this.setState({ showAuditSheet: false, auditRow: null }),
+
+      openLogSheet: () => this.setState({ showLogSheet: true }),
+      closeLogSheet: () => this.setState({ showLogSheet: false }),
+      showLogSheet: s.showLogSheet,
+      newTrade: s.newTrade,
+      isSellAction: s.newTrade.action === 'SELL',
+      setNewTradeAction_BUY: () => this.setState({ newTrade: { ...s.newTrade, action: 'BUY' } }),
+      setNewTradeAction_SELL: () => this.setState({ newTrade: { ...s.newTrade, action: 'SELL' } }),
+      actionBuyBorder: s.newTrade.action === 'BUY' ? 'rgba(58,125,84,0.4)' : 'rgba(30,61,47,0.12)',
+      actionBuyBg: s.newTrade.action === 'BUY' ? 'rgba(58,125,84,0.12)' : 'transparent',
+      actionBuyColor: s.newTrade.action === 'BUY' ? '#3a7d54' : '#7a7161',
+      actionSellBorder: s.newTrade.action === 'SELL' ? 'rgba(122,35,51,0.4)' : 'rgba(30,61,47,0.12)',
+      actionSellBg: s.newTrade.action === 'SELL' ? 'rgba(122,35,51,0.12)' : 'transparent',
+      actionSellColor: s.newTrade.action === 'SELL' ? '#7a2333' : '#7a7161',
+      handleTradeSymbol: (e) => this.setState({ newTrade: { ...s.newTrade, symbol: e.target.value } }),
+      handleTradeQty: (e) => this.setState({ newTrade: { ...s.newTrade, qty: Number(e.target.value) } }),
+      handleTradePrice: (e) => this.setState({ newTrade: { ...s.newTrade, price: Number(e.target.value) } }),
+      handleTradePnl: (e) => this.setState({ newTrade: { ...s.newTrade, pnl: Number(e.target.value) } }),
+      submitTrade: () => {
+        if (!s.newTrade.symbol.trim()) { this.showToastMsg('Enter a symbol first'); return; }
+        const now = new Date();
+        const monthLabel = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+        const trade = { ...s.newTrade, ts: now.getTime(), monthLabel };
+        this.setState({
+          trades: [...s.trades, trade],
+          showLogSheet: false,
+          newTrade: { action: 'BUY', symbol: '', qty: 1, price: 1.0, pnl: 0 }
+        });
+        this.showToastMsg('Trade logged');
+      },
+
+      hasOrders: ordersList.length > 0, hasNoOrders: ordersList.length === 0, ordersList,
+      toggleOrderForm: () => this.setState({ showOrderSheet: !s.showOrderSheet }),
+      orderFormToggleLabel: s.showOrderSheet ? 'Close Order Form' : '+ New Conditional Order',
+      orderFormChevron: s.showOrderSheet ? 'rotate(180deg)' : 'rotate(0deg)',
+      orderFormMarginBottom: s.showOrderSheet ? '10px' : '16px',
+      orderExpiryOptions,
+      orderChainRows,
+      hasNoChainRows: orderChainRows.length === 0,
+      hasSelectedOption: !!s.newOrder.underlying.trim() && s.newOrder.price > 0,
+      selectedOptionLabel: `${s.newOrder.underlying} ${s.newOrder.optionType} $${s.newOrder.strike} · ${(orderExpiryOptions.find(o => o.value === s.newOrder.expiry) || orderExpiryOptions[0]).label} · $${Number(s.newOrder.price).toFixed(2)} mid`,
+      showOrderSheet: s.showOrderSheet,
+      newOrder: { ...s.newOrder, expiry: s.newOrder.expiry || orderExpiryOptions[0].value },
+      typeCallBorder: s.newOrder.optionType === 'CALL' ? 'rgba(58,125,84,0.4)' : 'rgba(30,61,47,0.12)',
+      typeCallBg: s.newOrder.optionType === 'CALL' ? 'rgba(58,125,84,0.12)' : 'transparent',
+      typeCallColor: s.newOrder.optionType === 'CALL' ? '#3a7d54' : '#7a7161',
+      typePutBorder: s.newOrder.optionType === 'PUT' ? 'rgba(122,35,51,0.4)' : 'rgba(30,61,47,0.12)',
+      typePutBg: s.newOrder.optionType === 'PUT' ? 'rgba(122,35,51,0.12)' : 'transparent',
+      typePutColor: s.newOrder.optionType === 'PUT' ? '#7a2333' : '#7a7161',
+      setNewOrderType_CALL: () => this.setState({ newOrder: { ...s.newOrder, optionType: 'CALL' } }),
+      setNewOrderType_PUT: () => this.setState({ newOrder: { ...s.newOrder, optionType: 'PUT' } }),
+      condAboveBorder: s.newOrder.condition === 'CROSSES_ABOVE' ? 'rgba(44,68,104,0.45)' : 'rgba(30,61,47,0.12)',
+      condAboveBg: s.newOrder.condition === 'CROSSES_ABOVE' ? 'rgba(44,68,104,0.14)' : 'transparent',
+      condAboveColor: s.newOrder.condition === 'CROSSES_ABOVE' ? '#6b85a8' : '#7a7161',
+      condBelowBorder: s.newOrder.condition === 'CROSSES_BELOW' ? 'rgba(44,68,104,0.45)' : 'rgba(30,61,47,0.12)',
+      condBelowBg: s.newOrder.condition === 'CROSSES_BELOW' ? 'rgba(44,68,104,0.14)' : 'transparent',
+      condBelowColor: s.newOrder.condition === 'CROSSES_BELOW' ? '#6b85a8' : '#7a7161',
+      setNewOrderCondition_ABOVE: () => this.setState({ newOrder: { ...s.newOrder, condition: 'CROSSES_ABOVE' } }),
+      setNewOrderCondition_BELOW: () => this.setState({ newOrder: { ...s.newOrder, condition: 'CROSSES_BELOW' } }),
+      handleOrderTicker: (e) => this.setState({ newOrder: { ...s.newOrder, underlying: e.target.value.toUpperCase() } }),
+      handleOrderExpiry: (e) => this.setState({ newOrder: { ...s.newOrder, expiry: e.target.value, strike: 100, price: 0 } }),
+      handleOrderQty: (e) => this.setState({ newOrder: { ...s.newOrder, qty: Number(e.target.value) } }),
+      handleOrderTrigger: (e) => this.setState({ newOrder: { ...s.newOrder, triggerValue: Number(e.target.value) } }),
+      submitOrder: () => {
+        if (!s.newOrder.underlying.trim()) { this.showToastMsg('Enter a ticker first'); return; }
+        const order = { id: `trigger_${Date.now()}`, status: 'PENDING', ...s.newOrder };
+        this.setState({
+          orders: [...s.orders, order],
+          showOrderSheet: false,
+          newOrder: { underlying: '', optionType: 'CALL', strike: 100, price: 0, expiry: '', qty: 1, condition: 'CROSSES_ABOVE', triggerValue: 100 }
+        });
+        this.showToastMsg('Conditional order created');
+      },
+
+      showToast: !!s.toastMessage,
+      toastMessage: s.toastMessage
+    };
+  }
+}
+
+</script>
+</body>
+</html>
