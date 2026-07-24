@@ -1118,10 +1118,16 @@ class APIServerHandler(BaseHTTPRequestHandler):
             for bf in bar_files:
                 try:
                     with open(bf, "r") as f:
-                        for line in f:
-                            line = line.strip()
-                            if line:
-                                rows.append(json.loads(line))
+                        content = f.read().strip()
+                        if not content:
+                            continue
+                        if content.startswith('{') and content.endswith('}'):
+                            rows.append(json.loads(content))
+                        else:
+                            for line in content.split('\n'):
+                                line = line.strip()
+                                if line:
+                                    rows.append(json.loads(line))
                 except Exception:
                     pass
 
