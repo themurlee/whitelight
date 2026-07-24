@@ -107,14 +107,44 @@ class AnthropicAdapter(BaseLLMAdapter):
             logger.error(f"Anthropic API error: {e}")
             return RuleBasedAdapter().generate_json(system_prompt, user_prompt)
 
+def _extract_json_after_label(text: str, label: str):
+    """Find `label` in `text` and brace-aware-parse the JSON object that follows it.
+
+    Unlike a non-greedy regex (`\\{.*?\\}`), `json.JSONDecoder().raw_decode()` consumes
+    exactly one balanced JSON object regardless of nesting depth, so this correctly
+    handles contracts that contain nested sub-dicts (e.g. "greeks": {...}).
+
+    Returns the parsed dict, or None if the label is missing, the value is the
+    literal "None selected"/"None" (i.e. no contract/proposal present), or the
+    JSON is malformed.
+    """
+    idx = text.find(label)
+    if idx == -1:
+        return None
+
+    after = text[idx + len(label):].lstrip()
+    if after.startswith("None"):
+        return None
+
+    brace_idx = after.find("{")
+    if brace_idx == -1:
+        return None
+
+    try:
+        obj, _ = json.JSONDecoder().raw_decode(after[brace_idx:])
+        return obj
+    except Exception:
+        return None
+
+
 class RuleBasedAdapter(BaseLLMAdapter):
     """Zero-latency programmatic options audit and rule engine."""
     def generate_json(self, system_prompt: str, user_prompt: str) -> dict:
         import re
         import json
-        
+
         # 1. Proposer Agent Logic
-        if "PROPOSER AGENT" in system_prompt or "propose" in user_prompt.lower():
+        if "proposer agent" in system_prompt.lower() or "propose" in user_prompt.lower():
             action = "NO_TRADE"
             contract_type = "NONE"
             reasoning = "Intraday signals neutral."
@@ -151,19 +181,8 @@ class RuleBasedAdapter(BaseLLMAdapter):
             selected_contract = None
             proposal = None
             
-            contract_match = re.search(r'Selected Option Contract:\s*(\{.*?\}|None selected|None)', user_prompt, re.DOTALL)
-            if contract_match and contract_match.group(1) not in ("None selected", "None"):
-                try:
-                    selected_contract = json.loads(contract_match.group(1))
-                except Exception:
-                    pass
-                    
-            proposal_match = re.search(r'Proposal:\s*(\{.*?\})', user_prompt, re.DOTALL)
-            if proposal_match:
-                try:
-                    proposal = json.loads(proposal_match.group(1))
-                except Exception:
-                    pass
+            selected_contract = _extract_json_after_label(user_prompt, "Selected Option Contract:")
+            proposal = _extract_json_after_label(user_prompt, "Proposal:")
             
             # If no contract is selected in UI, reject trade
             if not selected_contract:
