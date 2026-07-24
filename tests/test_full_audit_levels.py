@@ -56,3 +56,40 @@ def test_compute_volume_profile_invalid_window_defaults_to_1m():
     with patch("src.options.full_audit.levels._fetch_minute_bars_from_alpaca", return_value=[]):
         result = compute_volume_profile("ZZZZ", window="bogus")
         assert result == {"poc": 0.0, "vah": 0.0, "val": 0.0}
+
+from src.options.full_audit.levels import (
+    get_manual_levels, add_manual_level, delete_manual_level, get_price_levels
+)
+
+def test_manual_levels_add_list_delete(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.config.DATA_DIR", str(tmp_path))
+    assert get_manual_levels("ZZZZ") == []
+    add_manual_level("ZZZZ", 700.0, "gamma wall")
+    levels = get_manual_levels("ZZZZ")
+    assert levels == [{"price": 700.0, "label": "gamma wall"}]
+    delete_manual_level("ZZZZ", 700.0)
+    assert get_manual_levels("ZZZZ") == []
+
+@patch("src.options.full_audit.levels.compute_volume_profile")
+@patch("src.options.full_audit.levels.compute_range_and_pivot")
+@patch("src.options.full_audit.levels.get_daily_bars")
+def test_get_price_levels_merges_and_caps_at_5(mock_bars, mock_range, mock_vp, tmp_path, monkeypatch):
+    monkeypatch.setattr("src.config.DATA_DIR", str(tmp_path))
+    mock_bars.return_value = [{"date": "2026-07-20", "open": 690, "high": 700, "low": 685, "close": 692, "volume": 1000}]
+    mock_range.return_value = {
+        "range_low": 685.0, "range_high": 700.0, "pivot": 692.0,
+        "resistance": [696.0, 699.0], "support": [688.0, 684.0],
+    }
+    mock_vp.return_value = {"poc": 690.0, "vah": 698.0, "val": 682.0}
+    add_manual_level("TSLA", 720.0, "manual resistance")
+
+    result = get_price_levels("TSLA", current_price=692.0)
+    assert result["ticker"] == "TSLA"
+    assert result["current_price"] == 692.0
+    assert len(result["levels_below"]) <= 5
+    assert len(result["levels_above"]) <= 5
+    assert all(l < 692.0 for l in result["levels_below"])
+    assert all(l > 692.0 for l in result["levels_above"])
+    assert 720.0 in result["levels_above"]  # manual level included
+    assert result["levels_below"] == sorted(result["levels_below"], reverse=True)  # nearest-first
+    assert result["levels_above"] == sorted(result["levels_above"])  # nearest-first
