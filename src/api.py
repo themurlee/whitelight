@@ -471,6 +471,15 @@ class APIServerHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send_json({"success": False, "error": str(e)})
 
+        elif path == "/api/options/levels/manual":
+            params = parse_qs(parsed_url.query)
+            ticker = params.get("ticker", [""])[0]
+            try:
+                from src.options.full_audit.levels import get_manual_levels
+                self._send_json(get_manual_levels(ticker))
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+
         else:
             self.send_error(404, "API endpoint not found")
 
@@ -1278,6 +1287,110 @@ class APIServerHandler(BaseHTTPRequestHandler):
                 self._send_json(res)
             except Exception as e:
                 self._send_json({"success": False, "error": str(e)})
+
+        elif path == "/api/options/levels/manual":
+            ticker = post_data.get("ticker", "")
+            price = post_data.get("price", 0)
+            label = post_data.get("label", "")
+            try:
+                from src.options.full_audit.levels import add_manual_level
+                self._send_json(add_manual_level(ticker, price, label))
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+            return
+
+        elif path == "/api/options/levels/manual/delete":
+            ticker = post_data.get("ticker", "")
+            price = post_data.get("price", 0)
+            try:
+                from src.options.full_audit.levels import delete_manual_level
+                self._send_json(delete_manual_level(ticker, price))
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+            return
+
+        elif path == "/api/options/full_audit":
+            ticker = post_data.get("ticker", "AAPL").upper()
+            vp_window = post_data.get("volume_profile_window", "1M")
+            try:
+                from src.options.full_audit.recommender import get_multi_expiry_recommendations
+                from src.options.full_audit.gate import run_full_audit_gate
+
+                grid = get_multi_expiry_recommendations(ticker, vp_window)
+
+                # Flatten all cards across all buckets, tagged with their expiry/dte
+                all_cards = []
+                for entry in grid["buckets"]["this_week"]:
+                    for card in entry["cards"]:
+                        all_cards.append(card)
+                for bucket_key in ("monthly", "quarterly", "leaps"):
+                    entry = grid["buckets"][bucket_key]
+                    if entry:
+                        for card in entry["cards"]:
+                            all_cards.append(card)
+
+                if not all_cards:
+                    self._send_json({"success": False, "error": f"No option contracts available for {ticker}"})
+                    return
+
+                # Cross-bucket top pick: highest PoP, ties broken by lower DTE
+                top_pick = sorted(all_cards, key=lambda c: (-c["probability_of_profit"], c["dte"]))[0]
+
+                account_info = _get_alpaca_account_info()
+                account_value = account_info.get("portfolio_value") or account_info.get("equity")
+                open_tickers = [p["symbol"] for p in account_info.get("positions", [])]
+
+                selected_contract = {
+                    "strike": top_pick["strike"],
+                    "bid": top_pick["midpoint"] - 0.05,
+                    "ask": top_pick["midpoint"] + 0.05,
+                    "midpoint": top_pick["midpoint"],
+                    "open_interest": top_pick["open_interest"],
+                    "greeks": top_pick["greeks"],
+                }
+                gate_result = run_full_audit_gate(
+                    ticker=ticker, expiration=top_pick["expiration"], strategy=top_pick["strategy"],
+                    selected_contract=selected_contract, iv_rank=grid["signals"]["iv_rank"], dte=top_pick["dte"],
+                    level_reference=top_pick.get("level_reference"),
+                    account_value=account_value, open_tickers=open_tickers,
+                )
+                top_pick_with_gate = dict(top_pick)
+                top_pick_with_gate["gate_result"] = gate_result
+
+                self._send_json({
+                    "success": True,
+                    "ticker": grid["ticker"],
+                    "current_price": grid["current_price"],
+                    "levels": grid["levels"],
+                    "buckets": grid["buckets"],
+                    "top_pick": top_pick_with_gate,
+                })
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+            return
+
+        elif path == "/api/options/full_audit/gate":
+            ticker = post_data.get("ticker", "AAPL").upper()
+            expiration = post_data.get("expiration", "")
+            strategy = post_data.get("strategy", "")
+            selected_contract = post_data.get("selected_contract", {})
+            iv_rank = float(post_data.get("iv_rank", 35.0))
+            dte = int(post_data.get("dte", 30))
+            level_reference = post_data.get("level_reference")
+            try:
+                from src.options.full_audit.gate import run_full_audit_gate
+                account_info = _get_alpaca_account_info()
+                account_value = account_info.get("portfolio_value") or account_info.get("equity")
+                open_tickers = [p["symbol"] for p in account_info.get("positions", [])]
+                gate_result = run_full_audit_gate(
+                    ticker=ticker, expiration=expiration, strategy=strategy,
+                    selected_contract=selected_contract, iv_rank=iv_rank, dte=dte,
+                    level_reference=level_reference, account_value=account_value, open_tickers=open_tickers,
+                )
+                self._send_json({"success": True, "gate_result": gate_result})
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+            return
 
         else:
             self.send_error(404, "API endpoint not found")

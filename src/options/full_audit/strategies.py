@@ -43,6 +43,7 @@ def build_strategy_cards(
             "strike": atm_put["strike"], "expiration": expiration, "dte": dte,
             "probability_of_profit": pop, "suitability": "HIGH" if high_iv else "MEDIUM",
             "greeks": atm_put["greeks"], "level_reference": _nearest_level_reference(atm_put["strike"], levels),
+            "midpoint": atm_put["midpoint"], "open_interest": atm_put["open_interest"],
         })
 
     if direction == "BULLISH":
@@ -54,6 +55,7 @@ def build_strategy_cards(
             "strike": atm_call["strike"], "expiration": expiration, "dte": dte,
             "probability_of_profit": pop, "suitability": "HIGH" if not high_iv else "LOW",
             "greeks": atm_call["greeks"], "level_reference": _nearest_level_reference(atm_call["strike"], levels),
+            "midpoint": atm_call["midpoint"], "open_interest": atm_call["open_interest"],
         })
 
     if direction == "BULLISH" and dte >= 90:
@@ -64,6 +66,7 @@ def build_strategy_cards(
             "strike": itm_call["strike"], "expiration": expiration, "dte": dte,
             "probability_of_profit": 72.5, "suitability": "HIGH" if not high_iv else "MEDIUM",
             "greeks": itm_call["greeks"], "level_reference": _nearest_level_reference(otm_call["strike"], levels),
+            "midpoint": itm_call["midpoint"], "open_interest": itm_call["open_interest"],
         })
 
     if direction == "BEARISH" and atm_put:
@@ -75,6 +78,7 @@ def build_strategy_cards(
             "strike": atm_put["strike"], "expiration": expiration, "dte": dte,
             "probability_of_profit": pop, "suitability": "HIGH" if not high_iv else "LOW",
             "greeks": atm_put["greeks"], "level_reference": _nearest_level_reference(atm_put["strike"], levels),
+            "midpoint": atm_put["midpoint"], "open_interest": atm_put["open_interest"],
         })
 
     # New: outright LEAPS stock-replacement call, deep ITM/ATM (delta >= 0.70), LEAPS bucket only
@@ -87,6 +91,7 @@ def build_strategy_cards(
             "strike": leaps_call["strike"], "expiration": expiration, "dte": dte,
             "probability_of_profit": 68.0, "suitability": "HIGH" if not high_iv else "MEDIUM",
             "greeks": leaps_call["greeks"], "level_reference": _nearest_level_reference(leaps_call["strike"], levels),
+            "midpoint": leaps_call["midpoint"], "open_interest": leaps_call["open_interest"],
         })
 
     return sorted(cards, key=lambda c: c["probability_of_profit"], reverse=True)
