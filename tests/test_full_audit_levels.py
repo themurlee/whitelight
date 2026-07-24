@@ -11,12 +11,17 @@ def _write_bar_file(tmp_dir, ticker, date, o, h, l, c, v):
 
 def test_get_daily_bars_reads_local_cache(tmp_path, monkeypatch):
     monkeypatch.setattr("src.config.DATA_DIR", str(tmp_path))
+    _write_bar_file(tmp_path, "ZZZZ", "2026-07-17", 95, 100, 94, 99, 800)
+    _write_bar_file(tmp_path, "ZZZZ", "2026-07-18", 99, 104, 97, 102, 900)
+    _write_bar_file(tmp_path, "ZZZZ", "2026-07-19", 102, 107, 100, 105, 1100)
     _write_bar_file(tmp_path, "ZZZZ", "2026-07-20", 100, 105, 98, 103, 1000)
     _write_bar_file(tmp_path, "ZZZZ", "2026-07-21", 103, 108, 101, 106, 1200)
     bars = get_daily_bars("ZZZZ", lookback_days=60)
-    assert len(bars) == 2
-    assert bars[0]["date"] == "2026-07-20"
-    assert bars[1]["close"] == 106
+    assert len(bars) == 5
+    assert bars[0]["date"] == "2026-07-17"
+    assert bars[0]["open"] == 95.0
+    assert bars[4]["date"] == "2026-07-21"
+    assert bars[4]["close"] == 106.0
 
 def test_compute_range_and_pivot():
     bars = [
