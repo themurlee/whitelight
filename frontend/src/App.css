@@ -2093,8 +2093,18 @@ body {
   cursor: not-allowed;
 }
 
+/* Sidebar collapsed rules for Desktop */
+.app-sidebar.collapsed .nav-label,
+.app-sidebar.collapsed .brand-text {
+  display: none;
+}
+
 /* Mobile & Tablet Responsive Media Queries */
 @media (max-width: 1024px) {
+  .nav-label, .brand-text {
+    display: inline-block !important;
+  }
+
   .app-container {
     flex-direction: column;
   }

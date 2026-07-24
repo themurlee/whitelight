@@ -1200,7 +1200,7 @@ function App() {
     <div className="app-container">
       {/* Sidebar Navigation (Docusaurus-inspired layout) */}
       <aside 
-        className="app-sidebar" 
+        className={`app-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}
         style={{ width: sidebarCollapsed ? '78px' : '250px', transition: 'width 0.6s cubic-bezier(0.25, 1, 0.5, 1)', padding: sidebarCollapsed ? '24px 8px' : '24px 16px' }}
         onMouseEnter={() => {
           isHoveringSidebar.current = true;
@@ -1216,7 +1216,7 @@ function App() {
         <div className="sidebar-brand" style={{ justifyContent: sidebarCollapsed ? 'center' : 'space-between', display: 'flex', alignItems: 'center', width: '100%', transition: 'all 0.3s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span className="brand-bolt" style={{ fontSize: '1.6rem' }}>⚡</span>
-            {!sidebarCollapsed && <span className="brand-text">WhiteLight</span>}
+            <span className="brand-text">WhiteLight</span>
           </div>
           <button 
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -1265,7 +1265,7 @@ function App() {
             title={sidebarCollapsed ? "Whitelight(Prod)" : ""}
           >
             <span className="nav-icon" style={{ fontSize: '1.25rem', marginRight: sidebarCollapsed ? '0' : '8px', flexShrink: 0 }}>⚡🧠</span> 
-            {!sidebarCollapsed && <span className="whitespace-nowrap">Whitelight(Prod)</span>}
+            <span className="nav-label whitespace-nowrap">Whitelight(Prod)</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'options' ? 'active' : ''}`}
@@ -1274,7 +1274,7 @@ function App() {
             title={sidebarCollapsed ? "Options" : ""}
           >
             <span className="nav-icon" style={{ fontSize: '1.25rem', marginRight: sidebarCollapsed ? '0' : '8px', flexShrink: 0 }}>📊</span> 
-            {!sidebarCollapsed && <span className="whitespace-nowrap">Options</span>}
+            <span className="nav-label whitespace-nowrap">Options</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'options_trading' ? 'active' : ''}`}
@@ -1283,7 +1283,7 @@ function App() {
             title={sidebarCollapsed ? "Options Trading" : ""}
           >
             <span className="nav-icon" style={{ fontSize: '1.25rem', marginRight: sidebarCollapsed ? '0' : '8px', flexShrink: 0 }}>⚡</span> 
-            {!sidebarCollapsed && <span className="whitespace-nowrap">Options Trading</span>}
+            <span className="nav-label whitespace-nowrap">Options Trading</span>
           </button>
         </nav>
 

@@ -2013,14 +2013,14 @@ export default function WhitelightCortexIntegratedPanel({
         {/* Full-Width Watchlist Scanner (col-span-12) */}
         <div className="lg:col-span-12 font-mono">
           <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <span className="text-amber-400 text-base">👁️</span>
                 <h3 className="font-bold text-amber-400 uppercase tracking-wider text-xs">
                   Watchlist Scanner & Decider Desk
                 </h3>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 {/* Profile dropdown selector inside Watchlist Scanner header */}
                 <div className="flex items-center gap-1.5 mr-2">
                   <span className="text-[9px] uppercase text-slate-400 font-bold">Profile:</span>
