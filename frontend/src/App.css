@@ -2093,6 +2093,115 @@ body {
   cursor: not-allowed;
 }
 
+/* Mobile Responsive Media Queries */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+
+  .app-sidebar {
+    width: 100% !important;
+    height: auto;
+    padding: 12px 16px !important;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .sidebar-brand {
+    margin-bottom: 8px;
+    justify-content: space-between !important;
+    flex-direction: row !important;
+  }
+
+  .sidebar-status {
+    display: none !important;
+  }
+
+  .sidebar-nav {
+    flex-direction: row !important;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    gap: 6px;
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    padding: 8px 12px !important;
+    margin-bottom: 0;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .nav-icon {
+    margin-right: 4px !important;
+  }
+
+  .sidebar-footer {
+    display: none !important;
+  }
+
+  .app-main {
+    padding: 16px !important;
+    width: 100%;
+    box-sizing: border-box;
+    height: auto;
+    overflow-y: visible;
+  }
+
+  .main-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .main-header h1 {
+    font-size: 1.6rem;
+  }
+
+  .metrics-ribbon {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    margin-bottom: 20px;
+  }
+
+  .panel-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px;
+  }
+
+  .grid-col-2, .grid-sidebar {
+    gap: 20px;
+  }
+
+  /* Force multi-column grids to stack on mobile */
+  .grid-cols-2, .grid-cols-3, .grid-cols-4, .grid-cols-6, .grid-cols-8 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Specific panel grid overrides */
+  .rl-training-grid, .cortex-metrics-grid, .positions-grid, .watchlist-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Calendar grids overrides */
+  .calendar-days-grid, .calendar-header-grid {
+    font-size: 10px !important;
+  }
+
+  /* Form row elements stacking */
+  .form-row {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .form-group {
+    width: 100% !important;
+  }
+}
+
 
 
 

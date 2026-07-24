@@ -722,7 +722,8 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
                 {chain.length} Liquid Contracts
               </span>
             </div>
-            <div className="overflow-x-auto max-h-[500px] overflow-y-auto pr-1">
+            {/* Desktop Table View (Hidden on Mobile) */}
+            <div className="hidden md:block overflow-x-auto max-h-[500px] overflow-y-auto pr-1">
               <table className="w-full font-mono text-xs text-left border-collapse cursor-pointer">
                 <thead className="sticky top-0 bg-slate-900 z-10">
                   <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
@@ -771,6 +772,43 @@ export default function OptionsTradingPanel({ API_BASE = "http://127.0.0.1:8000/
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card List View (Hidden on Desktop) */}
+            <div className="block md:hidden space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              {chain.map((c, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handleOpenContractModal(c)}
+                  className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-850 transition-colors flex flex-col gap-2 font-mono text-xs cursor-pointer"
+                >
+                  <div className="flex justify-between items-center border-b border-slate-850 pb-1.5">
+                    <span className="font-black text-amber-400 text-sm">
+                      {activeTicker} ${c.strike} {c.type}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${c.type === "CALL" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"}`}>
+                      {c.expiration}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] text-slate-400">
+                    <div>Bid / Ask: <span className="text-slate-200 font-semibold">${c.bid} / ${c.ask}</span></div>
+                    <div>Midpoint: <span className="text-amber-300 font-bold">${c.midpoint}</span></div>
+                    <div>Delta (Δ): <span className="text-emerald-400 font-bold">{c.greeks?.delta}</span></div>
+                    <div>Theta (Θ): <span className="text-rose-400">{c.greeks?.theta}</span></div>
+                    <div>Vega (V): <span className="text-amber-400">{c.greeks?.vega}</span></div>
+                    <div>OI: <span className="text-slate-300">{c.open_interest}</span></div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenContractModal(c);
+                    }}
+                    className="w-full mt-1.5 py-2 text-center text-[10px] font-bold uppercase rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 transition-colors"
+                  >
+                    View Ticket
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>
