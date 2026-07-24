@@ -57,11 +57,6 @@ def bucket_expirations(expirations: List[str], today: Optional[datetime] = None)
     monthly = nearest_in_range(8, 45)
     quarterly = nearest_in_range(46, 105)
     leaps = nearest_in_range(106, 100000)
-    if leaps is None and dated:
-        # "Longest available if nothing is >=270" per spec
-        longest = max(dated, key=lambda x: x[1])
-        if longest[1] >= 106:
-            leaps = longest[0]
 
     return {"this_week": this_week, "monthly": monthly, "quarterly": quarterly, "leaps": leaps}
 

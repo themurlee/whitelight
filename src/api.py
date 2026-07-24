@@ -1364,6 +1364,7 @@ class APIServerHandler(BaseHTTPRequestHandler):
                     "levels": grid["levels"],
                     "buckets": grid["buckets"],
                     "top_pick": top_pick_with_gate,
+                    "signals": grid["signals"],
                 })
             except Exception as e:
                 self._send_json({"success": False, "error": str(e)})
