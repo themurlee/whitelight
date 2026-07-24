@@ -151,6 +151,11 @@ export default function WhitelightCortexIntegratedPanel({
   const [searchAuditLoading, setSearchAuditLoading] = useState(false);
   const [searchAuditResult, setSearchAuditResult] = useState(null);
   const [showSearchAuditPanel, setShowSearchAuditPanel] = useState(false);
+  const [fullAuditLoading, setFullAuditLoading] = useState(false);
+  const [fullAuditResult, setFullAuditResult] = useState(null);
+  const [fullAuditError, setFullAuditError] = useState(null);
+  const [activeBucketTab, setActiveBucketTab] = useState("this_week");
+  const [gatingCard, setGatingCard] = useState(null);
   const [activeTicker, setActiveTicker] = useState("AAPL");
   const [timeframe, setTimeframe] = useState("WEEKLY"); // WEEKLY, MONTHLY, SEMI_ANNUAL, ANNUAL_LEAP
   const [activeProfile, setActiveProfile] = useState("safe_defaults");
@@ -924,6 +929,65 @@ export default function WhitelightCortexIntegratedPanel({
     runTickerSearch(tickerInput);
   };
 
+  const runFullAudit = async () => {
+    if (!activeTicker) return;
+    setFullAuditLoading(true);
+    setFullAuditError(null);
+    setFullAuditResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/options/full_audit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker: activeTicker, volume_profile_window: "1M" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFullAuditResult(data);
+      } else {
+        setFullAuditError(data.error || "Full audit failed");
+      }
+    } catch (e) {
+      setFullAuditError(e.message);
+    } finally {
+      setFullAuditLoading(false);
+    }
+  };
+
+  const runCardGate = async (card) => {
+    setGatingCard(card);
+    try {
+      const res = await fetch(`${API_BASE}/options/full_audit/gate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticker: activeTicker,
+          expiration: card.expiration,
+          strategy: card.strategy,
+          selected_contract: {
+            strike: card.strike,
+            bid: card.midpoint - 0.05,
+            ask: card.midpoint + 0.05,
+            midpoint: card.midpoint,
+            open_interest: card.open_interest,
+            greeks: card.greeks,
+          },
+          iv_rank: fullAuditResult?.signals?.iv_rank ?? 35.0,
+          dte: card.dte,
+          level_reference: card.level_reference,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFullAuditResult((prev) => ({
+          ...prev,
+          top_pick: { ...card, gate_result: data.gate_result },
+        }));
+      }
+    } finally {
+      setGatingCard(null);
+    }
+  };
+
   const handleOpenContractModal = (contract) => {
     setSelectedContracts(prev => {
       const exists = prev.some(x => x.symbol === contract.symbol);
@@ -1429,6 +1493,107 @@ export default function WhitelightCortexIntegratedPanel({
             </div>
           )}
         </form>
+
+        <div className="w-full">
+          <button
+            type="button"
+            onClick={runFullAudit}
+            disabled={fullAuditLoading}
+            className="px-3 py-1.5 text-xs font-bold rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all disabled:opacity-50"
+          >
+            {fullAuditLoading ? "⏳ Running Full Audit..." : "⚡ Full Audit"}
+          </button>
+
+          {fullAuditError && (
+            <div className="w-full mt-3 p-3 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-400 text-xs font-mono">
+              Full Audit failed: {fullAuditError}
+            </div>
+          )}
+
+          {fullAuditResult && (
+            <div className="w-full mt-3 space-y-4 font-mono">
+              {/* Levels card - always shown first */}
+              <div className="p-4 rounded-xl border-l-4 border-l-sky-500 border border-slate-800 bg-slate-900/60">
+                <div className="text-sm font-bold text-white mb-2">
+                  {fullAuditResult.ticker} <span className="font-normal text-slate-300">(Current Price: <span className="font-black">${fullAuditResult.current_price.toFixed(2)}</span>)</span>
+                </div>
+                <div className="text-xs text-slate-300">
+                  <span className="font-bold text-slate-400">Levels Below:</span> [{fullAuditResult.levels.levels_below.join(", ")}]
+                </div>
+                <div className="text-xs text-slate-300">
+                  <span className="font-bold text-slate-400">Levels Above:</span> [{fullAuditResult.levels.levels_above.join(", ")}]
+                </div>
+              </div>
+
+              {/* Multi-expiry recommendation grid */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60">
+                <div className="flex border-b border-slate-800">
+                  {["this_week", "monthly", "quarterly", "leaps"].map((bucketKey) => (
+                    <button
+                      key={bucketKey}
+                      onClick={() => setActiveBucketTab(bucketKey)}
+                      className={`px-4 py-2 text-xs font-bold uppercase tracking-wider ${
+                        activeBucketTab === bucketKey ? "text-amber-400 border-b-2 border-amber-400" : "text-slate-500"
+                      }`}
+                    >
+                      {bucketKey.replace("_", " ")}
+                    </button>
+                  ))}
+                </div>
+                <div className="p-3 space-y-3">
+                  {(() => {
+                    const bucketData = fullAuditResult.buckets[activeBucketTab];
+                    const entries = Array.isArray(bucketData) ? bucketData : (bucketData ? [bucketData] : []);
+                    if (entries.length === 0) {
+                      return <div className="text-xs text-slate-500">No contracts available for this horizon.</div>;
+                    }
+                    return entries.map((entry) => (
+                      <div key={entry.expiration} className="space-y-2">
+                        <div className="text-xs font-bold text-slate-400">{entry.expiration} ({entry.dte} DTE)</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {entry.cards.map((card, idx) => (
+                            <button
+                              key={`${entry.expiration}-${idx}`}
+                              onClick={() => runCardGate(card)}
+                              disabled={gatingCard === card}
+                              className="text-left p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-amber-500/50 transition-all disabled:opacity-50"
+                            >
+                              <div className="text-xs font-bold text-amber-400">{card.strategy}</div>
+                              <div className="text-[11px] text-slate-300 mt-1">{card.description}</div>
+                              <div className="text-[10px] text-slate-500 mt-1">
+                                PoP: {card.probability_of_profit}% {card.level_reference ? `· ${card.level_reference}` : ""}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+
+              {/* Gate verdict for the current top pick / last-gated card */}
+              {fullAuditResult.top_pick?.gate_result && (
+                <div className={`p-4 rounded-xl border ${
+                  fullAuditResult.top_pick.gate_result.overall === "AUDIT PASSED"
+                    ? "border-emerald-500/40 bg-emerald-500/5" : "border-rose-500/40 bg-rose-500/5"
+                }`}>
+                  <div className={`text-sm font-black mb-2 ${
+                    fullAuditResult.top_pick.gate_result.overall === "AUDIT PASSED" ? "text-emerald-400" : "text-rose-400"
+                  }`}>
+                    {fullAuditResult.top_pick.gate_result.overall === "AUDIT PASSED" ? "✅" : "❌"} {fullAuditResult.top_pick.gate_result.overall}
+                  </div>
+                  <div className="text-xs text-slate-300 space-y-1">
+                    <div>└─ Rules: {fullAuditResult.top_pick.gate_result.stages.rules.pass ? "✅ PASS" : "❌ FAIL"} — {fullAuditResult.top_pick.gate_result.stages.rules.reason}</div>
+                    <div>└─ Agent: {fullAuditResult.top_pick.gate_result.stages.agent.pass ? "✅ PASS" : "❌ FAIL"} — {fullAuditResult.top_pick.gate_result.stages.agent.reasoning}</div>
+                    <div>└─ Circuit: {fullAuditResult.top_pick.gate_result.stages.circuit.pass ? "✅ PASS" : "❌ FAIL"} — {fullAuditResult.top_pick.gate_result.stages.circuit.reason}</div>
+                    <div className="pt-1 font-bold">└─ Recommendation: {fullAuditResult.top_pick.gate_result.recommendation}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Connection Status & Profile Selector */}
         <div className="flex flex-wrap items-center gap-3 text-xs">
