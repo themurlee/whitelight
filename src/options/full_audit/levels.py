@@ -2,6 +2,7 @@ import os
 import glob
 import logging
 from typing import List, Dict
+from datetime import datetime, timedelta, timezone
 
 import src.config as config
 from src.storage.atomic_writer import AtomicJSONWriter
@@ -83,3 +84,69 @@ def compute_range_and_pivot(bars: List[Dict]) -> Dict:
         "resistance": [r1, r2],
         "support": [s1, s2],
     }
+
+
+_WINDOW_DAYS = {"1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365}
+
+
+def _fetch_minute_bars_from_alpaca(ticker: str, days: int) -> List[Dict]:
+    """Fetch historical minute bars from Alpaca for volume-profile computation."""
+    try:
+        if not config.API_KEY or not config.SECRET_KEY:
+            return []
+        from alpaca.data.historical import StockHistoricalDataClient
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame
+        from alpaca.data.enums import DataFeed
+
+        client = StockHistoricalDataClient(config.API_KEY, config.SECRET_KEY)
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(days=days)
+        req = StockBarsRequest(
+            symbol_or_symbols=[ticker],
+            timeframe=TimeFrame.Minute,
+            start=start,
+            end=end,
+            feed=DataFeed.IEX,
+        )
+        bars = client.get_stock_bars(req)
+        if bars and bars.df is not None and not bars.df.empty:
+            df = bars.df
+            if "symbol" in df.index.names:
+                df = df.xs(ticker, level=0)
+            return [{"close": float(r["close"]), "volume": float(r["volume"])} for _, r in df.iterrows()]
+    except Exception as e:
+        logger.warning(f"Minute-bar fetch failed for {ticker}: {e}")
+    return []
+
+
+def compute_volume_profile(ticker: str, window: str = "1M") -> Dict:
+    """Point of Control (POC) and Value Area High/Low (~70% of volume) from minute bars."""
+    days = _WINDOW_DAYS.get(window, _WINDOW_DAYS["1M"])
+    bars = _fetch_minute_bars_from_alpaca(ticker, days)
+    if not bars:
+        return {"poc": 0.0, "vah": 0.0, "val": 0.0}
+
+    # Bucket volume by price rounded to nearest 0.50 increment
+    buckets: Dict[float, float] = {}
+    for b in bars:
+        price_bucket = round(b["close"] * 2) / 2.0
+        buckets[price_bucket] = buckets.get(price_bucket, 0.0) + b["volume"]
+
+    sorted_buckets = sorted(buckets.items(), key=lambda kv: kv[1], reverse=True)
+    poc = sorted_buckets[0][0]
+
+    total_volume = sum(buckets.values())
+    target = total_volume * 0.70
+    accumulated = 0.0
+    included_prices = []
+    for price, vol in sorted_buckets:
+        accumulated += vol
+        included_prices.append(price)
+        if accumulated >= target:
+            break
+
+    vah = max(included_prices)
+    val = min(included_prices)
+
+    return {"poc": round(poc, 2), "vah": round(vah, 2), "val": round(val, 2)}

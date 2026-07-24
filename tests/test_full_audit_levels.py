@@ -1,7 +1,8 @@
 import os
 import json
 import pytest
-from src.options.full_audit.levels import get_daily_bars, compute_range_and_pivot
+from unittest.mock import patch
+from src.options.full_audit.levels import get_daily_bars, compute_range_and_pivot, compute_volume_profile
 
 def _write_bar_file(tmp_dir, ticker, date, o, h, l, c, v):
     t_dir = os.path.join(tmp_dir, ticker)
@@ -38,3 +39,20 @@ def test_compute_range_and_pivot():
     assert len(result["support"]) == 2
     assert result["resistance"][0] > result["pivot"]
     assert result["support"][0] < result["pivot"]
+
+@patch("src.options.full_audit.levels._fetch_minute_bars_from_alpaca")
+def test_compute_volume_profile(mock_fetch):
+    # Two price levels: 100 (heavy volume) and 105 (light volume)
+    mock_fetch.return_value = [
+        {"close": 100.0, "volume": 5000},
+        {"close": 100.0, "volume": 4800},
+        {"close": 105.0, "volume": 200},
+    ]
+    result = compute_volume_profile("ZZZZ", window="1M")
+    assert result["poc"] == 100.0
+    assert result["vah"] >= result["poc"] >= result["val"]
+
+def test_compute_volume_profile_invalid_window_defaults_to_1m():
+    with patch("src.options.full_audit.levels._fetch_minute_bars_from_alpaca", return_value=[]):
+        result = compute_volume_profile("ZZZZ", window="bogus")
+        assert result == {"poc": 0.0, "vah": 0.0, "val": 0.0}
